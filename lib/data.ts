@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { mock } from "@/lib/mock";
 import type {
   Cliente,
   Factura,
@@ -8,8 +9,10 @@ import type {
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
+// En modo demo (TDO_MOCK=1) lee docs/seed-data.json sin conectar a Supabase.
 
 export async function getClientes(): Promise<Cliente[]> {
+  if (mock.enabled) return mock.clientes();
   const sb = createAdminClient();
   const { data, error } = await sb
     .from("clientes")
@@ -20,6 +23,7 @@ export async function getClientes(): Promise<Cliente[]> {
 }
 
 export async function getCliente(id: string): Promise<Cliente | null> {
+  if (mock.enabled) return mock.cliente(id);
   const sb = createAdminClient();
   const { data, error } = await sb.from("clientes").select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
@@ -27,6 +31,7 @@ export async function getCliente(id: string): Promise<Cliente | null> {
 }
 
 export async function getLugares(): Promise<Lugar[]> {
+  if (mock.enabled) return mock.lugares();
   const sb = createAdminClient();
   const { data, error } = await sb.from("lugares").select("*").order("nombre");
   if (error) throw new Error(error.message);
@@ -50,6 +55,7 @@ async function cobradoPorOportunidad(): Promise<Record<string, number>> {
 }
 
 export async function getOportunidades(): Promise<Oportunidad[]> {
+  if (mock.enabled) return mock.oportunidades();
   const sb = createAdminClient();
   const [{ data, error }, cobrado] = await Promise.all([
     sb
@@ -67,6 +73,7 @@ export async function getOportunidades(): Promise<Oportunidad[]> {
 }
 
 export async function getOportunidad(id: string): Promise<Oportunidad | null> {
+  if (mock.enabled) return mock.oportunidad(id);
   const sb = createAdminClient();
   const [{ data, error }, cobrado] = await Promise.all([
     sb
@@ -87,6 +94,7 @@ export async function getOportunidad(id: string): Promise<Oportunidad | null> {
 }
 
 export async function getTesoreriaDeOportunidad(oportunidadId: string): Promise<Tesoreria[]> {
+  if (mock.enabled) return mock.tesoreriaDe(oportunidadId);
   const sb = createAdminClient();
   const { data, error } = await sb
     .from("tesoreria")
@@ -98,6 +106,7 @@ export async function getTesoreriaDeOportunidad(oportunidadId: string): Promise<
 }
 
 export async function getFacturas(): Promise<Factura[]> {
+  if (mock.enabled) return mock.facturas();
   const sb = createAdminClient();
   const { data, error } = await sb
     .from("facturas")
