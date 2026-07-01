@@ -137,7 +137,8 @@ function build() {
       titulo: o.titulo,
       serie: o.serie ?? "evento",
       tipo_evento: TIPO_EVENTO.has(o.tipo_evento) ? o.tipo_evento : "otro",
-      tipo_operacion: "normal",
+      // Demo: un par de operaciones a amigos para ilustrar la sección.
+      tipo_operacion: /sof[áa]|columpio/i.test(o.titulo ?? "") ? "amigos_prestamo" : "normal",
       estado: o.estado ?? "nueva",
       presupuesto_enviado: Boolean(o.presupuesto_enviado),
       // Valores sintéticos solo en modo demo para ilustrar canal y tiempo de cierre.

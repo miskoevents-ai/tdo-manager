@@ -1,6 +1,9 @@
 import { getOportunidades, getTesoreria } from "@/lib/data";
 import { calcularAvisos } from "@/lib/avisos";
+import { calcularTotales } from "@/lib/calc";
 import { eur } from "@/lib/format";
+
+const CONTRATADAS = ["confirmada", "realizada", "facturada"];
 
 const APP_URL = process.env.APP_URL || "https://tdo-manager.vercel.app";
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -10,7 +13,7 @@ export async function construirDigest(hoyISO: string): Promise<{
   asunto: string;
   html: string;
   texto: string;
-  resumen: { cobros: number; fianzas: number; presupuestos: number; eventos: number; pendienteTotal: number };
+  resumen: { cobros: number; fianzas: number; presupuestos: number; eventos: number; amigos: number; totalAmigos: number; pendienteTotal: number };
 }> {
   const [ops, tesoreria] = await Promise.all([getOportunidades(), getTesoreria()]);
   const avisos = calcularAvisos(ops, hoyISO);
@@ -27,6 +30,20 @@ export async function construirDigest(hoyISO: string): Promise<{
   const pendienteTotal = tesoreria
     .filter((t) => t.tipo === "ingreso" && t.estado === "previsto")
     .reduce((s, t) => s + Number(t.importe), 0);
+
+  // Amigos / préstamos: operaciones tipo amigos (sin factura fiscal) contratadas.
+  const amigos = ops
+    .filter((o) => o.tipo_operacion === "amigos_prestamo" && CONTRATADAS.includes(o.estado))
+    .map((o) => {
+      const total = calcularTotales(
+        (o.presupuesto_lineas ?? []).map((l) => ({ cantidad: l.cantidad, precio_unitario: l.precio_unitario })),
+        o.iva_pct,
+        o.retencion_pct,
+      ).total;
+      return { titulo: o.titulo, detalle: `${o.cliente?.nombre ?? "—"} · ${eur(total)}`, total };
+    })
+    .sort((a, b) => b.total - a.total);
+  const totalAmigos = amigos.reduce((s, a) => s + a.total, 0);
 
   const mesLabel = `${MESES[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
   const asunto = `Resumen TDO · ${mesLabel} · ${cobros.length} cobros y ${fianzas.length} fianzas pendientes`;
@@ -61,7 +78,8 @@ export async function construirDigest(hoyISO: string): Promise<{
       ${seccion("🟠 Fianzas por devolver", "#BE6E4C", fianzas)}
       ${seccion("🟡 Presupuestos sin respuesta", "#C99A2E", presupuestos)}
       ${seccion("📅 Próximos eventos", "#3F4A36", eventos)}
-      ${avisos.length === 0 ? '<p style="color:#4C8C4A;font-size:14px">Todo al día. ¡Buen fin de semana! 🌿</p>' : ""}
+      ${seccion(`🤝 Amigos / préstamos · ${eur(totalAmigos)}`, "#8A957C", amigos)}
+      ${avisos.length === 0 && amigos.length === 0 ? '<p style="color:#4C8C4A;font-size:14px">Todo al día. ¡Buen fin de semana! 🌿</p>' : ""}
       <div style="margin-top:22px;text-align:center">
         <a href="${APP_URL}" style="display:inline-block;background:#3F4A36;color:#FCFAF5;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px">Abrir TDO Manager</a>
       </div>
@@ -74,14 +92,14 @@ export async function construirDigest(hoyISO: string): Promise<{
     items.length ? `\n${t}:\n${items.map(linea).join("\n")}\n` : "";
   const texto = `Resumen TDO · ${mesLabel}
 Cobrado este mes: ${eur(ingMes)} · Gastos: ${eur(gasMes)} · Previsto por cobrar: ${eur(pendienteTotal)}
-${bloque("Cobros pendientes", cobros)}${bloque("Fianzas por devolver", fianzas)}${bloque("Presupuestos sin respuesta", presupuestos)}${bloque("Próximos eventos", eventos)}
+${bloque("Cobros pendientes", cobros)}${bloque("Fianzas por devolver", fianzas)}${bloque("Presupuestos sin respuesta", presupuestos)}${bloque("Próximos eventos", eventos)}${bloque(`Amigos / préstamos (${eur(totalAmigos)})`, amigos)}
 ${APP_URL}`;
 
   return {
     asunto,
     html,
     texto,
-    resumen: { cobros: cobros.length, fianzas: fianzas.length, presupuestos: presupuestos.length, eventos: eventos.length, pendienteTotal },
+    resumen: { cobros: cobros.length, fianzas: fianzas.length, presupuestos: presupuestos.length, eventos: eventos.length, amigos: amigos.length, totalAmigos, pendienteTotal },
   };
 }
 
