@@ -22,6 +22,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
   const [mes, setMes] = React.useState(sp.get("mes") ?? ""); // YYYY-MM (drill-down)
   const [canal, setCanal] = React.useState(sp.get("canal") ?? ""); // drill-down por canal
   const [recurrencia, setRecurrencia] = React.useState(sp.get("recurrencia") ?? ""); // "" | nuevos | recurrentes
+  const [soloContratadas, setSoloContratadas] = React.useState(sp.get("contratadas") === "1");
 
   const filtra = (c: KanbanCard) => {
     if (tipoEvento && c.tipo_evento !== tipoEvento) return false;
@@ -34,6 +35,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
     if (canal && c.canal !== canal) return false;
     if (recurrencia === "nuevos" && c.clienteRecurrente !== false) return false;
     if (recurrencia === "recurrentes" && c.clienteRecurrente !== true) return false;
+    if (soloContratadas && !["confirmada", "realizada", "facturada"].includes(c.estado)) return false;
     if (temporal) {
       const f = c.fecha_evento ?? "";
       if (temporal === "proximos" && !(f >= HOY)) return false;
@@ -55,7 +57,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
   const tiposPresentes = Array.from(new Set(cards.map((c) => c.tipo_evento)));
   const selectCls =
     "rounded-sm border-med border-border bg-white px-3 py-2 text-[12.5px] text-ink-secondary focus:border-sage-300 focus:outline-none";
-  const hayFiltro = q || tipoEvento || cobro || fianza || serie || operacion || temporal || mes || canal || recurrencia;
+  const hayFiltro = q || tipoEvento || cobro || fianza || serie || operacion || temporal || mes || canal || recurrencia || soloContratadas;
 
   return (
     <div className="space-y-4">
@@ -114,10 +116,16 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
             <button onClick={() => setCanal("")} aria-label="Quitar filtro de canal" className="text-sage hover:text-sage-600">×</button>
           </span>
         )}
+        {soloContratadas && (
+          <span className="inline-flex items-center gap-1.5 rounded-pill border-hair border-sage-tint-deep bg-sage-tint/60 px-3 py-1.5 text-[12px] font-medium text-sage">
+            Solo contratadas
+            <button onClick={() => setSoloContratadas(false)} aria-label="Quitar filtro" className="text-sage hover:text-sage-600">×</button>
+          </span>
+        )}
         {hayFiltro && (
           <button
             onClick={() => {
-              setQ(""); setTipoEvento(""); setCobro(""); setFianza(""); setSerie(""); setOperacion(""); setTemporal(""); setMes(""); setCanal(""); setRecurrencia("");
+              setQ(""); setTipoEvento(""); setCobro(""); setFianza(""); setSerie(""); setOperacion(""); setTemporal(""); setMes(""); setCanal(""); setRecurrencia(""); setSoloContratadas(false);
             }}
             className="rounded-sm border-med border-border-strong px-3 py-2 text-[12px] text-ink-secondary hover:bg-beige-warm"
           >

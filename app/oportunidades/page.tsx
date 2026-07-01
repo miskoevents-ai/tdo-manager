@@ -52,7 +52,7 @@ export default async function OportunidadesPage() {
       tipo_operacion: o.tipo_operacion,
       canal: o.canal,
       fianzaPendiente: Boolean((o.fianza ?? 0) > 0 && !o.fianza_devuelta),
-      clienteRecurrente: o.cliente_id ? (opsPorCliente.get(o.cliente_id) ?? 0) > 1 : undefined,
+      clienteRecurrente: o.cliente_id ? (opsPorCliente.get(o.cliente_id) ?? 0) > 1 : false,
     };
   });
 
