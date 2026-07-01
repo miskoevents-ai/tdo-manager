@@ -56,7 +56,7 @@ export default async function ClientesPage() {
         <table className="w-full border-collapse bg-white">
           <thead>
             <tr>
-              {["Nombre", "Tipo", "Contacto", "Estado", "Etapa", "Actividad", ""].map((h) => (
+              {["Nombre", "Tipo", "Canal", "Estado", "Etapa", "Actividad", ""].map((h) => (
                 <th
                   key={h}
                   className="bg-beige-warm px-[15px] py-3 text-left text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-secondary"
@@ -80,8 +80,12 @@ export default async function ClientesPage() {
                 <td className="border-t border-border px-[15px] py-3 text-[13px] text-ink-secondary">
                   {CLIENTE_TIPO_LABEL[c.tipo] ?? c.tipo}
                 </td>
-                <td className="border-t border-border px-[15px] py-3 text-[13px] text-ink-secondary">
-                  {c.canal ? (CANAL_LABEL[c.canal] ?? c.canal) : "—"}
+                <td className="border-t border-border px-[15px] py-3">
+                  {c.canal ? (
+                    <Badge tone="sage">{CANAL_LABEL[c.canal] ?? c.canal}</Badge>
+                  ) : (
+                    <span className="text-[13px] text-ink-muted">—</span>
+                  )}
                 </td>
                 <td className="border-t border-border px-[15px] py-3">
                   <Badge tone={c.estado === "cliente" ? "ok" : "neutral"}>
@@ -115,12 +119,12 @@ export default async function ClientesPage() {
                 <div className="mt-0.5 text-[12px] text-ink-muted">
                   {CLIENTE_TIPO_LABEL[c.tipo] ?? c.tipo}
                   {c.localidad ? ` · ${c.localidad}` : ""}
-                  {c.canal ? ` · ${CANAL_LABEL[c.canal] ?? c.canal}` : ""}
                 </div>
               </Link>
               <ClienteDialog cliente={c} />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
+              {c.canal && <Badge tone="sage">{CANAL_LABEL[c.canal] ?? c.canal}</Badge>}
               <Badge tone={c.estado === "cliente" ? "ok" : "neutral"}>
                 {c.estado === "cliente" ? "Cliente" : "Lead"}
               </Badge>

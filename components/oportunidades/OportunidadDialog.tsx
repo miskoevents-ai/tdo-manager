@@ -35,13 +35,23 @@ export function OportunidadDialog({
   const [error, setError] = React.useState<string | null>(null);
   const editar = Boolean(oportunidad);
 
-  // Fechas de material y fianza: al fijar la recogida, la devolución de la
-  // fianza se propone a 3 días después (editable).
+  // Fechas encadenadas: al fijar la fecha del evento, se acercan las de material
+  // (montaje y recogida). Al fijar la recogida, la devolución de la fianza se
+  // propone a 3 días después. Todo editable.
+  const [evento, setEvento] = React.useState(oportunidad?.fecha_evento ?? "");
+  const [montaje, setMontaje] = React.useState(oportunidad?.fecha_montaje ?? "");
   const [recogida, setRecogida] = React.useState(oportunidad?.fecha_recogida ?? "");
   const [fianzaFecha, setFianzaFecha] = React.useState(oportunidad?.fecha_devolucion_fianza ?? "");
   function onRecogida(v: string) {
     setRecogida(v);
     if (v) setFianzaFecha(sumaDias(v, 3));
+  }
+  function onEvento(v: string) {
+    setEvento(v);
+    if (v) {
+      if (!montaje) setMontaje(v);
+      if (!recogida) onRecogida(v);
+    }
   }
 
   // Opciones de responsable (equipo) incluyendo el valor actual si es libre.
@@ -260,13 +270,13 @@ export function OportunidadDialog({
               </datalist>
             </Field>
             <Field label="Fecha del evento">
-              <Input type="date" name="fecha_evento" defaultValue={oportunidad?.fecha_evento ?? ""} />
+              <Input type="date" name="fecha_evento" value={evento} onChange={(e) => onEvento(e.target.value)} />
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Montaje / salida material">
-              <Input type="date" name="fecha_montaje" defaultValue={oportunidad?.fecha_montaje ?? ""} />
+              <Input type="date" name="fecha_montaje" value={montaje} onChange={(e) => setMontaje(e.target.value)} />
             </Field>
             <Field label="Recogida / devolución material">
               <Input type="date" name="fecha_recogida" value={recogida} onChange={(e) => onRecogida(e.target.value)} />
