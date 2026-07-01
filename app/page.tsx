@@ -26,11 +26,13 @@ function Kpi({
   value,
   sub,
   tone = "sage",
+  href,
 }: {
   label: string;
   value: string;
   sub?: string;
   tone?: "sage" | "clay" | "ok" | "warn" | "error";
+  href?: string;
 }) {
   const toneClass = {
     sage: "text-sage",
@@ -39,15 +41,23 @@ function Kpi({
     warn: "text-warn",
     error: "text-error",
   }[tone];
-  return (
-    <Card className="p-[18px]">
+  const inner = (
+    <>
       <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
         {label}
       </div>
       <div className={`mt-2 font-display text-[27px] tabular ${toneClass}`}>{value}</div>
       {sub && <div className="mt-1 text-[11.5px] text-ink-muted">{sub}</div>}
-    </Card>
+    </>
   );
+  if (href) {
+    return (
+      <Link href={href} className="block">
+        <Card className="p-[18px] transition-shadow hover:shadow-md">{inner}</Card>
+      </Link>
+    );
+  }
+  return <Card className="p-[18px]">{inner}</Card>;
 }
 
 export default async function Home() {
@@ -139,24 +149,28 @@ export default async function Home() {
           value={eur(totalPendiente)}
           sub={`${cobrosPendientes.length} eventos`}
           tone="clay"
+          href="/oportunidades?cobro=pendiente&contratadas=1"
         />
         <Kpi
           label="Fianzas por devolver"
           value={eur(totalFianzas)}
           sub={`${fianzas.length} fianzas activas`}
           tone="warn"
+          href="/oportunidades?fianza=si"
         />
         <Kpi
           label="Eventos contratados"
           value={String(contratadas.length)}
           sub="confirmados / realizados"
           tone="sage"
+          href="/oportunidades?contratadas=1"
         />
         <Kpi
           label="En pipeline"
           value={String(pipeline.length)}
           sub="oportunidades abiertas"
           tone="ok"
+          href="/oportunidades?pipeline=1"
         />
       </div>
 

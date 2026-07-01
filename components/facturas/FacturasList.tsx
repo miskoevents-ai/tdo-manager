@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Undo2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -148,7 +149,13 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
               return (
                 <tr key={f.id} className="hover:bg-beige-light">
                   <td className="border-t border-border px-[15px] py-3 text-[13px] font-medium">
-                    {f.numero}
+                    {f.oportunidad_id ? (
+                      <Link href={`/oportunidades/${f.oportunidad_id}`} className="hover:text-clay">
+                        {f.numero}
+                      </Link>
+                    ) : (
+                      f.numero
+                    )}
                   </td>
                   <td className="border-t border-border px-[15px] py-3 text-[13px]">
                     {f.cliente?.nombre ?? "—"}
@@ -201,7 +208,13 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
             <Card key={f.id} className="p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-[14px] font-semibold">{f.numero}</div>
+                  {f.oportunidad_id ? (
+                    <Link href={`/oportunidades/${f.oportunidad_id}`} className="text-[14px] font-semibold hover:text-clay">
+                      {f.numero}
+                    </Link>
+                  ) : (
+                    <div className="text-[14px] font-semibold">{f.numero}</div>
+                  )}
                   <div className="mt-0.5 text-[12px] text-ink-muted">
                     {f.cliente?.nombre ?? "—"} · {fecha(f.fecha_emision)}
                   </div>
