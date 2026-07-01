@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { NAV } from "./nav";
+import { Asistente } from "@/components/asistente/Asistente";
 import { cn } from "@/lib/utils";
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -105,6 +106,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         <main className="max-w-container px-5 py-6 md:px-7">{children}</main>
       </div>
+
+      <Asistente />
     </div>
   );
 }
