@@ -1,8 +1,37 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calcularTotales } from "@/lib/calc";
+import { runSeed, type SeedData } from "@/lib/seed-core";
+
+// ---------------------------- Seed (setup) ----------------------------
+// Carga docs/seed-data.json en Supabase. Protegido por SEED_TOKEN.
+// OJO: reemplaza (borra + inserta) los datos de las tablas de Fase 1.
+export async function seedAction(
+  _prev: { ok: boolean; message: string } | null,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  const token = (formData.get("token") as string)?.trim();
+  if (!process.env.SEED_TOKEN || token !== process.env.SEED_TOKEN) {
+    return { ok: false, message: "Token incorrecto." };
+  }
+  try {
+    const data = JSON.parse(
+      readFileSync(join(process.cwd(), "docs", "seed-data.json"), "utf8"),
+    ) as SeedData;
+    const counts = await runSeed(createAdminClient(), data);
+    const resumen = Object.entries(counts)
+      .map(([k, v]) => `${v} ${k}`)
+      .join(" · ");
+    revalidatePath("/");
+    return { ok: true, message: `Datos cargados: ${resumen}.` };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
 
 // ---------------------------- Clientes ----------------------------
 
