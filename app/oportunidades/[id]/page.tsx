@@ -41,9 +41,18 @@ function Dato({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ tab?: string }>;
+}) {
   if (!supabaseConfigurado()) return <SetupNotice />;
   const { id } = await params;
+  const { tab } = (await searchParams) ?? {};
+  const TABS = ["datos", "presupuesto", "material", "costes", "cobros"];
+  const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
   const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio] =
     await Promise.all([
@@ -148,7 +157,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         ))}
       </div>
 
-      <Tabs defaultValue="datos">
+      <Tabs defaultValue={tabInicial}>
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="presupuesto">Presupuesto</TabsTrigger>

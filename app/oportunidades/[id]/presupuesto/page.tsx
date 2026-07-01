@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { SetupNotice } from "@/components/SetupNotice";
 import { PrintButton } from "@/components/presupuesto/PrintButton";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -39,7 +39,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         >
           <ArrowLeft size={14} /> Volver a la ficha
         </Link>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/oportunidades/${op.id}?tab=presupuesto`}
+            className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
+          >
+            <Pencil size={15} /> Editar a mano
+          </Link>
+          <PrintButton />
+        </div>
       </div>
 
       {/* Documento */}
