@@ -54,11 +54,6 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
         </small>
       </div>
       <NavLinks onNavigate={onNavigate} />
-      <div className="mt-auto border-t border-white/[0.13] pt-[14px] text-[11px] text-[#aeb2a1]">
-        Sesión: <b className="text-cream">Sarmi</b>
-        <br />
-        Socio · 40 %
-      </div>
     </div>
   );
 }

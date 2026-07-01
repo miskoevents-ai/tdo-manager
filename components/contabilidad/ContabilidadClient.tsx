@@ -4,15 +4,13 @@ import * as React from "react";
 import { Download, Printer } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { eur, num } from "@/lib/format";
+import { eur } from "@/lib/format";
 import { NATURALEZA_LABEL } from "@/lib/estados";
 import type { Tesoreria } from "@/lib/types";
 
 const INICIO = "2026-06"; // La contabilidad arranca en junio 2026 (regla §5.4)
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesLabel = (ym: string) => `${MESES[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
-
-type Socio = { nombre: string; porcentaje: number };
 
 function statsDe(movs: Tesoreria[]) {
   const ing = (m: Tesoreria) => m.tipo === "ingreso";
@@ -31,13 +29,7 @@ function statsDe(movs: Tesoreria[]) {
   };
 }
 
-export function ContabilidadClient({
-  movimientos,
-  socios,
-}: {
-  movimientos: Tesoreria[];
-  socios: Socio[];
-}) {
+export function ContabilidadClient({ movimientos }: { movimientos: Tesoreria[] }) {
   // Solo lo que computa y desde junio 2026
   const contables = React.useMemo(
     () => movimientos.filter((m) => m.computa_contabilidad && m.fecha.slice(0, 7) >= INICIO),
@@ -171,21 +163,6 @@ export function ContabilidadClient({
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Reparto por socio */}
-        <Card>
-          <Overline>Reparto del resultado por socio</Overline>
-          <p className="mb-3 mt-1 text-[11.5px] text-ink-muted">Según el % de cada socio (editable en Equipo).</p>
-          {socios.length === 0 && <p className="text-small text-ink-muted">No hay socios con % definido.</p>}
-          {socios.map((s) => (
-            <div key={s.nombre} className="flex items-center justify-between border-t border-border py-2 text-[13px] first:border-t-0">
-              <span>{s.nombre} <span className="text-ink-muted">· {num(s.porcentaje, 0)}%</span></span>
-              <span className={`tabular font-semibold ${stats.resultado >= 0 ? "text-sage" : "text-error"}`}>
-                {eur((stats.resultado * s.porcentaje) / 100)}
-              </span>
-            </div>
-          ))}
-        </Card>
-
         {/* Desglose por naturaleza */}
         <Card>
           <Overline>Desglose por naturaleza</Overline>
@@ -200,11 +177,11 @@ export function ContabilidadClient({
         </Card>
 
         {/* Desglose por categoría */}
-        <Card className="lg:col-span-2">
+        <Card>
           <Overline>Desglose por categoría</Overline>
-          <div className="mt-2 grid gap-x-8 md:grid-cols-2">
+          <div className="mt-2">
             {porCategoria.map(([k, v]) => (
-              <div key={k} className="flex items-center justify-between border-t border-border py-2 text-[13px]">
+              <div key={k} className="flex items-center justify-between border-t border-border py-2 text-[13px] first:border-t-0">
                 <span>{k}</span>
                 <span className={`tabular font-semibold ${v >= 0 ? "text-ok" : "text-error"}`}>{eur(v)}</span>
               </div>
