@@ -5,11 +5,11 @@ type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-sage text-cream border-sage hover:bg-sage-600",
-  secondary: "bg-clay text-cream border-clay hover:bg-clay-600",
+  primary: "bg-sage text-cream border-sage hover:bg-sage-600 shadow-xs hover:shadow-sm",
+  secondary: "bg-clay text-cream border-clay hover:bg-clay-600 shadow-xs hover:shadow-sm",
   outline: "bg-transparent text-sage border-border-strong hover:bg-sage-tint hover:border-sage-300",
   ghost: "bg-transparent text-ink border-transparent hover:bg-beige-warm",
-  danger: "bg-error text-cream border-error hover:opacity-90",
+  danger: "bg-error text-cream border-error hover:opacity-90 shadow-xs hover:shadow-sm",
 };
 
 const sizes: Record<Size, string> = {
@@ -29,7 +29,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       className={cn(
         "inline-flex items-center justify-center gap-2 border-med font-semibold uppercase tracking-[0.08em] leading-none",
-        "transition-colors duration-base ease-out active:translate-y-px disabled:opacity-50 disabled:pointer-events-none",
+        "transition-all duration-base ease-out active:translate-y-px disabled:opacity-50 disabled:pointer-events-none",
         variants[variant],
         sizes[size],
         className,

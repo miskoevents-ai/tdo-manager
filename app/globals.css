@@ -59,11 +59,22 @@ body {
 }
 
 body {
-  background: var(--beige-bg);
+  background: linear-gradient(180deg, #f8f2e8 0%, #f4ede1 42%, #f0e8da 100%);
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-montserrat), "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Elevación suave al pasar por encima (tarjetas interactivas). */
+.lift {
+  transition:
+    transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.lift:hover {
+  transform: translateY(-2px);
 }
 
 /* Paper grain texture, felt not seen */

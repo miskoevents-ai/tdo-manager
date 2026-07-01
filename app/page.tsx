@@ -41,23 +41,22 @@ function Kpi({
     warn: "text-warn",
     error: "text-error",
   }[tone];
+  const barClass = {
+    sage: "bg-sage",
+    clay: "bg-clay",
+    ok: "bg-ok",
+    warn: "bg-warn",
+    error: "bg-error",
+  }[tone];
   const inner = (
-    <>
-      <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
-        {label}
-      </div>
+    <Card className={`relative overflow-hidden p-[18px] pl-[22px] ${href ? "lift hover:shadow-card-hover" : ""}`}>
+      <span className={`absolute left-0 top-0 h-full w-[3px] ${barClass}`} />
+      <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">{label}</div>
       <div className={`mt-2 font-display text-[27px] tabular ${toneClass}`}>{value}</div>
       {sub && <div className="mt-1 text-[11.5px] text-ink-muted">{sub}</div>}
-    </>
+    </Card>
   );
-  if (href) {
-    return (
-      <Link href={href} className="block">
-        <Card className="p-[18px] transition-shadow hover:shadow-md">{inner}</Card>
-      </Link>
-    );
-  }
-  return <Card className="p-[18px]">{inner}</Card>;
+  return href ? <Link href={href} className="block">{inner}</Link> : inner;
 }
 
 export default async function Home() {
