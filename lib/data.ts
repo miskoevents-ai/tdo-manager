@@ -7,6 +7,7 @@ import type {
   Lugar,
   Tesoreria,
   GastoFijo,
+  Equipo,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -104,6 +105,14 @@ export async function getTesoreriaDeOportunidad(oportunidadId: string): Promise<
     .order("fecha", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Tesoreria[];
+}
+
+export async function getEquipo(): Promise<Equipo[]> {
+  if (mock.enabled) return mock.equipo();
+  const sb = createAdminClient();
+  const { data, error } = await sb.from("equipo").select("*").order("porcentaje", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Equipo[];
 }
 
 export async function getGastosFijos(): Promise<GastoFijo[]> {

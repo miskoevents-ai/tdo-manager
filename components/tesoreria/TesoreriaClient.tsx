@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
@@ -155,8 +157,18 @@ export function TesoreriaClient({
                   <td className="border-t border-border px-[14px] py-3 text-[12px] text-ink-secondary">
                     {NATURALEZA_LABEL[m.naturaleza] ?? m.naturaleza}
                   </td>
-                  <td className="border-t border-border px-[14px] py-3 text-[12px] text-ink-muted">
-                    {m.oportunidad?.titulo ?? m.cliente?.nombre ?? "—"}
+                  <td className="border-t border-border px-[14px] py-3 text-[12px]">
+                    {m.oportunidad_id && m.oportunidad ? (
+                      <Link
+                        href={`/oportunidades/${m.oportunidad_id}`}
+                        className="inline-flex items-center gap-1 font-medium text-clay hover:text-clay-600 hover:underline"
+                      >
+                        {m.oportunidad.titulo}
+                        <ExternalLink size={12} className="opacity-70" />
+                      </Link>
+                    ) : (
+                      <span className="text-ink-muted">{m.cliente?.nombre ?? "—"}</span>
+                    )}
                   </td>
                   <td className="border-t border-border px-[14px] py-3"><Badge tone={em.tone}>{em.label}</Badge></td>
                   <td className={`border-t border-border px-[14px] py-3 text-right text-[13px] tabular font-semibold ${m.tipo === "ingreso" ? "text-ok" : "text-error"}`}>
@@ -189,6 +201,15 @@ export function TesoreriaClient({
                   {m.tipo === "ingreso" ? "+" : "−"}{eur(Number(m.importe))}
                 </span>
               </div>
+              {m.oportunidad_id && m.oportunidad && (
+                <Link
+                  href={`/oportunidades/${m.oportunidad_id}`}
+                  className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-medium text-clay hover:underline"
+                >
+                  Ver evento: {m.oportunidad.titulo}
+                  <ExternalLink size={11} />
+                </Link>
+              )}
               <div className="mt-2 flex items-center justify-between">
                 <Badge tone={em.tone}>{em.label}</Badge>
                 <MovimientoDialog clientes={clientes} oportunidades={oportunidades} movimiento={m} />
