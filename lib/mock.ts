@@ -11,6 +11,7 @@ import type {
   PresupuestoLinea,
   Tesoreria,
   GastoFijo,
+  Equipo,
 } from "@/lib/types";
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -28,6 +29,7 @@ function load() {
     oportunidades: any[];
     tesoreria: any[];
     gastos_fijos: any[];
+    equipo: any[];
   };
 }
 
@@ -42,6 +44,7 @@ let cache: {
   facturas: Factura[];
   tesoreria: Tesoreria[];
   gastosFijos: GastoFijo[];
+  equipo: Equipo[];
 } | null = null;
 
 function build() {
@@ -208,7 +211,19 @@ function build() {
     notas: g.notas ?? null,
   }));
 
-  cache = { clientes, lugares, oportunidades, facturas, tesoreria, gastosFijos };
+  const equipo: Equipo[] = (data.equipo ?? []).map((e, i) => ({
+    id: `eq-${i}`,
+    nombre: e.nombre,
+    rol: e.rol ?? null,
+    email: null,
+    telefono: null,
+    porcentaje: e.porcentaje ?? null,
+    precio_hora: e.precio_hora ?? null,
+    activo: e.activo ?? true,
+    notas: e.notas ?? null,
+  }));
+
+  cache = { clientes, lugares, oportunidades, facturas, tesoreria, gastosFijos, equipo };
   return cache;
 }
 
@@ -221,6 +236,7 @@ export const mock = {
   oportunidades: () => build().oportunidades,
   facturas: () => build().facturas,
   gastosFijos: () => build().gastosFijos,
+  equipo: () => build().equipo,
   tesoreria: () => build().tesoreria,
   tesoreriaDe: (id: string) => build().tesoreria.filter((t) => t.oportunidad_id === id),
   oportunidad: (id: string) => build().oportunidades.find((o) => o.id === id) ?? null,
