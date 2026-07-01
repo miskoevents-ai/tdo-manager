@@ -14,10 +14,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   }
 
-  const hoy = fechaMadrid();
+  const sp = new URL(req.url).searchParams;
+  const hoyParam = sp.get("hoy");
+  const hoy = hoyParam && /^\d{4}-\d{2}-\d{2}$/.test(hoyParam) ? hoyParam : fechaMadrid();
+  const tipo = sp.get("tipo") === "mensual" ? "mensual" : "semanal";
   let digest;
   try {
-    digest = await construirDigest(hoy);
+    digest = await construirDigest(hoy, tipo);
   } catch (e) {
     return NextResponse.json({ error: `No se pudo construir el resumen: ${(e as Error).message}` }, { status: 500 });
   }
