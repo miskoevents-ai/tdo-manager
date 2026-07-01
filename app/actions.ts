@@ -214,3 +214,56 @@ export async function marcarFacturaCobrada(id: string, cobrada: boolean) {
   revalidatePath("/facturas");
   revalidatePath("/");
 }
+
+// Marca una oportunidad como cobrada al 100%: registra en tesorería el importe
+// pendiente como ingreso cobrado y pone su factura (si existe) como cobrada.
+export async function marcarCobradoOportunidad(oportunidadId: string) {
+  const sb = createAdminClient();
+  const { data: op, error } = await sb
+    .from("oportunidades")
+    .select("*, presupuesto_lineas(*)")
+    .eq("id", oportunidadId)
+    .single();
+  if (error) throw new Error(error.message);
+
+  const t = calcularTotales(
+    (op.presupuesto_lineas ?? []).map((l: LineaInput) => ({
+      cantidad: l.cantidad,
+      precio_unitario: l.precio_unitario,
+    })),
+    op.iva_pct,
+    op.retencion_pct,
+  );
+
+  const { data: cobros } = await sb
+    .from("tesoreria")
+    .select("importe")
+    .eq("oportunidad_id", oportunidadId)
+    .eq("tipo", "ingreso")
+    .eq("estado", "cobrado");
+  const cobrado = (cobros ?? []).reduce((s, c) => s + Number(c.importe), 0);
+  const pendiente = Math.round((t.total - cobrado + Number.EPSILON) * 100) / 100;
+
+  if (pendiente > 0.01) {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const { error: insErr } = await sb.from("tesoreria").insert({
+      concepto: `Cobro final ${op.titulo}`,
+      tipo: "ingreso",
+      naturaleza: "ingreso_factura",
+      categoria: "Cobro alquiler",
+      importe: pendiente,
+      fecha: hoy,
+      estado: "cobrado",
+      oportunidad_id: oportunidadId,
+      computa_contabilidad: true,
+    });
+    if (insErr) throw new Error(insErr.message);
+  }
+
+  await sb.from("facturas").update({ estado: "cobrada" }).eq("oportunidad_id", oportunidadId);
+
+  revalidatePath("/");
+  revalidatePath("/oportunidades");
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/facturas");
+}

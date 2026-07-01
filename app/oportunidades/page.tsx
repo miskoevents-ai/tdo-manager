@@ -57,18 +57,19 @@ export default async function OportunidadesPage() {
       <Kanban cards={activas} />
 
       {cerradas.length > 0 && (
-        <details className="rounded-lg border-hair border-border bg-white p-4">
-          <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-            Perdidas / descartadas ({cerradas.length})
+        <details className="rounded-lg border-hair border-error/40 bg-error-tint/30 p-4">
+          <summary className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-error">
+            <span className="h-2 w-2 rounded-full bg-error" />
+            Rechazadas / perdidas ({cerradas.length})
           </summary>
           <div className="mt-3 space-y-1 text-[13px]">
             {cerradas.map((c) => (
               <a
                 key={c.id}
                 href={`/oportunidades/${c.id}`}
-                className="flex justify-between border-t border-border py-2 hover:text-clay"
+                className="flex items-center justify-between border-t border-error/20 py-2 hover:text-error"
               >
-                <span>{c.titulo}</span>
+                <span className="line-through decoration-error/40">{c.titulo}</span>
                 <span className="text-ink-muted">{c.cliente ?? "—"}</span>
               </a>
             ))}
