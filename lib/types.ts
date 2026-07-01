@@ -183,6 +183,28 @@ export type Proveedor = {
   created_at: string;
 };
 
+export type ComisionConfig = {
+  id: string;
+  tipo_evento: string | null;
+  equipo_id: string | null;
+  porcentaje: number;
+  activo: boolean;
+  equipo?: { nombre: string } | null;
+};
+
+export type Comision = {
+  id: string;
+  oportunidad_id: string | null;
+  equipo_id: string | null;
+  base: number;
+  porcentaje: number;
+  importe: number;
+  estado: string;
+  fecha_devengo: string | null;
+  pagada_el: string | null;
+  tesoreria_id: string | null;
+};
+
 export type GastoFijo = {
   id: string;
   concepto: string;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Repeat, Truck } from "lucide-react";
+import { Repeat, Truck, Percent } from "lucide-react";
 import { Overline } from "@/components/ui/card";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { TesoreriaClient } from "@/components/tesoreria/TesoreriaClient";
@@ -40,6 +40,9 @@ export default async function TesoreriaPage() {
           </Link>
           <Link href="/proveedores" className={linkCls}>
             <Truck size={14} /> Proveedores
+          </Link>
+          <Link href="/comisiones" className={linkCls}>
+            <Percent size={14} /> Comisiones
           </Link>
           <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={provs} />
         </div>

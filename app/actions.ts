@@ -230,6 +230,93 @@ export async function borrarMovimiento(id: string) {
   revalidatePath("/");
 }
 
+// --------------------------- Comisiones ---------------------------
+
+export async function guardarComisionConfig(formData: FormData) {
+  const sb = createAdminClient();
+  const id = (formData.get("id") as string) || null;
+  const payload = {
+    equipo_id: (formData.get("equipo_id") as string) || null,
+    tipo_evento: (formData.get("tipo_evento") as string) || null, // "" => todos
+    porcentaje: Math.abs(Number(formData.get("porcentaje") || 0)),
+    activo: formData.get("activo") === "on",
+  };
+  if (!payload.equipo_id) throw new Error("Elige una persona.");
+
+  if (id) {
+    const { error } = await sb.from("comisiones_config").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await sb.from("comisiones_config").insert(payload);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath("/comisiones");
+}
+
+export async function borrarComisionConfig(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("comisiones_config").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/comisiones");
+}
+
+// Registra el pago de una comisión: crea el gasto en Tesorería (naturaleza
+// comision, NO computa en contabilidad) y guarda la comisión como pagada.
+export async function pagarComision(input: {
+  oportunidadId: string;
+  equipoId: string;
+  nombre: string;
+  evento: string;
+  base: number;
+  porcentaje: number;
+  importe: number;
+}) {
+  const sb = createAdminClient();
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const { data: mov, error: movErr } = await sb
+    .from("tesoreria")
+    .insert({
+      concepto: `Comisión ${input.nombre} · ${input.evento}`,
+      tipo: "gasto",
+      naturaleza: "comision",
+      categoria: "Comisión",
+      importe: Math.abs(input.importe),
+      fecha: hoy,
+      estado: "pagado",
+      oportunidad_id: input.oportunidadId,
+      computa_contabilidad: false,
+    })
+    .select("id")
+    .single();
+  if (movErr) throw new Error(movErr.message);
+
+  const { error: comErr } = await sb.from("comisiones").insert({
+    oportunidad_id: input.oportunidadId,
+    equipo_id: input.equipoId,
+    base: input.base,
+    porcentaje: input.porcentaje,
+    importe: Math.abs(input.importe),
+    estado: "pagada",
+    fecha_devengo: hoy,
+    pagada_el: hoy,
+    tesoreria_id: mov.id,
+  });
+  if (comErr) throw new Error(comErr.message);
+
+  revalidatePath("/comisiones");
+  revalidatePath("/tesoreria");
+}
+
+export async function desmarcarComision(comisionId: string, tesoreriaId: string | null) {
+  const sb = createAdminClient();
+  if (tesoreriaId) await sb.from("tesoreria").delete().eq("id", tesoreriaId);
+  const { error } = await sb.from("comisiones").delete().eq("id", comisionId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/comisiones");
+  revalidatePath("/tesoreria");
+}
+
 // --------------------------- Proveedores ---------------------------
 
 export async function guardarProveedor(formData: FormData) {
