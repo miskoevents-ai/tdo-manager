@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { CobroRow } from "@/components/home/CobroRow";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades } from "@/lib/data";
+import { getOportunidades, getReservas } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { calcularAvisos } from "@/lib/avisos";
 import { eur, fecha } from "@/lib/format";
@@ -64,8 +64,9 @@ export default async function Home() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
   let ops;
+  let reservas;
   try {
-    ops = await getOportunidades();
+    [ops, reservas] = await Promise.all([getOportunidades(), getReservas()]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -95,7 +96,7 @@ export default async function Home() {
   const fianzas = ops.filter((o) => (o.fianza ?? 0) > 0 && !o.fianza_devuelta);
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
 
-  const avisos = calcularAvisos(ops, HOY_ISO).slice(0, 6);
+  const avisos = calcularAvisos(ops, HOY_ISO, reservas).slice(0, 6);
 
   const futuros = ops
     .filter((o) => o.fecha_evento && o.fecha_evento >= HOY_ISO)
