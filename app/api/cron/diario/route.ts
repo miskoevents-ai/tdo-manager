@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { cronAutorizado, fechaMadrid, restaDias } from "@/lib/cron";
 import { createAdminClient, supabaseConfigurado } from "@/lib/supabase/admin";
 import { generarGastosDelMes } from "@/app/actions";
+import { construirDigest } from "@/lib/digest";
+import { enviarEmail, destinatariosConfigurados } from "@/lib/email";
+import { getEquipo } from "@/lib/data";
+
+// ¿Es hoy el último día del mes? (mañana es día 1)
+function esUltimoDiaDeMes(iso: string): boolean {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.getUTCDate() === 1;
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -44,6 +54,22 @@ export async function GET(req: Request) {
       resultado.gastosExistentes = r.existentes;
     } catch (e) {
       resultado.gastosError = (e as Error).message;
+    }
+  }
+
+  // 3) Resumen completo del mes (solo el último día del mes)
+  if (esUltimoDiaDeMes(hoy)) {
+    try {
+      const digest = await construirDigest(hoy, "mensual");
+      let destinatarios = destinatariosConfigurados();
+      if (destinatarios.length === 0) {
+        const equipo = await getEquipo();
+        destinatarios = equipo.filter((e) => e.activo && e.email).map((e) => e.email!) as string[];
+      }
+      const envio = await enviarEmail({ to: destinatarios, subject: digest.asunto, html: digest.html, text: digest.texto });
+      resultado.resumenMensual = envio.ok ? "enviado" : envio.skipped ? "omitido (sin RESEND_API_KEY/destinatarios)" : `error: ${envio.error}`;
+    } catch (e) {
+      resultado.resumenMensualError = (e as Error).message;
     }
   }
 
