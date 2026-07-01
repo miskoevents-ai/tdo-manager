@@ -4,7 +4,7 @@ import { type KanbanCard } from "@/components/oportunidades/Kanban";
 import { OportunidadesBoard } from "@/components/oportunidades/OportunidadesBoard";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getClientes, getLugares } from "@/lib/data";
+import { getOportunidades, getClientes, getLugares, getEquipo } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 
 export const dynamic = "force-dynamic";
@@ -12,16 +12,18 @@ export const dynamic = "force-dynamic";
 export default async function OportunidadesPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
-  let ops, clientes, lugares;
+  let ops, clientes, lugares, equipo;
   try {
-    [ops, clientes, lugares] = await Promise.all([
+    [ops, clientes, lugares, equipo] = await Promise.all([
       getOportunidades(),
       getClientes(),
       getLugares(),
+      getEquipo(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
+  const responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
 
   // Nº de oportunidades por cliente → recurrente si tiene más de una.
   const opsPorCliente = new Map<string, number>();
@@ -62,7 +64,7 @@ export default async function OportunidadesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <Overline className="!mt-0">{activas.length} oportunidades activas</Overline>
-        <OportunidadDialog clientes={clientes} lugares={lugares} />
+        <OportunidadDialog clientes={clientes} lugares={lugares} responsables={responsables} />
       </div>
 
       <OportunidadesBoard cards={cards} />

@@ -124,7 +124,12 @@ export default async function Page({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <OportunidadDialog clientes={clientes} lugares={lugares} oportunidad={op} />
+          <OportunidadDialog
+            clientes={clientes}
+            lugares={lugares}
+            oportunidad={op}
+            responsables={equipo.filter((e) => e.activo).map((e) => e.nombre)}
+          />
           <Link
             href={`/oportunidades/${op.id}/presupuesto`}
             className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"

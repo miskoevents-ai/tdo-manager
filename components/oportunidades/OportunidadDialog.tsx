@@ -10,20 +10,46 @@ import { guardarOportunidad, crearClienteRapido } from "@/app/actions";
 import type { Cliente, Lugar, Oportunidad } from "@/lib/types";
 import { TIPO_EVENTO_LABEL, ESTADOS_TODOS, ESTADO_META, CANALES } from "@/lib/estados";
 
+// Suma días a una fecha ISO (YYYY-MM-DD).
+function sumaDias(iso: string, dias: number): string {
+  if (!iso) return "";
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
 export function OportunidadDialog({
   clientes,
   lugares,
   oportunidad,
+  responsables = [],
 }: {
   clientes: Cliente[];
   lugares: Lugar[];
   oportunidad?: Oportunidad;
+  responsables?: string[];
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const editar = Boolean(oportunidad);
+
+  // Fechas de material y fianza: al fijar la recogida, la devolución de la
+  // fianza se propone a 3 días después (editable).
+  const [recogida, setRecogida] = React.useState(oportunidad?.fecha_recogida ?? "");
+  const [fianzaFecha, setFianzaFecha] = React.useState(oportunidad?.fecha_devolucion_fianza ?? "");
+  function onRecogida(v: string) {
+    setRecogida(v);
+    if (v) setFianzaFecha(sumaDias(v, 3));
+  }
+
+  // Opciones de responsable (equipo) incluyendo el valor actual si es libre.
+  const responsablesOpts = React.useMemo(() => {
+    const set = new Set(responsables);
+    if (oportunidad?.responsable) set.add(oportunidad.responsable);
+    return Array.from(set);
+  }, [responsables, oportunidad?.responsable]);
 
   // Lista local de clientes (para poder añadir uno nuevo al vuelo).
   const [clientesList, setClientesList] = React.useState<Cliente[]>(clientes);
@@ -219,16 +245,31 @@ export function OportunidadDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Lugar">
-              <Select name="lugar_id" defaultValue={oportunidad?.lugar_id ?? ""}>
-                <option value="">— Sin lugar —</option>
+            <Field label="Lugar (elige o escribe uno nuevo)">
+              <Input
+                list="lugares-list"
+                name="lugar_nombre"
+                defaultValue={oportunidad?.lugar?.nombre ?? ""}
+                placeholder="Hotel Urban, Finca…"
+                autoComplete="off"
+              />
+              <datalist id="lugares-list">
                 {lugares.map((l) => (
-                  <option key={l.id} value={l.id}>{l.nombre}</option>
+                  <option key={l.id} value={l.nombre} />
                 ))}
-              </Select>
+              </datalist>
             </Field>
             <Field label="Fecha del evento">
               <Input type="date" name="fecha_evento" defaultValue={oportunidad?.fecha_evento ?? ""} />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Montaje / salida material">
+              <Input type="date" name="fecha_montaje" defaultValue={oportunidad?.fecha_montaje ?? ""} />
+            </Field>
+            <Field label="Recogida / devolución material">
+              <Input type="date" name="fecha_recogida" value={recogida} onChange={(e) => onRecogida(e.target.value)} />
             </Field>
           </div>
 
@@ -257,12 +298,23 @@ export function OportunidadDialog({
             <Input
               type="date"
               name="fecha_devolucion_fianza"
-              defaultValue={oportunidad?.fecha_devolucion_fianza ?? ""}
+              value={fianzaFecha}
+              onChange={(e) => setFianzaFecha(e.target.value)}
             />
+            {recogida && (
+              <p className="mt-1 text-[10.5px] text-ink-muted">
+                Sugerido: 3 días tras la recogida ({sumaDias(recogida, 3)}). Puedes cambiarlo.
+              </p>
+            )}
           </Field>
 
           <Field label="Responsable">
-            <Input name="responsable" defaultValue={oportunidad?.responsable ?? ""} />
+            <Select name="responsable" defaultValue={oportunidad?.responsable ?? ""}>
+              <option value="">— Sin asignar —</option>
+              {responsablesOpts.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </Select>
           </Field>
           <Field label="Notas">
             <Textarea name="notas" defaultValue={oportunidad?.notas ?? ""} />
