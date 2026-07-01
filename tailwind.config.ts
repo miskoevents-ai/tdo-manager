@@ -46,6 +46,8 @@ const config: Config = {
         md: "0 8px 24px rgba(60,48,30,0.09)",
         lg: "0 18px 48px rgba(60,48,30,0.12)",
         ring: "0 0 0 3px rgba(63,74,54,0.22)",
+        card: "0 1px 3px rgba(60,48,30,0.04), 0 6px 20px rgba(60,48,30,0.06)",
+        "card-hover": "0 2px 6px rgba(60,48,30,0.06), 0 16px 40px rgba(60,48,30,0.11)",
       },
       maxWidth: { container: "1200px", "container-narrow": "820px" },
       transitionTimingFunction: {

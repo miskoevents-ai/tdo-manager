@@ -78,7 +78,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen md:grid md:grid-cols-[238px_1fr]">
       {/* Sidebar fijo en escritorio */}
-      <aside className="hidden bg-sage px-[14px] py-[22px] text-cream md:flex md:flex-col">
+      <aside className="hidden bg-gradient-to-b from-sage to-[#353f2c] px-[14px] py-[22px] text-cream shadow-md md:flex md:flex-col">
         <SidebarInner />
       </aside>
 
@@ -86,7 +86,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {open && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/50" onClick={() => setOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-[260px] bg-sage px-[14px] py-[22px] text-cream shadow-md">
+          <aside className="absolute left-0 top-0 h-full w-[260px] bg-gradient-to-b from-sage to-[#353f2c] px-[14px] py-[22px] text-cream shadow-lg">
             <SidebarInner onNavigate={() => setOpen(false)} />
           </aside>
         </div>
@@ -94,7 +94,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-col">
         {/* Topbar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-white px-5 py-[15px] md:px-7">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border-soft bg-white/85 px-5 py-[15px] shadow-xs backdrop-blur-md md:px-7">
           <div className="flex items-center gap-3">
             <button
               className="rounded-sm p-1 text-ink-muted hover:bg-beige-warm md:hidden"

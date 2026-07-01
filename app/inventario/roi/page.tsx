@@ -130,8 +130,10 @@ export default async function RoiPage() {
 }
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone: string }) {
+  const bar = tone.replace("text-", "bg-");
   return (
-    <Card className="p-4">
+    <Card className="relative overflow-hidden p-4 pl-[18px]">
+      <span className={`absolute left-0 top-0 h-full w-[3px] ${bar}`} />
       <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-muted">{label}</div>
       <div className={`mt-1 font-display text-[20px] tabular ${tone}`}>{value}</div>
     </Card>

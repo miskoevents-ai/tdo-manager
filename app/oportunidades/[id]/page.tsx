@@ -148,7 +148,8 @@ export default async function Page({
             c: op.fianza && !op.fianza_devuelta ? "text-warn" : "text-ink",
           },
         ].map((k) => (
-          <Card key={k.l} className="p-4">
+          <Card key={k.l} className="relative overflow-hidden p-4 pl-[18px]">
+            <span className={`absolute left-0 top-0 h-full w-[3px] ${k.c.replace("text-", "bg-")}`} />
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
               {k.l}
             </div>

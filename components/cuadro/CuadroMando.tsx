@@ -609,8 +609,10 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 function Kpi({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone: string }) {
+  const bar = tone.replace("text-", "bg-");
   return (
-    <Card className="p-4">
+    <Card className="relative overflow-hidden p-4 pl-[18px]">
+      <span className={`absolute left-0 top-0 h-full w-[3px] ${bar}`} />
       <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-muted">{label}</div>
       <div className={`mt-1 font-display text-[21px] tabular ${tone}`}>{value}</div>
       {sub && <div className="mt-0.5 text-[10.5px] text-ink-muted">{sub}</div>}
