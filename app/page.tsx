@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Bell } from "lucide-react";
 import { Card, CardTitle, Overline } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
@@ -7,8 +7,17 @@ import { CobroRow } from "@/components/home/CobroRow";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
+import { calcularAvisos } from "@/lib/avisos";
 import { eur, fecha } from "@/lib/format";
 import { ESTADO_META } from "@/lib/estados";
+
+const HOY_ISO = "2026-07-01";
+
+const SEV_CLASS: Record<string, string> = {
+  alta: "border-error/30 bg-error-tint text-error",
+  media: "border-[#e7d3a6] bg-warn-tint text-[#7a5a1a]",
+  baja: "border-sage-tint-deep bg-sage-tint/50 text-sage",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +85,8 @@ export default async function Home() {
   const fianzas = ops.filter((o) => (o.fianza ?? 0) > 0 && !o.fianza_devuelta);
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
 
+  const avisos = calcularAvisos(ops, HOY_ISO).slice(0, 6);
+
   const hoy = new Date("2026-07-01");
   const proximos = ops
     .filter((o) => o.fecha_evento && new Date(o.fecha_evento) >= hoy)
@@ -92,6 +103,34 @@ export default async function Home() {
         Datos reales de TDO cargados (mayo–junio 2026). La contabilidad mensual arranca en junio
         2026 (regla §5.4).
       </div>
+
+      {avisos.length > 0 && (
+        <Card className="border-l-[3px] border-l-clay">
+          <CardTitle>
+            <span className="flex items-center gap-2">
+              <Bell size={15} className="text-clay" /> Avisos
+            </span>
+            <span className="font-body text-[11px] font-medium tracking-[0.03em] text-ink-muted">
+              {avisos.length} para revisar
+            </span>
+          </CardTitle>
+          <div className="mt-1 space-y-2">
+            {avisos.map((a) => (
+              <Link
+                key={a.id}
+                href={a.href}
+                className={`flex items-center justify-between gap-3 rounded-md border-hair px-3 py-2 text-[12.5px] transition-opacity hover:opacity-80 ${SEV_CLASS[a.severidad]}`}
+              >
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate font-semibold">{a.titulo}</span>
+                  <span className="truncate text-[11px] opacity-80">{a.detalle}</span>
+                </div>
+                <ChevronRight size={15} className="shrink-0 opacity-60" />
+              </Link>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Overline>Resumen</Overline>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
