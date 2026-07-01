@@ -221,7 +221,15 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
                       : "border-ok bg-ok text-cream"
                   }`}
                 >
-                  {f.estado === "cobrada" ? "Reabrir" : "Cobrada"}
+                  {f.estado === "cobrada" ? (
+                    <>
+                      <Undo2 size={12} /> Reabrir
+                    </>
+                  ) : (
+                    <>
+                      <Check size={12} /> Marcar cobrada
+                    </>
+                  )}
                 </button>
               </div>
             </Card>

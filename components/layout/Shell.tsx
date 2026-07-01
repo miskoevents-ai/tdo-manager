@@ -59,12 +59,21 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+// Sub-secciones que no están en el menú lateral pero necesitan título propio.
+const EXTRA_TITLES: Record<string, string> = {
+  "/comisiones": "Comisiones",
+  "/gastos-fijos": "Gastos fijos",
+  "/proveedores": "Proveedores",
+  "/setup": "Configuración",
+};
+
 export function Shell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
-  const title = NAV.find((n) =>
-    n.href === "/" ? pathname === "/" : pathname.startsWith(n.href),
-  )?.label ?? "TDO Manager";
+  const title =
+    NAV.find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))?.label ??
+    Object.entries(EXTRA_TITLES).find(([href]) => pathname.startsWith(href))?.[1] ??
+    "TDO Manager";
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[238px_1fr]">
