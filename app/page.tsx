@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { Card, CardTitle, Overline } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
+import { CobroRow } from "@/components/home/CobroRow";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
@@ -131,19 +133,14 @@ export default async function Home() {
             <p className="py-2 text-small text-ink-muted">Todo cobrado. 🎉</p>
           )}
           {cobrosPendientes.map(({ o, pendiente }) => (
-            <Link
+            <CobroRow
               key={o.id}
-              href={`/oportunidades/${o.id}`}
-              className="flex items-center justify-between border-t border-border py-[10px] text-[13px] first:border-t-0 hover:text-clay"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span>{o.titulo}</span>
-                <small className="text-[11.5px] text-ink-muted">
-                  {o.cliente?.nombre ?? "—"} · {fecha(o.fecha_evento)}
-                </small>
-              </div>
-              <span className="tabular font-semibold text-error">{eur(pendiente)}</span>
-            </Link>
+              id={o.id}
+              titulo={o.titulo}
+              cliente={o.cliente?.nombre ?? null}
+              fechaEvento={o.fecha_evento}
+              pendiente={pendiente}
+            />
           ))}
         </Card>
 
@@ -171,7 +168,10 @@ export default async function Home() {
                     {fecha(o.fecha_evento)} · {o.lugar?.nombre ?? "—"}
                   </small>
                 </div>
-                <Badge tone={meta.tone}>{meta.label}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge tone={meta.tone}>{meta.label}</Badge>
+                  <ChevronRight size={15} className="text-ink-muted" />
+                </div>
               </Link>
             );
           })}

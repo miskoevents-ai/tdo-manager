@@ -22,9 +22,23 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
   const router = useRouter();
   const [filtro, setFiltro] = React.useState<"todas" | FacturaEstado>("todas");
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [q, setQ] = React.useState("");
+  const [desde, setDesde] = React.useState("");
+  const [hasta, setHasta] = React.useState("");
 
-  const visibles =
-    filtro === "todas" ? facturas : facturas.filter((f) => f.estado === filtro);
+  const visibles = facturas.filter((f) => {
+    if (filtro !== "todas" && f.estado !== filtro) return false;
+    if (q.trim()) {
+      const t = q.trim().toLowerCase();
+      const hay =
+        f.numero.toLowerCase().includes(t) ||
+        (f.cliente?.nombre ?? "").toLowerCase().includes(t);
+      if (!hay) return false;
+    }
+    if (desde && f.fecha_emision < desde) return false;
+    if (hasta && f.fecha_emision > hasta) return false;
+    return true;
+  });
 
   const pendienteCobro = facturas
     .filter((f) => f.estado === "emitida" || f.estado === "vencida")
@@ -42,6 +56,55 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Buscar + fechas */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[180px] flex-1">
+          <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+            Buscar (nº o cliente)
+          </label>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="26009, Produktema…"
+            className="w-full rounded-sm border-med border-border bg-white px-3 py-2 text-[13px] focus:border-sage-300 focus:shadow-ring focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+            Desde
+          </label>
+          <input
+            type="date"
+            value={desde}
+            onChange={(e) => setDesde(e.target.value)}
+            className="rounded-sm border-med border-border bg-white px-3 py-2 text-[13px] focus:border-sage-300 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+            Hasta
+          </label>
+          <input
+            type="date"
+            value={hasta}
+            onChange={(e) => setHasta(e.target.value)}
+            className="rounded-sm border-med border-border bg-white px-3 py-2 text-[13px] focus:border-sage-300 focus:outline-none"
+          />
+        </div>
+        {(q || desde || hasta) && (
+          <button
+            onClick={() => {
+              setQ("");
+              setDesde("");
+              setHasta("");
+            }}
+            className="rounded-sm border-med border-border-strong px-3 py-2 text-[12px] text-ink-secondary hover:bg-beige-warm"
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           {FILTROS.map((f) => (
