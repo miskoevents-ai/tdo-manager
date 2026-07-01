@@ -11,6 +11,7 @@ import type {
   Proveedor,
   ComisionConfig,
   Comision,
+  Inventario,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -108,6 +109,14 @@ export async function getTesoreriaDeOportunidad(oportunidadId: string): Promise<
     .order("fecha", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Tesoreria[];
+}
+
+export async function getInventario(): Promise<Inventario[]> {
+  if (mock.enabled) return mock.inventario();
+  const sb = createAdminClient();
+  const { data, error } = await sb.from("inventario").select("*").order("articulo");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Inventario[];
 }
 
 export async function getProveedores(): Promise<Proveedor[]> {

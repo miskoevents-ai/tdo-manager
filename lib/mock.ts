@@ -12,6 +12,7 @@ import type {
   Tesoreria,
   GastoFijo,
   Equipo,
+  Inventario,
 } from "@/lib/types";
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -30,6 +31,7 @@ function load() {
     tesoreria: any[];
     gastos_fijos: any[];
     equipo: any[];
+    inventario: any[];
   };
 }
 
@@ -45,6 +47,7 @@ let cache: {
   tesoreria: Tesoreria[];
   gastosFijos: GastoFijo[];
   equipo: Equipo[];
+  inventario: Inventario[];
 } | null = null;
 
 function build() {
@@ -223,7 +226,22 @@ function build() {
     notas: e.notas ?? null,
   }));
 
-  cache = { clientes, lugares, oportunidades, facturas, tesoreria, gastosFijos, equipo };
+  const inventario: Inventario[] = (data.inventario ?? []).map((it, i) => ({
+    id: `inv-${i}`,
+    articulo: it.articulo,
+    categoria: it.categoria ?? null,
+    cantidad_total: it.cantidad_total ?? null,
+    coste_unitario: null,
+    precio_alquiler: it.precio_alquiler ?? null,
+    fianza_sugerida: it.fianza_sugerida ?? null,
+    fianza_especial: Boolean(it.fianza_sugerida),
+    ubicacion: null,
+    estado: "disponible",
+    foto_url: null,
+    notas: it.notas ?? null,
+  }));
+
+  cache = { clientes, lugares, oportunidades, facturas, tesoreria, gastosFijos, equipo, inventario };
   return cache;
 }
 
@@ -237,6 +255,7 @@ export const mock = {
   facturas: () => build().facturas,
   gastosFijos: () => build().gastosFijos,
   equipo: () => build().equipo,
+  inventario: () => build().inventario,
   tesoreria: () => build().tesoreria,
   tesoreriaDe: (id: string) => build().tesoreria.filter((t) => t.oportunidad_id === id),
   oportunidad: (id: string) => build().oportunidades.find((o) => o.id === id) ?? null,
