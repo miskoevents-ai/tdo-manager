@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { TrendingUp } from "lucide-react";
 import { Overline } from "@/components/ui/card";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { InventarioDialog } from "@/components/inventario/InventarioDialog";
@@ -23,7 +25,15 @@ export default async function InventarioPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <Overline className="!mt-0">{items.length} artículos</Overline>
-        <InventarioDialog />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/inventario/roi"
+            className="inline-flex items-center gap-1.5 rounded-sm border-med border-border-strong bg-white px-3 py-2 text-[12.5px] font-semibold text-sage hover:bg-sage-tint"
+          >
+            <TrendingUp size={15} /> Rentabilidad (ROI)
+          </Link>
+          <InventarioDialog />
+        </div>
       </div>
       <InventarioGrid items={items} reservas={reservas} />
     </div>
