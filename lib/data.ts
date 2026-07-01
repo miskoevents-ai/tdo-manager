@@ -9,6 +9,8 @@ import type {
   GastoFijo,
   Equipo,
   Proveedor,
+  ComisionConfig,
+  Comision,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -114,6 +116,25 @@ export async function getProveedores(): Promise<Proveedor[]> {
   const { data, error } = await sb.from("proveedores").select("*").order("nombre");
   if (error) throw new Error(error.message);
   return (data ?? []) as Proveedor[];
+}
+
+export async function getComisionesConfig(): Promise<ComisionConfig[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("comisiones_config")
+    .select("*, equipo:equipo(nombre)")
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ComisionConfig[];
+}
+
+export async function getComisiones(): Promise<Comision[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb.from("comisiones").select("*");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Comision[];
 }
 
 export async function getEquipo(): Promise<Equipo[]> {
