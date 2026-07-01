@@ -93,6 +93,33 @@ export async function guardarOportunidad(formData: FormData) {
     const s = (v as string)?.trim();
     return s ? Number(s) : null;
   };
+
+  // Lugar: se elige del catálogo o se escribe uno nuevo. Se resuelve por nombre
+  // (busca uno existente; si no, lo crea) para no perder el catálogo.
+  let lugarId: string | null = (formData.get("lugar_id") as string) || null;
+  const lugarNombre = (formData.get("lugar_nombre") as string)?.trim();
+  if (lugarNombre) {
+    const { data: existente } = await sb
+      .from("lugares")
+      .select("id")
+      .ilike("nombre", lugarNombre)
+      .limit(1)
+      .maybeSingle();
+    if (existente) {
+      lugarId = existente.id;
+    } else {
+      const { data: nuevo, error: lErr } = await sb
+        .from("lugares")
+        .insert({ nombre: lugarNombre })
+        .select("id")
+        .single();
+      if (lErr) throw new Error(lErr.message);
+      lugarId = nuevo.id;
+    }
+  } else if (formData.has("lugar_nombre")) {
+    lugarId = null; // el campo existe y está vacío → sin lugar
+  }
+
   const payload = {
     numero: (formData.get("numero") as string)?.trim(),
     titulo: (formData.get("titulo") as string)?.trim(),
@@ -101,10 +128,12 @@ export async function guardarOportunidad(formData: FormData) {
     tipo_operacion: formData.get("tipo_operacion") as string,
     estado: formData.get("estado") as string,
     cliente_id: (formData.get("cliente_id") as string) || null,
-    lugar_id: (formData.get("lugar_id") as string) || null,
+    lugar_id: lugarId,
     fecha_entrada: (formData.get("fecha_entrada") as string) || null,
     canal: (formData.get("canal") as string) || null,
     fecha_evento: (formData.get("fecha_evento") as string) || null,
+    fecha_montaje: (formData.get("fecha_montaje") as string) || null,
+    fecha_recogida: (formData.get("fecha_recogida") as string) || null,
     responsable: (formData.get("responsable") as string)?.trim() || null,
     n_invitados: numToNull(formData.get("n_invitados")),
     iva_pct: numToNull(formData.get("iva_pct")) ?? 21,
