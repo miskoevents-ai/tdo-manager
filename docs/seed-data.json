@@ -1,0 +1,779 @@
+{
+  "_meta": {
+    "descripcion": "Datos reales de Tu Decoración Original (mayo-junio 2026) para sembrar la app TDO Manager. Los FKs van por nombre (cliente, lugar, evento) para que Claude Code los resuelva al insertar. Importes en positivo; el 'tipo' marca el signo en tesorería. Fechas ISO. IVA 21%, retención -15% a empresas.",
+    "corte_etapa": "2026-05-25 (antes = Etapa Cristina, desde = Nueva etapa)"
+  },
+  "equipo": [
+    {
+      "nombre": "Sarmi (Álvaro Sarmiento)",
+      "rol": "Socio",
+      "porcentaje": 40,
+      "precio_hora": null,
+      "activo": true,
+      "notas": "Socio mayoritario. Hoy no se cobran las horas propias."
+    },
+    {
+      "nombre": "Jero (Jerónimo Alonso Marcos)",
+      "rol": "Socio",
+      "porcentaje": 30,
+      "precio_hora": null,
+      "activo": true
+    },
+    {
+      "nombre": "Cris",
+      "rol": "Socia",
+      "porcentaje": 30,
+      "precio_hora": null,
+      "activo": true,
+      "notas": "Novia de Jero. NO confundir con Cristina (antigua dueña)."
+    },
+    {
+      "nombre": "Cristina",
+      "rol": "Colaboradora",
+      "precio_hora": null,
+      "activo": true,
+      "notas": "Antigua dueña, hoy colaboradora externa (fabrica arcos, etc.)."
+    },
+    {
+      "nombre": "Blanca",
+      "rol": "Colaboradora (amiga)",
+      "precio_hora": null,
+      "activo": true,
+      "notas": "Empleada de Misko; operaciones 'modo amigos'."
+    }
+  ],
+  "lugares": [
+    {
+      "nombre": "Hotel Urban (Madrid)",
+      "localidad": "Madrid"
+    },
+    {
+      "nombre": "Finca Najaraya",
+      "localidad": "Madrid"
+    },
+    {
+      "nombre": "Casa de las Artes - Meliá Collection (Madrid)",
+      "localidad": "Madrid"
+    },
+    {
+      "nombre": "Jardín de la Fundación Ortega-Marañón (Madrid)",
+      "localidad": "Madrid"
+    },
+    {
+      "nombre": "Finca Casona del Torcón",
+      "localidad": "Toledo"
+    },
+    {
+      "nombre": "Finca Gaivota",
+      "localidad": null
+    }
+  ],
+  "clientes": [
+    {
+      "nombre": "Cristina Reguero González",
+      "tipo": "particular",
+      "nif_cif": "47518162R",
+      "localidad": "Madrid",
+      "origen": "cliente_nuevo",
+      "estado": "cliente"
+    },
+    {
+      "nombre": "Valeria María López Sáez",
+      "tipo": "particular",
+      "nif_cif": "53994510D",
+      "localidad": "Madrid",
+      "origen": "cliente_nuevo",
+      "estado": "cliente",
+      "notas": "En el Excel figura como 'Magdalena y López'."
+    },
+    {
+      "nombre": "2CH Producción Técnica SL",
+      "tipo": "empresa",
+      "nif_cif": "B86739414",
+      "localidad": "Madrid",
+      "origen": "cliente_nuevo",
+      "estado": "cliente"
+    },
+    {
+      "nombre": "GYC Técnicas Empresariales",
+      "tipo": "empresa",
+      "nif_cif": "B87192704",
+      "localidad": "Madrid",
+      "origen": "cliente_nuevo",
+      "estado": "cliente"
+    },
+    {
+      "nombre": "Lobo Agencia Digital SL",
+      "tipo": "empresa",
+      "nif_cif": "B97845929",
+      "localidad": "Valencia",
+      "origen": "cliente_nuevo",
+      "estado": "cliente"
+    },
+    {
+      "nombre": "Produktema Spain SL",
+      "tipo": "empresa",
+      "nif_cif": "B88287578",
+      "localidad": "Madrid",
+      "origen": "cliente_previo",
+      "estado": "cliente",
+      "notas": "Att.: Jose Monteiro."
+    },
+    {
+      "nombre": "Pilar Jimenez Martínez",
+      "tipo": "particular",
+      "nif_cif": "74666322L",
+      "localidad": "Madrid",
+      "origen": "cliente_previo",
+      "estado": "cliente"
+    },
+    {
+      "nombre": "Producciones Mandarina",
+      "tipo": "empresa",
+      "localidad": "Madrid",
+      "origen": "cliente_nuevo",
+      "estado": "cliente",
+      "notas": "Telecinco - ¡De Viernes!"
+    },
+    {
+      "nombre": "Leira",
+      "tipo": "particular",
+      "localidad": "Madrid",
+      "origen": "cliente_nuevo",
+      "estado": "cliente",
+      "notas": "Solo nombre de pila; completar contacto."
+    },
+    {
+      "nombre": "Sara (colaboradora / wedding planner)",
+      "tipo": "wedding_planner",
+      "localidad": "Toledo",
+      "origen": "cliente_nuevo",
+      "estado": "cliente"
+    }
+  ],
+  "inventario": [
+    {
+      "articulo": "Bañera retro",
+      "categoria": "Decorativos / Mobiliario",
+      "cantidad_total": 1,
+      "precio_alquiler": 42,
+      "fianza_sugerida": 40
+    },
+    {
+      "articulo": "Puertas antiguas verdes",
+      "categoria": "Decorativos / Mobiliario",
+      "cantidad_total": 2,
+      "precio_alquiler": 75
+    },
+    {
+      "articulo": "Sofá blanco",
+      "categoria": "Decorativos / Mobiliario",
+      "cantidad_total": 1,
+      "precio_alquiler": 135,
+      "fianza_sugerida": 90
+    },
+    {
+      "articulo": "Arcos para ceremonia",
+      "categoria": "Decorativos / Mobiliario",
+      "cantidad_total": 2,
+      "precio_alquiler": 325,
+      "notas": "Entrega con montaje (+2 h)."
+    },
+    {
+      "articulo": "Columpio vintage",
+      "categoria": "Decorativos / Mobiliario",
+      "cantidad_total": 1,
+      "precio_alquiler": 130
+    },
+    {
+      "articulo": "Alpacas / balas de paja",
+      "categoria": "Decorativos / Mobiliario",
+      "cantidad_total": null,
+      "precio_alquiler": 48,
+      "notas": "PENDIENTE: definir cantidad en stock. 48 €/ud referencia."
+    },
+    {
+      "articulo": "Candelabros altos de hierro",
+      "categoria": "Decorativos / Mobiliario",
+      "cantidad_total": 2,
+      "precio_alquiler": 15
+    },
+    {
+      "articulo": "Mesa rústica para eventos",
+      "categoria": "Decorativos / Mobiliario",
+      "cantidad_total": 1,
+      "precio_alquiler": 90
+    }
+  ],
+  "gastos_fijos": [
+    {
+      "concepto": "Alquiler local",
+      "importe_mensual": 1200,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true,
+      "notas": "Pago real con IVA = 1.452 €."
+    },
+    {
+      "concepto": "Autónomos",
+      "importe_mensual": 268,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true
+    },
+    {
+      "concepto": "Luz",
+      "importe_mensual": 50,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true
+    },
+    {
+      "concepto": "Agua",
+      "importe_mensual": 30,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true
+    },
+    {
+      "concepto": "Wifi / fijo",
+      "importe_mensual": 20,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true
+    },
+    {
+      "concepto": "Alarma",
+      "importe_mensual": 41,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true
+    },
+    {
+      "concepto": "Seguro de contenido",
+      "importe_mensual": 13,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true
+    },
+    {
+      "concepto": "Basuras",
+      "importe_mensual": 20,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true
+    },
+    {
+      "concepto": "Seguro de responsabilidad civil",
+      "importe_mensual": 13,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true
+    },
+    {
+      "concepto": "Mantenimiento web",
+      "importe_mensual": 150,
+      "periodicidad": "mensual",
+      "quien_lo_paga": "Jero",
+      "activo": true
+    },
+    {
+      "concepto": "Airtable",
+      "importe_mensual": 20,
+      "periodicidad": "anual",
+      "quien_lo_paga": "Sarmi",
+      "activo": true,
+      "notas": "240 €/año."
+    }
+  ],
+  "oportunidades": [
+    {
+      "numero": "062/2026",
+      "titulo": "Boda Cristina Reguero",
+      "cliente": "Cristina Reguero González",
+      "lugar": "Hotel Urban (Madrid)",
+      "tipo_evento": "boda",
+      "serie": "evento",
+      "estado": "confirmada",
+      "presupuesto_enviado": true,
+      "fecha_evento": "2026-09-05",
+      "base_imponible": 1861,
+      "iva_pct": 21,
+      "iva": 390.8,
+      "retencion": 0,
+      "total": 2251.8,
+      "cobrado": 1125.9,
+      "n_invitados": 120,
+      "responsable": "Jero",
+      "lineas": [
+        {
+          "concepto": "Decoración personalizada de ceremonia",
+          "cantidad": 1,
+          "precio_unitario": 1120
+        },
+        {
+          "concepto": "Centros de mesa y detalles",
+          "cantidad": 1,
+          "precio_unitario": 520
+        },
+        {
+          "concepto": "Montaje, transporte y recogida",
+          "cantidad": 1,
+          "precio_unitario": 221
+        }
+      ]
+    },
+    {
+      "numero": "061/2026",
+      "titulo": "Boda Valeria López",
+      "cliente": "Valeria María López Sáez",
+      "lugar": "Finca Najaraya",
+      "tipo_evento": "boda",
+      "serie": "evento",
+      "estado": "confirmada",
+      "presupuesto_enviado": true,
+      "fecha_evento": "2026-09-19",
+      "base_imponible": 2348,
+      "iva_pct": 21,
+      "iva": 493.08,
+      "retencion": 0,
+      "total": 2841.08,
+      "cobrado": 1420.54
+    },
+    {
+      "numero": "26004",
+      "titulo": "Alquiler mesa rústica - Pilar",
+      "cliente": "Pilar Jimenez Martínez",
+      "tipo_evento": "alquiler_encargo",
+      "serie": "alquiler_encargo",
+      "estado": "realizada",
+      "fecha_evento": "2026-05-29",
+      "base_imponible": 45,
+      "iva_pct": 21,
+      "iva": 9.45,
+      "retencion": 0,
+      "total": 54.45,
+      "cobrado": 54.45,
+      "notas": "Reserva 50%; falta 2º 50%."
+    },
+    {
+      "numero": "52/2026",
+      "titulo": "Alquiler bañera - 2CH",
+      "cliente": "2CH Producción Técnica SL",
+      "tipo_evento": "alquiler_encargo",
+      "serie": "alquiler_encargo",
+      "estado": "realizada",
+      "fecha_evento": "2026-06-03",
+      "base_imponible": 210,
+      "iva_pct": 21,
+      "iva": 44.1,
+      "retencion": -31.5,
+      "total": 222.6,
+      "cobrado": 222.6
+    },
+    {
+      "numero": "V.046/2026",
+      "titulo": "Alquiler puertas - GYC",
+      "cliente": "GYC Técnicas Empresariales",
+      "tipo_evento": "alquiler_encargo",
+      "serie": "alquiler_encargo",
+      "estado": "realizada",
+      "fecha_evento": "2026-06-01",
+      "base_imponible": 300,
+      "iva_pct": 21,
+      "iva": 63,
+      "retencion": -45,
+      "total": 318,
+      "cobrado": 318
+    },
+    {
+      "numero": "26009",
+      "titulo": "Decoración espacio - Produktema (Atocha)",
+      "cliente": "Produktema Spain SL",
+      "lugar": "Casa de las Artes - Meliá Collection (Madrid)",
+      "tipo_evento": "corporativo",
+      "serie": "alquiler_encargo",
+      "estado": "confirmada",
+      "fecha_evento": "2026-06-18",
+      "base_imponible": 1104,
+      "iva_pct": 21,
+      "iva": 231.84,
+      "retencion": -165.6,
+      "total": 1170.24,
+      "cobrado": 0,
+      "lineas": [
+        {
+          "concepto": "2 arcos con instalación",
+          "cantidad": 1,
+          "precio_unitario": 650
+        },
+        {
+          "concepto": "Consola francesa",
+          "cantidad": 1,
+          "precio_unitario": 85
+        },
+        {
+          "concepto": "Mesa antigua color rosa",
+          "cantidad": 1,
+          "precio_unitario": 85
+        },
+        {
+          "concepto": "Moqueta 30m (2ud de 2x7,5m)",
+          "cantidad": 1,
+          "precio_unitario": 284
+        }
+      ]
+    },
+    {
+      "numero": "26010",
+      "titulo": "Alquiler 25 balas de paja - Lobo",
+      "cliente": "Lobo Agencia Digital SL",
+      "lugar": "Jardín de la Fundación Ortega-Marañón (Madrid)",
+      "tipo_evento": "corporativo",
+      "serie": "alquiler_encargo",
+      "estado": "confirmada",
+      "fecha_evento": "2026-06-21",
+      "base_imponible": 1200,
+      "iva_pct": 21,
+      "iva": 252,
+      "retencion": -180,
+      "total": 1272,
+      "cobrado": 636,
+      "notas": "Pago en 2 plazos de 636 €."
+    },
+    {
+      "numero": "26101/2026",
+      "titulo": "Alquiler alpacas - Telecinco ¡De Viernes!",
+      "cliente": "Producciones Mandarina",
+      "tipo_evento": "alquiler_encargo",
+      "serie": "alquiler_encargo",
+      "estado": "confirmada",
+      "fecha_evento": "2026-06-12",
+      "base_imponible": 1800,
+      "iva_pct": 21,
+      "iva": 378,
+      "retencion": 0,
+      "total": 2178,
+      "cobrado": 0,
+      "fianza": 1306.8,
+      "notas": "Fianza reembolsable 60%."
+    },
+    {
+      "numero": "26011",
+      "titulo": "Daños bañera - 2CH",
+      "cliente": "2CH Producción Técnica SL",
+      "tipo_evento": "alquiler_encargo",
+      "serie": "alquiler_encargo",
+      "estado": "facturada",
+      "fecha_evento": "2026-06-12",
+      "base_imponible": 165,
+      "iva_pct": 21,
+      "iva": 34.65,
+      "retencion": 0,
+      "total": 199.65,
+      "cobrado": 0,
+      "notas": "Pendiente de pago."
+    },
+    {
+      "numero": "26013",
+      "titulo": "Alquiler columpio",
+      "cliente": null,
+      "lugar": "Finca Gaivota",
+      "tipo_evento": "alquiler_encargo",
+      "serie": "alquiler_encargo",
+      "estado": "facturada",
+      "fecha_evento": "2026-06-16",
+      "total": 132.5,
+      "cobrado": 132.5,
+      "notas": "Cliente sin identificar; completar."
+    },
+    {
+      "numero": "ALQ-Sara",
+      "titulo": "Alquiler Sara - Casona del Torcón",
+      "cliente": "Sara (colaboradora / wedding planner)",
+      "lugar": "Finca Casona del Torcón",
+      "tipo_evento": "boda",
+      "serie": "alquiler_encargo",
+      "estado": "realizada",
+      "fecha_evento": "2026-06-16",
+      "total": 515,
+      "cobrado": 421.25,
+      "notas": "Servicio 390 + letras 125 (cobrado 25%). Pendiente 93,75 €."
+    },
+    {
+      "numero": "ALQ-Leira",
+      "titulo": "Alquiler sofá - Leira",
+      "cliente": "Leira",
+      "tipo_evento": "alquiler_encargo",
+      "serie": "alquiler_encargo",
+      "estado": "realizada",
+      "fecha_evento": "2026-06-10",
+      "total": 115,
+      "cobrado": 115,
+      "fianza": 90,
+      "notas": "Fianza 90 € pendiente de devolver.",
+      "lineas": [
+        {
+          "concepto": "Alquiler del sofá blanco",
+          "cantidad": 1,
+          "precio_unitario": 115
+        }
+      ]
+    }
+  ],
+  "tesoreria": [
+    {
+      "concepto": "Cobro F-26005 reserva boda 05/09 - Cristina Reguero",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Seña/Anticipo",
+      "importe": 1125.9,
+      "fecha": "2026-05-27",
+      "estado": "cobrado",
+      "metodo": "transferencia",
+      "evento": "062/2026",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Cobro F-26006 reserva boda 19/09 - Valeria López",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Seña/Anticipo",
+      "importe": 1420.54,
+      "fecha": "2026-05-27",
+      "estado": "cobrado",
+      "metodo": "transferencia",
+      "evento": "061/2026",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Cobro F-26007 alquiler bañera - 2CH",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Cobro alquiler",
+      "importe": 222.6,
+      "fecha": "2026-06-03",
+      "estado": "cobrado",
+      "metodo": "transferencia",
+      "evento": "52/2026",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Cobro F-26008 alquiler puertas - GYC",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Cobro alquiler",
+      "importe": 318,
+      "fecha": "2026-06-01",
+      "estado": "cobrado",
+      "metodo": "transferencia",
+      "evento": "V.046/2026",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Cobro alquiler sofá - Leira",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Cobro alquiler",
+      "importe": 115,
+      "fecha": "2026-06-10",
+      "estado": "cobrado",
+      "metodo": "efectivo",
+      "evento": "ALQ-Leira",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Cobro F-26010 (1er 50%) balas de paja - Lobo",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Cobro alquiler",
+      "importe": 636,
+      "fecha": "2026-06-15",
+      "estado": "cobrado",
+      "metodo": "transferencia",
+      "evento": "26010",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Cobro alquiler - Sara (Casona del Torcón)",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Cobro alquiler",
+      "importe": 390,
+      "fecha": "2026-06-16",
+      "estado": "cobrado",
+      "metodo": "efectivo",
+      "evento": "ALQ-Sara",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Cobro alquiler letras - Sara (25%)",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Cobro alquiler",
+      "importe": 31.25,
+      "fecha": "2026-06-16",
+      "estado": "cobrado",
+      "metodo": "efectivo",
+      "evento": "ALQ-Sara",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Cobro F-26013 (100%) - Columpio",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Cobro alquiler",
+      "importe": 132.5,
+      "fecha": "2026-06-16",
+      "estado": "cobrado",
+      "evento": "26013",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "F-26009 decoración Produktema - pendiente",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Cobro alquiler",
+      "importe": 1170.24,
+      "fecha": "2026-06-09",
+      "estado": "previsto",
+      "evento": "26009",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "F-26010 (2º 50%) balas de paja - Lobo - pendiente",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Cobro alquiler",
+      "importe": 636,
+      "fecha": "2026-06-21",
+      "estado": "previsto",
+      "evento": "26010",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "F-26011 daños bañera - 2CH - pendiente",
+      "tipo": "ingreso",
+      "naturaleza": "ingreso_factura",
+      "categoria": "Otros",
+      "importe": 199.65,
+      "fecha": "2026-06-12",
+      "estado": "previsto",
+      "evento": "26011",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Alquiler local - junio 2026",
+      "tipo": "gasto",
+      "naturaleza": "gasto_fijo",
+      "categoria": "Gasto fijo",
+      "importe": 1452,
+      "fecha": "2026-06-03",
+      "estado": "pagado",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Recibo de agua",
+      "tipo": "gasto",
+      "naturaleza": "gasto_fijo",
+      "categoria": "Gasto fijo",
+      "importe": 53.37,
+      "fecha": "2026-06-09",
+      "estado": "pagado",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Teléfono (Fotomatón y Más)",
+      "tipo": "gasto",
+      "naturaleza": "gasto_fijo",
+      "categoria": "Gasto fijo",
+      "importe": 10,
+      "fecha": "2026-06-15",
+      "estado": "pagado",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Correo electrónico (Fotomatón y Más)",
+      "tipo": "gasto",
+      "naturaleza": "gasto_fijo",
+      "categoria": "Gasto fijo",
+      "importe": 18,
+      "fecha": "2026-06-15",
+      "estado": "pagado",
+      "computa_contabilidad": true
+    },
+    {
+      "concepto": "Pago a Cristina por hacer el arco",
+      "tipo": "gasto",
+      "naturaleza": "gasto_de_evento",
+      "categoria": "Proveedor",
+      "importe": 100,
+      "fecha": "2026-06-11",
+      "estado": "pagado",
+      "evento": "26009",
+      "computa_contabilidad": false
+    },
+    {
+      "concepto": "Compra de moqueta",
+      "tipo": "gasto",
+      "naturaleza": "gasto_de_evento",
+      "categoria": "Compra material",
+      "importe": 117.98,
+      "fecha": "2026-06-13",
+      "estado": "pagado",
+      "evento": "26009",
+      "computa_contabilidad": false
+    },
+    {
+      "concepto": "Material para arco - Maderas Villalba",
+      "tipo": "gasto",
+      "naturaleza": "gasto_de_evento",
+      "categoria": "Compra material",
+      "importe": 86.08,
+      "fecha": "2026-06-09",
+      "estado": "pagado",
+      "evento": "26009",
+      "computa_contabilidad": false
+    },
+    {
+      "concepto": "Compra del negocio - aportación Cris",
+      "tipo": "gasto",
+      "naturaleza": "inversion",
+      "categoria": "Otros",
+      "importe": 10000,
+      "fecha": "2026-05-25",
+      "estado": "pagado",
+      "computa_contabilidad": false
+    },
+    {
+      "concepto": "Compra del negocio - aportación Jero",
+      "tipo": "gasto",
+      "naturaleza": "inversion",
+      "categoria": "Otros",
+      "importe": 5000,
+      "fecha": "2026-05-25",
+      "estado": "pagado",
+      "computa_contabilidad": false
+    },
+    {
+      "concepto": "Honorarios de agencia (compra)",
+      "tipo": "gasto",
+      "naturaleza": "inversion",
+      "categoria": "Otros",
+      "importe": 1200,
+      "fecha": "2026-05-25",
+      "estado": "pagado",
+      "computa_contabilidad": false
+    },
+    {
+      "concepto": "Fianza del local (recuperable)",
+      "tipo": "gasto",
+      "naturaleza": "inversion",
+      "categoria": "Otros",
+      "importe": 2400,
+      "fecha": "2026-05-25",
+      "estado": "pagado",
+      "computa_contabilidad": false
+    }
+  ]
+}
