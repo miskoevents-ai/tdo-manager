@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileDown } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -116,6 +116,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </div>
         <div className="flex flex-wrap gap-2">
           <OportunidadDialog clientes={clientes} lugares={lugares} oportunidad={op} />
+          <Link
+            href={`/oportunidades/${op.id}/presupuesto`}
+            className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
+          >
+            <FileDown size={15} /> Presupuesto PDF
+          </Link>
           {["confirmada", "realizada"].includes(op.estado) &&
             op.tipo_operacion === "normal" && <EmitirFacturaBtn oportunidadId={op.id} />}
         </div>
