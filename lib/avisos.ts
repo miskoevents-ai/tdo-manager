@@ -55,13 +55,18 @@ export function calcularAvisos(oportunidades: Oportunidad[], hoyISO: string): Av
       });
     }
 
-    // 2) Cobro pendiente de un evento ya pasado (vencido)
+    // 2) Cobro pendiente de un evento ya pasado (vencido).
+    //    A las 3 semanas sin cobrar salta una alarma más prominente.
     if (contratada && pendiente > 0.01 && o.fecha_evento && o.fecha_evento < hoyISO) {
+      const dias = diasEntre(o.fecha_evento, hoyISO);
+      const alarma = dias >= 21;
       avisos.push({
         id: `cobro-${o.id}`,
         href: `/oportunidades/${o.id}`,
-        titulo: `Cobro pendiente · ${o.titulo}`,
-        detalle: `${eur0(pendiente)} · evento del ${o.fecha_evento} ya pasó`,
+        titulo: alarma ? `🚨 Impago +3 semanas · ${o.titulo}` : `Cobro pendiente · ${o.titulo}`,
+        detalle: alarma
+          ? `${eur0(pendiente)} · el evento fue hace ${dias} días y sigue sin cobrar`
+          : `${eur0(pendiente)} · evento del ${o.fecha_evento} ya pasó`,
         severidad: "alta",
         categoria: "cobro",
       });
@@ -111,5 +116,10 @@ export function calcularAvisos(oportunidades: Oportunidad[], hoyISO: string): Av
   }
 
   const orden = { alta: 0, media: 1, baja: 2 } as const;
-  return avisos.sort((a, b) => orden[a.severidad] - orden[b.severidad]);
+  return avisos.sort((a, b) => {
+    const s = orden[a.severidad] - orden[b.severidad];
+    if (s !== 0) return s;
+    // Las alarmas (🚨) primero dentro de la misma severidad.
+    return (b.titulo.startsWith("🚨") ? 1 : 0) - (a.titulo.startsWith("🚨") ? 1 : 0);
+  });
 }
