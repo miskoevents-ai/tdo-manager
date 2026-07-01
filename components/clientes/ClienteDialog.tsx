@@ -7,7 +7,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogClose } from "@/components/
 import { Input, Select, Textarea, Field } from "@/components/ui/input";
 import { guardarCliente } from "@/app/actions";
 import type { Cliente } from "@/lib/types";
-import { CLIENTE_TIPO_LABEL } from "@/lib/estados";
+import { CLIENTE_TIPO_LABEL, CANALES } from "@/lib/estados";
 
 export function ClienteDialog({ cliente }: { cliente?: Cliente }) {
   const [open, setOpen] = React.useState(false);
@@ -79,14 +79,24 @@ export function ClienteDialog({ cliente }: { cliente?: Cliente }) {
               <Input name="telefono" defaultValue={cliente?.telefono ?? ""} />
             </Field>
           </div>
-          <Field label="Origen">
-            <Select name="origen" defaultValue={cliente?.origen ?? "cliente_nuevo"}>
-              <option value="cliente_nuevo">Cliente nuevo</option>
-              <option value="cliente_previo">Cliente previo (Etapa Cristina)</option>
-              <option value="amigo_jero">Amigo</option>
-              <option value="por_confirmar">Por confirmar</option>
-            </Select>
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Origen">
+              <Select name="origen" defaultValue={cliente?.origen ?? "cliente_nuevo"}>
+                <option value="cliente_nuevo">Cliente nuevo</option>
+                <option value="cliente_previo">Cliente previo (Etapa Cristina)</option>
+                <option value="amigo_jero">Amigo</option>
+                <option value="por_confirmar">Por confirmar</option>
+              </Select>
+            </Field>
+            <Field label="Cómo contacta">
+              <Select name="canal" defaultValue={cliente?.canal ?? ""}>
+                <option value="">— Sin especificar —</option>
+                {CANALES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
           <Field label="Notas">
             <Textarea name="notas" defaultValue={cliente?.notas ?? ""} />
           </Field>

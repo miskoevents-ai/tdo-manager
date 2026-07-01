@@ -68,6 +68,7 @@ create table if not exists clientes (
   localidad text,
   origen cliente_origen not null default 'cliente_nuevo',
   estado cliente_estado not null default 'lead',
+  canal text,
   notas text,
   created_at timestamptz not null default now()
 );
@@ -123,6 +124,8 @@ create table if not exists oportunidades (
   tipo_operacion tipo_operacion not null default 'normal',
   estado oportunidad_estado not null default 'nueva',
   presupuesto_enviado boolean not null default false,
+  fecha_entrada date,
+  canal text,
   fecha_presupuesto date,
   fecha_evento date,
   fecha_montaje date,

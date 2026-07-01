@@ -3,8 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { ClienteDialog } from "@/components/clientes/ClienteDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getClientes } from "@/lib/data";
-import { CLIENTE_TIPO_LABEL } from "@/lib/estados";
+import { getClientes, getOportunidades } from "@/lib/data";
+import { CLIENTE_TIPO_LABEL, CANAL_LABEL } from "@/lib/estados";
 import type { Cliente } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -13,12 +13,31 @@ function etapa(c: Cliente): string {
   return c.origen === "cliente_previo" ? "Etapa Cristina" : "Nueva etapa";
 }
 
+// Año · Trimestre del último evento del cliente.
+function actividad(fechas: Record<string, string>, id: string): string {
+  const f = fechas[id];
+  if (!f) return "—";
+  const d = new Date(f);
+  if (isNaN(d.getTime())) return "—";
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  return `${d.getFullYear()} · T${q}`;
+}
+
 export default async function ClientesPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
   let clientes: Cliente[];
+  let ultimaFecha: Record<string, string> = {};
   try {
-    clientes = await getClientes();
+    const [cls, ops] = await Promise.all([getClientes(), getOportunidades()]);
+    clientes = cls;
+    // Última fecha de evento por cliente
+    for (const o of ops) {
+      if (o.cliente_id && o.fecha_evento) {
+        const prev = ultimaFecha[o.cliente_id];
+        if (!prev || o.fecha_evento > prev) ultimaFecha[o.cliente_id] = o.fecha_evento;
+      }
+    }
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -35,7 +54,7 @@ export default async function ClientesPage() {
         <table className="w-full border-collapse bg-white">
           <thead>
             <tr>
-              {["Nombre", "Tipo", "Localidad", "Estado", "Etapa", ""].map((h) => (
+              {["Nombre", "Tipo", "Contacto", "Estado", "Etapa", "Actividad", ""].map((h) => (
                 <th
                   key={h}
                   className="bg-beige-warm px-[15px] py-3 text-left text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-secondary"
@@ -58,7 +77,7 @@ export default async function ClientesPage() {
                   {CLIENTE_TIPO_LABEL[c.tipo] ?? c.tipo}
                 </td>
                 <td className="border-t border-border px-[15px] py-3 text-[13px] text-ink-secondary">
-                  {c.localidad ?? "—"}
+                  {c.canal ? (CANAL_LABEL[c.canal] ?? c.canal) : "—"}
                 </td>
                 <td className="border-t border-border px-[15px] py-3">
                   <Badge tone={c.estado === "cliente" ? "ok" : "neutral"}>
@@ -67,6 +86,9 @@ export default async function ClientesPage() {
                 </td>
                 <td className="border-t border-border px-[15px] py-3">
                   <Badge tone={c.origen === "cliente_previo" ? "clay" : "sage"}>{etapa(c)}</Badge>
+                </td>
+                <td className="border-t border-border px-[15px] py-3 text-[13px] tabular text-ink-secondary">
+                  {actividad(ultimaFecha, c.id)}
                 </td>
                 <td className="border-t border-border px-[15px] py-3 text-right">
                   <ClienteDialog cliente={c} />
@@ -87,15 +109,19 @@ export default async function ClientesPage() {
                 <div className="mt-0.5 text-[12px] text-ink-muted">
                   {CLIENTE_TIPO_LABEL[c.tipo] ?? c.tipo}
                   {c.localidad ? ` · ${c.localidad}` : ""}
+                  {c.canal ? ` · ${CANAL_LABEL[c.canal] ?? c.canal}` : ""}
                 </div>
               </div>
               <ClienteDialog cliente={c} />
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge tone={c.estado === "cliente" ? "ok" : "neutral"}>
                 {c.estado === "cliente" ? "Cliente" : "Lead"}
               </Badge>
               <Badge tone={c.origen === "cliente_previo" ? "clay" : "sage"}>{etapa(c)}</Badge>
+              <span className="ml-auto text-[11px] tabular text-ink-muted">
+                {actividad(ultimaFecha, c.id)}
+              </span>
             </div>
           </Card>
         ))}

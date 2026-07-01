@@ -50,6 +50,7 @@ export async function guardarCliente(formData: FormData) {
     direccion: (formData.get("direccion") as string)?.trim() || null,
     origen: formData.get("origen") as string,
     estado: formData.get("estado") as string,
+    canal: (formData.get("canal") as string) || null,
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.nombre) throw new Error("El nombre es obligatorio.");
@@ -62,6 +63,24 @@ export async function guardarCliente(formData: FormData) {
     if (error) throw new Error(error.message);
   }
   revalidatePath("/clientes");
+}
+
+// Crea un cliente rápido (desde el formulario de oportunidad) y lo devuelve.
+export async function crearClienteRapido(
+  nombre: string,
+  tipo: string,
+): Promise<{ id: string; nombre: string }> {
+  const sb = createAdminClient();
+  const limpio = nombre.trim();
+  if (!limpio) throw new Error("El nombre es obligatorio.");
+  const { data, error } = await sb
+    .from("clientes")
+    .insert({ nombre: limpio, tipo, estado: "lead", origen: "cliente_nuevo" })
+    .select("id, nombre")
+    .single();
+  if (error) throw new Error(error.message);
+  revalidatePath("/clientes");
+  return data as { id: string; nombre: string };
 }
 
 // -------------------------- Oportunidades --------------------------
@@ -82,6 +101,8 @@ export async function guardarOportunidad(formData: FormData) {
     estado: formData.get("estado") as string,
     cliente_id: (formData.get("cliente_id") as string) || null,
     lugar_id: (formData.get("lugar_id") as string) || null,
+    fecha_entrada: (formData.get("fecha_entrada") as string) || null,
+    canal: (formData.get("canal") as string) || null,
     fecha_evento: (formData.get("fecha_evento") as string) || null,
     responsable: (formData.get("responsable") as string)?.trim() || null,
     n_invitados: numToNull(formData.get("n_invitados")),

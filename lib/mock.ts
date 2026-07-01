@@ -64,6 +64,7 @@ function build() {
     localidad: c.localidad ?? null,
     origen: c.origen ?? "cliente_nuevo",
     estado: c.estado === "cliente" ? "cliente" : "lead",
+    canal: null,
     notas: c.notas ?? null,
     created_at: "2026-06-01T00:00:00Z",
   }));
@@ -123,6 +124,8 @@ function build() {
       tipo_operacion: "normal",
       estado: o.estado ?? "nueva",
       presupuesto_enviado: Boolean(o.presupuesto_enviado),
+      fecha_entrada: null,
+      canal: null,
       fecha_evento: o.fecha_evento ?? null,
       fecha_montaje: null,
       fecha_recogida: null,
