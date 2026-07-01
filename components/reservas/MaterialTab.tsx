@@ -12,12 +12,13 @@ import { fecha, normaliza } from "@/lib/format";
 import type { Inventario, Reserva } from "@/lib/types";
 
 const ESTADO_RES: Record<string, { label: string; tone: BadgeTone }> = {
+  presupuestado: { label: "En negociación", tone: "clay" },
   reservado: { label: "Reservado", tone: "warn" },
   entregado: { label: "Entregado", tone: "sage" },
   devuelto: { label: "Devuelto", tone: "ok" },
   incidencia: { label: "Incidencia", tone: "error" },
 };
-const ESTADOS = ["reservado", "entregado", "devuelto", "incidencia"];
+const ESTADOS = ["presupuestado", "reservado", "entregado", "devuelto", "incidencia"];
 
 export function MaterialTab({
   oportunidadId,

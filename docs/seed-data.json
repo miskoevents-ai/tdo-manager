@@ -7,10 +7,10 @@
     {
       "nombre": "Sarmi (Álvaro Sarmiento)",
       "rol": "Socio",
-      "porcentaje": 40,
+      "porcentaje": null,
       "precio_hora": null,
       "activo": true,
-      "notas": "Socio mayoritario. Hoy no se cobran las horas propias."
+      "notas": "Hoy no se cobran las horas propias."
     },
     {
       "nombre": "Jero (Jerónimo Alonso Marcos)",

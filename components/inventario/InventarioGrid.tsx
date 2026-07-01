@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InventarioDialog, ESTADO_INV } from "@/components/inventario/InventarioDialog";
 import { eur, normaliza } from "@/lib/format";
-import { disponible } from "@/lib/disponibilidad";
+import { disponible, enNegociacion } from "@/lib/disponibilidad";
 import type { Inventario, Reserva } from "@/lib/types";
 
 export function InventarioGrid({ items, reservas = [] }: { items: Inventario[]; reservas?: Reserva[] }) {
@@ -21,10 +21,11 @@ export function InventarioGrid({ items, reservas = [] }: { items: Inventario[]; 
   function dispDe(it: Inventario) {
     if (!conFechas) return null;
     const libres = disponible(it.cantidad_total ?? 0, it.id, desde, hasta, reservas);
+    const negociando = enNegociacion(it.id, desde, hasta, reservas);
     const total = it.cantidad_total ?? 0;
-    if (libres >= total) return { label: "Libre", tone: "ok" as const, libres, comprometido: false };
-    if (libres <= 0) return { label: "Comprometido", tone: "error" as const, libres, comprometido: true };
-    return { label: `${libres} libre${libres === 1 ? "" : "s"} de ${total}`, tone: "warn" as const, libres, comprometido: true };
+    if (libres >= total) return { label: "Libre", tone: "ok" as const, libres, comprometido: false, negociando };
+    if (libres <= 0) return { label: "Comprometido", tone: "error" as const, libres, comprometido: true, negociando };
+    return { label: `${libres} libre${libres === 1 ? "" : "s"} de ${total}`, tone: "warn" as const, libres, comprometido: true, negociando };
   }
 
   const categorias = React.useMemo(
@@ -122,8 +123,11 @@ export function InventarioGrid({ items, reservas = [] }: { items: Inventario[]; 
                     Sin foto
                   </div>
                 )}
-                <div className="absolute right-2 top-2">
+                <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
                   {d ? <Badge tone={d.tone}>{d.label}</Badge> : <Badge tone={est.tone}>{est.label}</Badge>}
+                  {d && d.negociando > 0 && (
+                    <Badge tone="clay">🕐 {d.negociando} en negociación</Badge>
+                  )}
                 </div>
               </div>
 

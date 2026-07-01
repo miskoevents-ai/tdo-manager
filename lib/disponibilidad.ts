@@ -38,3 +38,21 @@ export function disponible(
     .reduce((s, r) => s + Number(r.cantidad), 0);
   return total - ocupadas;
 }
+
+// Unidades "en negociación" (presupuestado) que solapan un rango. No bloquean
+// disponibilidad, pero avisan de que otro presupuesto ya lo está pidiendo.
+export function enNegociacion(
+  articuloId: string,
+  salida: string | null,
+  devolucion: string | null,
+  reservas: Reserva[],
+): number {
+  return reservas
+    .filter(
+      (r) =>
+        r.articulo_id === articuloId &&
+        r.estado === "presupuestado" &&
+        solapan(salida, devolucion, r.fecha_salida, r.fecha_devolucion),
+    )
+    .reduce((s, r) => s + Number(r.cantidad), 0);
+}

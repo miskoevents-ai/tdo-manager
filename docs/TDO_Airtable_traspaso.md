@@ -17,10 +17,10 @@
   | **Cris (novia de Jero)** | **30 %** |
 - ⚠️ **No confundir nombres parecidos:**
   - **Cristina** = la **antigua dueña** (etapa anterior); hoy colaboradora externa.
-  - **Cris** = **socia nueva** (novia de Jero, 30 %). Son personas distintas.
-  - **Sarmi** = Álvaro, el socio mayoritario (40 %). En el Excel, "presentación de Sarmi" se refiere a presentarlo a Cristina.
+  - **Cris** = **socia nueva** (novia de Jero). Son personas distintas.
+  - **Sarmi** = Álvaro, socio. En el Excel, "presentación de Sarmi" se refiere a presentarlo a Cristina.
 - Esto crea una división temporal clave que está metida en TODA la base: **"Etapa Cristina"** (lo anterior) vs **"Nueva etapa"** (los tres socios). **Fecha de corte: 25-may-2026.**
-- Facturan con NIF de Jero (51094870W) por ahora; el plan es montar una **SL** más adelante (hay notas que dependen de ello, p.ej. recuperar la fianza del local, y habrá que formalizar el reparto 40/30/30).
+- Facturan con NIF de Jero (51094870W) por ahora; el plan es montar una **SL** más adelante (hay notas que dependen de ello, p.ej. recuperar la fianza del local).
 - **Aportaciones de capital ≠ % de propiedad (a revisar con la SL):** en la inversión inicial registrada constan Cris (10.000 € efectivo + 1.200 € agencia) y Jero (5.000 € banco + 2.400 € fianza), pero la propiedad es Sarmi 40 / Jero 30 / Cris 30. La aportación de Sarmi por su 40 % no aparece aún en el libro de Tesorería. Conviene cuadrar quién aporta qué cuando se constituya la sociedad.
 
 ---
