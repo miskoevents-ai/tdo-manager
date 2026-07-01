@@ -136,6 +136,33 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
     .sort((a, b) => b.facturacion - a.facturacion)
     .slice(0, 10);
 
+  // Historial por meses (facturación) — clicable al mes en oportunidades.
+  const porMes = React.useMemo(() => {
+    const m = new Map<string, { valor: number; n: number }>();
+    for (const r of contratadas) {
+      const k = r.ym ?? "—";
+      const cur = m.get(k) ?? { valor: 0, n: 0 };
+      cur.valor += r.total;
+      cur.n += 1;
+      m.set(k, cur);
+    }
+    return Array.from(m.entries()).map(([k, v]) => ({ k, ...v })).sort((a, b) => (a.k < b.k ? -1 : 1));
+  }, [contratadas]);
+  const maxMes = Math.max(1, ...porMes.map((p) => p.valor));
+
+  // Reparto por tipo de servicio (boda / alquiler / corporativo…) en %.
+  const porServicio = React.useMemo(() => {
+    const m = new Map<string, { valor: number; n: number }>();
+    for (const r of contratadas) {
+      const cur = m.get(r.tipoEvento) ?? { valor: 0, n: 0 };
+      cur.valor += r.total;
+      cur.n += 1;
+      m.set(r.tipoEvento, cur);
+    }
+    return Array.from(m.entries()).map(([k, v]) => ({ k, ...v })).sort((a, b) => b.valor - a.valor);
+  }, [contratadas]);
+  const totalServicio = porServicio.reduce((s, p) => s + p.valor, 0);
+
   function exportCSV() {
     const head = ["titulo", "estado", "tipo_evento", "serie", "canal", "cliente", "lugar", "fecha", "total", "cobrado", "pendiente", "margen", "fianza"];
     const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -256,6 +283,68 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
         <Kpi label="Nº oportunidades" value={String(filtradas.length)} sub={`${contratadas.length} contratadas`} tone="text-ink" />
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Historial por meses (clicable) */}
+        <Card>
+          <SecTitle>Historial por meses</SecTitle>
+          <p className="mt-1 text-[11px] text-ink-muted">Facturación contratada. Pincha un mes para ver sus oportunidades.</p>
+          {porMes.length === 0 ? (
+            <Vacio />
+          ) : (
+            <div className="mt-3 space-y-2">
+              {porMes.map((p) => {
+                const href = drillHref("ym", p.k);
+                const fila = (
+                  <div className="flex items-center gap-3">
+                    <span className="w-14 shrink-0 text-[11.5px] text-ink-muted">{p.k === "—" ? "Sin fecha" : mesLabel(p.k)}</span>
+                    <div className="h-5 flex-1 overflow-hidden rounded-sm bg-beige-warm">
+                      <div className="h-full rounded-sm bg-sage" style={{ width: `${(p.valor / maxMes) * 100}%` }} />
+                    </div>
+                    <span className="w-24 shrink-0 text-right text-[12px] tabular font-semibold">{eur(p.valor)}</span>
+                  </div>
+                );
+                return href ? (
+                  <Link key={p.k} href={href} className="block rounded-sm hover:bg-beige-warm/60">{fila}</Link>
+                ) : (
+                  <div key={p.k}>{fila}</div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* Reparto por tipo de servicio (%) (clicable) */}
+        <Card>
+          <SecTitle>Reparto por tipo de servicio</SecTitle>
+          <p className="mt-1 text-[11px] text-ink-muted">% de facturación. Pincha un tipo para ver sus oportunidades.</p>
+          {porServicio.length === 0 ? (
+            <Vacio />
+          ) : (
+            <div className="mt-3 space-y-2">
+              {porServicio.map((p) => {
+                const pctv = totalServicio > 0 ? (p.valor / totalServicio) * 100 : 0;
+                const href = drillHref("tipoEvento", p.k);
+                const fila = (
+                  <div className="flex items-center gap-3">
+                    <span className="w-24 shrink-0 truncate text-[12px] text-ink-secondary">{TIPO_EVENTO_LABEL[p.k] ?? p.k}</span>
+                    <div className="h-5 flex-1 overflow-hidden rounded-sm bg-beige-warm">
+                      <div className="h-full rounded-sm bg-clay" style={{ width: `${pctv}%` }} />
+                    </div>
+                    <span className="w-10 shrink-0 text-right text-[12px] tabular font-semibold">{Math.round(pctv)}%</span>
+                    <span className="w-20 shrink-0 text-right text-[11px] tabular text-ink-muted">{eur(p.valor)}</span>
+                  </div>
+                );
+                return href ? (
+                  <Link key={p.k} href={href} className="block rounded-sm hover:bg-beige-warm/60">{fila}</Link>
+                ) : (
+                  <div key={p.k}>{fila}</div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      </div>
+
       {/* Pivot dinámico */}
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -275,17 +364,25 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
           <Vacio />
         ) : (
           <div className="mt-4 space-y-2">
-            {pivot.map((p) => (
-              <div key={p.k} className="flex items-center gap-3">
-                <span className="w-32 shrink-0 truncate text-[12px] text-ink-secondary" title={p.k}>{dim.fmt ? dim.fmt(p.k) : p.k}</span>
-                <div className="h-5 flex-1 overflow-hidden rounded-sm bg-beige-warm">
-                  <div className="h-full rounded-sm bg-sage" style={{ width: `${(p.valor / maxPivot) * 100}%` }} />
+            {pivot.map((p) => {
+              const href = drillHref(dim.k, p.k);
+              const fila = (
+                <div className="flex items-center gap-3">
+                  <span className="w-32 shrink-0 truncate text-[12px] text-ink-secondary" title={p.k}>{dim.fmt ? dim.fmt(p.k) : p.k}</span>
+                  <div className="h-5 flex-1 overflow-hidden rounded-sm bg-beige-warm">
+                    <div className="h-full rounded-sm bg-sage" style={{ width: `${(p.valor / maxPivot) * 100}%` }} />
+                  </div>
+                  <span className="w-12 shrink-0 text-right text-[11px] text-ink-muted">{p.n}</span>
+                  <span className="w-24 shrink-0 text-right text-[12px] tabular font-semibold">{fmtMet(p.valor)}</span>
+                  <span className="w-12 shrink-0 text-right text-[11px] text-ink-muted">{totalPivot > 0 ? `${Math.round((p.valor / totalPivot) * 100)}%` : ""}</span>
                 </div>
-                <span className="w-12 shrink-0 text-right text-[11px] text-ink-muted">{p.n}</span>
-                <span className="w-24 shrink-0 text-right text-[12px] tabular font-semibold">{fmtMet(p.valor)}</span>
-                <span className="w-12 shrink-0 text-right text-[11px] text-ink-muted">{totalPivot > 0 ? `${Math.round((p.valor / totalPivot) * 100)}%` : ""}</span>
-              </div>
-            ))}
+              );
+              return href ? (
+                <Link key={p.k} href={href} className="block rounded-sm hover:bg-beige-warm/60">{fila}</Link>
+              ) : (
+                <div key={p.k}>{fila}</div>
+              );
+            })}
             <div className="flex items-center gap-3 border-t border-border pt-2">
               <span className="w-32 shrink-0 text-[12px] font-semibold">Total</span>
               <span className="flex-1" />
@@ -322,6 +419,15 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
 }
 
 // ---------- helpers ----------
+// Enlace de drill-down a la lista de oportunidades filtrada, según la dimensión.
+function drillHref(dimK: keyof OpRow, value: string): string | null {
+  if (!value || value === "—") return null;
+  if (dimK === "tipoEvento") return `/oportunidades?tipoEvento=${encodeURIComponent(value)}`;
+  if (dimK === "serie") return `/oportunidades?serie=${encodeURIComponent(value)}`;
+  if (dimK === "tipoOperacion") return `/oportunidades?operacion=${encodeURIComponent(value)}`;
+  if (dimK === "ym") return `/oportunidades?mes=${encodeURIComponent(value)}`;
+  return null;
+}
 function uniq(arr: (string | null)[]): string[] {
   return Array.from(new Set(arr.filter(Boolean))) as string[];
 }
