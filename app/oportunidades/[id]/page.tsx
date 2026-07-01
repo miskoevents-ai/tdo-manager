@@ -192,6 +192,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               ivaPct={op.iva_pct}
               retPct={op.retencion_pct}
               esEmpresa={esEmpresa}
+              catalogo={inventario.map((i) => ({
+                id: i.id,
+                articulo: i.articulo,
+                precio_alquiler: i.precio_alquiler,
+                fianza_sugerida: i.fianza_sugerida,
+              }))}
             />
           </Card>
         </TabsContent>

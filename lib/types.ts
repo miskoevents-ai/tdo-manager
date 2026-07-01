@@ -102,6 +102,7 @@ export type PresupuestoLinea = {
   cantidad: number;
   precio_unitario: number;
   orden: number;
+  articulo_id?: string | null;
 };
 
 export type FacturaEstado = "emitida" | "cobrada" | "vencida" | "anulada";

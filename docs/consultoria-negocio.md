@@ -56,3 +56,10 @@ Más allá de la home operativa: **tasa de conversión** del pipeline (nueva→c
 3. **D (mensajes de seguimiento)** — ataca el problema real de cobrar, apoyándose en el asistente y los avisos ya construidos.
 
 El resto (ROI de inventario, cuadro de mando, daños, login multi-socio, portal, galería) encaja bien después, en este orden según lo que más aprieta cada mes.
+
+---
+
+## Acuerdos y pendientes (memoria)
+
+- **jul-2026 · Fotos en presupuestos:** se añaden **cuando el catálogo esté listo** (presupuestar desde catálogo). Primero las fotos vendrán de los artículos del inventario (ya tienen `foto_url`); las **fotos propias** (subir imagen) se harán con **Supabase Storage** más adelante (requiere crear un bucket).
+- **jul-2026 · Diseño del presupuesto:** plantilla actual funcional; un **diseño más elaborado (Claude design)** queda para más adelante.
