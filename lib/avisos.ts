@@ -1,5 +1,6 @@
 import { calcularTotales } from "@/lib/calc";
-import type { Oportunidad } from "@/lib/types";
+import { solapan, disponible } from "@/lib/disponibilidad";
+import type { Oportunidad, Reserva } from "@/lib/types";
 
 export type Aviso = {
   id: string;
@@ -7,7 +8,7 @@ export type Aviso = {
   titulo: string;
   detalle: string;
   severidad: "alta" | "media" | "baja";
-  categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead";
+  categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead" | "material";
 };
 
 function totalOp(o: Oportunidad): number {
@@ -35,7 +36,11 @@ const eur0 = (n: number) => `${Math.round(n).toLocaleString("es-ES")} €`;
  * Calcula avisos accionables a partir de las oportunidades.
  * `hoyISO` (YYYY-MM-DD) se pasa desde el servidor/página.
  */
-export function calcularAvisos(oportunidades: Oportunidad[], hoyISO: string): Aviso[] {
+export function calcularAvisos(
+  oportunidades: Oportunidad[],
+  hoyISO: string,
+  reservas: Reserva[] = [],
+): Aviso[] {
   const avisos: Aviso[] = [];
   const en7 = (f: string) => f >= hoyISO && diasEntre(hoyISO, f) <= 7;
 
@@ -51,6 +56,27 @@ export function calcularAvisos(oportunidades: Oportunidad[], hoyISO: string): Av
         titulo: `Devolver fianza · ${o.titulo}`,
         detalle: `${eur0(o.fianza ?? 0)} · vencía ${o.fecha_devolucion_fianza}`,
         severidad: "alta",
+        categoria: "fianza",
+      });
+    }
+
+    // 1b) Fianza retenida: evento pasado hace +14 días, sin fecha de devolución
+    //     fijada y sin devolver → llevas demasiado tiempo el dinero del cliente.
+    if (
+      (o.fianza ?? 0) > 0 &&
+      !o.fianza_devuelta &&
+      !o.fecha_devolucion_fianza &&
+      o.fecha_evento &&
+      o.fecha_evento < hoyISO &&
+      diasEntre(o.fecha_evento, hoyISO) >= 14
+    ) {
+      const dias = diasEntre(o.fecha_evento, hoyISO);
+      avisos.push({
+        id: `fianza-ret-${o.id}`,
+        href: `/oportunidades/${o.id}`,
+        titulo: `Fianza retenida ${dias} días · ${o.titulo}`,
+        detalle: `${eur0(o.fianza ?? 0)} del cliente sin devolver desde el evento`,
+        severidad: dias >= 30 ? "alta" : "media",
         categoria: "fianza",
       });
     }
@@ -97,9 +123,22 @@ export function calcularAvisos(oportunidades: Oportunidad[], hoyISO: string): Av
       });
     }
 
-    // 5) Lead frío: entró hace +7 días y sigue en fase inicial sin avanzar.
+    // 5) Lead sin responder: entró hace +48h y sigue en "nueva" sin contestar.
+    if (o.estado === "nueva" && o.fecha_entrada && diasEntre(o.fecha_entrada, hoyISO) >= 2) {
+      const dias = diasEntre(o.fecha_entrada, hoyISO);
+      avisos.push({
+        id: `lead-resp-${o.id}`,
+        href: `/oportunidades/${o.id}`,
+        titulo: `Lead sin responder · ${o.titulo}`,
+        detalle: `Entró hace ${dias} días y aún no se ha contestado · responde cuanto antes`,
+        severidad: dias >= 4 ? "alta" : "media",
+        categoria: "lead",
+      });
+    }
+
+    // 6) Lead estancado: contestado / en conversación pero sin avanzar +7 días.
     if (
-      ["nueva", "contestada", "en_conversacion"].includes(o.estado) &&
+      ["contestada", "en_conversacion"].includes(o.estado) &&
       o.fecha_entrada &&
       diasEntre(o.fecha_entrada, hoyISO) >= 7
     ) {
@@ -108,9 +147,40 @@ export function calcularAvisos(oportunidades: Oportunidad[], hoyISO: string): Av
         id: `lead-${o.id}`,
         href: `/oportunidades/${o.id}`,
         titulo: `Lead sin avanzar · ${o.titulo}`,
-        detalle: `Entró hace ${dias} días · sigue en fase inicial · hazle seguimiento`,
+        detalle: `En conversación desde hace ${dias} días sin cerrar · hazle seguimiento`,
         severidad: dias >= 21 ? "alta" : "media",
         categoria: "lead",
+      });
+    }
+  }
+
+  // 7) Dobles reservas de material: solapes que superan el stock disponible.
+  const OCUPAN = ["reservado", "entregado"];
+  const vistosArticulo = new Set<string>();
+  for (const r of reservas) {
+    if (!r.articulo_id || !OCUPAN.includes(r.estado) || vistosArticulo.has(r.articulo_id)) continue;
+    const total = r.articulo?.cantidad_total ?? 0;
+    const disp = disponible(total, r.articulo_id, r.fecha_salida, r.fecha_devolucion, reservas);
+    if (disp < 0) {
+      vistosArticulo.add(r.articulo_id);
+      const nombre = r.articulo?.articulo ?? "Artículo";
+      const eventos = reservas
+        .filter(
+          (x) =>
+            x.articulo_id === r.articulo_id &&
+            OCUPAN.includes(x.estado) &&
+            solapan(r.fecha_salida, r.fecha_devolucion, x.fecha_salida, x.fecha_devolucion),
+        )
+        .map((x) => x.oportunidad?.titulo ?? x.oportunidad?.numero ?? "—")
+        .slice(0, 3)
+        .join(" / ");
+      avisos.push({
+        id: `solape-${r.articulo_id}`,
+        href: `/inventario`,
+        titulo: `🚨 Doble reserva · ${nombre}`,
+        detalle: `Faltan ${Math.abs(disp)} ud. · se solapan: ${eventos}`,
+        severidad: "alta",
+        categoria: "material",
       });
     }
   }

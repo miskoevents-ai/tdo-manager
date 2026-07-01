@@ -1,4 +1,4 @@
-import { getOportunidades, getTesoreria } from "@/lib/data";
+import { getOportunidades, getTesoreria, getReservas } from "@/lib/data";
 import { calcularAvisos } from "@/lib/avisos";
 import { calcularTotales } from "@/lib/calc";
 import { restaDias } from "@/lib/cron";
@@ -29,13 +29,14 @@ export async function construirDigest(
   hoyISO: string,
   tipo: TipoDigest = "semanal",
 ): Promise<{ asunto: string; html: string; texto: string; resumen: Record<string, number> }> {
-  const [ops, tesoreria] = await Promise.all([getOportunidades(), getTesoreria()]);
-  const avisos = calcularAvisos(ops, hoyISO);
+  const [ops, tesoreria, reservas] = await Promise.all([getOportunidades(), getTesoreria(), getReservas()]);
+  const avisos = calcularAvisos(ops, hoyISO, reservas);
   const cobros = avisos.filter((a) => a.categoria === "cobro");
   const fianzas = avisos.filter((a) => a.categoria === "fianza");
   const presupuestos = avisos.filter((a) => a.categoria === "presupuesto");
   const eventos = avisos.filter((a) => a.categoria === "evento");
   const leadsFrios = avisos.filter((a) => a.categoria === "lead");
+  const solapes = avisos.filter((a) => a.categoria === "material");
 
   const ym = hoyISO.slice(0, 7);
   const prevYm = restaMes(ym);
@@ -137,10 +138,11 @@ export async function construirDigest(
     </div>
     <div style="border:1px solid #eee;border-top:none;border-radius:0 0 10px 10px;padding:22px 24px">
       ${bloqueResumen}
+      ${seccion("🚨 Dobles reservas de material", "#B23B3B", solapes)}
       ${seccion("🔴 Cobros pendientes", "#B23B3B", cobros)}
       ${seccion("🟠 Fianzas por devolver", "#BE6E4C", fianzas)}
       ${seccion("🟡 Presupuestos sin respuesta", "#C99A2E", presupuestos)}
-      ${seccion("❄️ Leads fríos", "#5B7A9A", leadsFrios)}
+      ${seccion("❄️ Leads · seguimiento", "#5B7A9A", leadsFrios)}
       ${seccion("📅 Próximos eventos", "#3F4A36", eventos)}
       ${seccion(`🤝 Amigos / préstamos · ${eur(totalAmigos)}`, "#8A957C", amigos)}
       <div style="margin-top:22px;text-align:center">
@@ -154,7 +156,7 @@ export async function construirDigest(
     ? `Resumen del mes · ${mesLabel}\nFacturación: ${eur(facturacionMes)} (${eventosMes.length} ev.) · Cobrado: ${eur(ingMes)} · Gastos: ${eur(gasMes)} · Resultado: ${eur(resultadoMes)}${tendencia != null ? ` · vs mes anterior ${tendencia >= 0 ? "+" : ""}${tendencia}%` : ""}`
     : `Resumen semanal TDO · ${mesLabel}\nEsta semana — Cobrado: ${eur(cobradoSemana)} · Confirmado: ${eur(valorConfirmadasSemana)} (${confirmadasSemana.length}) · Eventos: ${eventosSemana} · Leads: ${leadsSemana}\nAcumulado del mes — Facturación: ${eur(facturacionMes)} · Cobrado: ${eur(ingMes)} · Resultado: ${eur(resultadoMes)}`;
   const texto = `${encabezado}
-${esMensual ? bloque("Top clientes del mes", topClientesMes) + bloque("Por tipo de servicio", repartoTipoMes) : ""}${bloque("Cobros pendientes", cobros)}${bloque("Fianzas por devolver", fianzas)}${bloque("Presupuestos sin respuesta", presupuestos)}${bloque("Leads fríos", leadsFrios)}${bloque("Próximos eventos", eventos)}${bloque(`Amigos / préstamos (${eur(totalAmigos)})`, amigos)}
+${esMensual ? bloque("Top clientes del mes", topClientesMes) + bloque("Por tipo de servicio", repartoTipoMes) : ""}${bloque("Dobles reservas de material", solapes)}${bloque("Cobros pendientes", cobros)}${bloque("Fianzas por devolver", fianzas)}${bloque("Presupuestos sin respuesta", presupuestos)}${bloque("Leads seguimiento", leadsFrios)}${bloque("Próximos eventos", eventos)}${bloque(`Amigos / préstamos (${eur(totalAmigos)})`, amigos)}
 ${APP_URL}`;
 
   return {
