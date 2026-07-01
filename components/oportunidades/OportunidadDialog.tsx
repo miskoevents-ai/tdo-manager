@@ -54,6 +54,11 @@ export function OportunidadDialog({
     }
   }
 
+  // Lugar: desplegable de lugares anteriores o escribir uno nuevo.
+  const [lugarNombre, setLugarNombre] = React.useState(oportunidad?.lugar?.nombre ?? "");
+  const lugarEnLista = lugares.some((l) => l.nombre === lugarNombre);
+  const [lugarNuevo, setLugarNuevo] = React.useState(Boolean(lugarNombre) && !lugarEnLista);
+
   // Opciones de responsable (equipo) incluyendo el valor actual si es libre.
   const responsablesOpts = React.useMemo(() => {
     const set = new Set(responsables);
@@ -255,20 +260,44 @@ export function OportunidadDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Lugar (elige o escribe uno nuevo)">
-              <Input
-                list="lugares-list"
-                name="lugar_nombre"
-                defaultValue={oportunidad?.lugar?.nombre ?? ""}
-                placeholder="Hotel Urban, Finca…"
-                autoComplete="off"
-              />
-              <datalist id="lugares-list">
-                {lugares.map((l) => (
-                  <option key={l.id} value={l.nombre} />
-                ))}
-              </datalist>
-            </Field>
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                  Lugar
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLugarNuevo((v) => {
+                      // Al alternar, limpiamos el valor para no arrastrar el otro modo.
+                      setLugarNombre("");
+                      return !v;
+                    })
+                  }
+                  className="text-[11px] font-semibold text-clay hover:text-clay-600"
+                >
+                  {lugarNuevo ? "Elegir de la lista" : "+ Nuevo"}
+                </button>
+              </div>
+              {lugarNuevo ? (
+                <Input
+                  autoFocus
+                  value={lugarNombre}
+                  onChange={(e) => setLugarNombre(e.target.value)}
+                  placeholder="Hotel Urban, Finca…"
+                  autoComplete="off"
+                />
+              ) : (
+                <Select value={lugarNombre} onChange={(e) => setLugarNombre(e.target.value)}>
+                  <option value="">— Sin lugar —</option>
+                  {lugares.map((l) => (
+                    <option key={l.id} value={l.nombre}>{l.nombre}</option>
+                  ))}
+                </Select>
+              )}
+              {/* El valor viaja siempre en el submit; la acción resuelve o crea el lugar. */}
+              <input type="hidden" name="lugar_nombre" value={lugarNombre} />
+            </div>
             <Field label="Fecha del evento">
               <Input type="date" name="fecha_evento" value={evento} onChange={(e) => onEvento(e.target.value)} />
             </Field>
