@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
@@ -68,7 +70,9 @@ export default async function ClientesPage() {
             {clientes.map((c) => (
               <tr key={c.id} className="hover:bg-beige-light">
                 <td className="border-t border-border px-[15px] py-3 text-[13px] font-medium">
-                  {c.nombre}
+                  <Link href={`/clientes/${c.id}`} className="hover:text-clay">
+                    {c.nombre}
+                  </Link>
                   {c.nif_cif && (
                     <span className="ml-2 text-[11px] text-ink-muted">{c.nif_cif}</span>
                   )}
@@ -104,14 +108,16 @@ export default async function ClientesPage() {
         {clientes.map((c) => (
           <Card key={c.id} className="p-4">
             <div className="flex items-start justify-between">
-              <div>
-                <div className="text-[14px] font-semibold">{c.nombre}</div>
+              <Link href={`/clientes/${c.id}`} className="min-w-0 flex-1">
+                <div className="flex items-center gap-1 text-[14px] font-semibold">
+                  {c.nombre} <ChevronRight size={14} className="text-ink-muted" />
+                </div>
                 <div className="mt-0.5 text-[12px] text-ink-muted">
                   {CLIENTE_TIPO_LABEL[c.tipo] ?? c.tipo}
                   {c.localidad ? ` · ${c.localidad}` : ""}
                   {c.canal ? ` · ${CANAL_LABEL[c.canal] ?? c.canal}` : ""}
                 </div>
-              </div>
+              </Link>
               <ClienteDialog cliente={c} />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
