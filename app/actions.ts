@@ -230,6 +230,47 @@ export async function borrarMovimiento(id: string) {
   revalidatePath("/");
 }
 
+// --------------------------- Inventario ---------------------------
+
+export async function guardarInventario(formData: FormData) {
+  const sb = createAdminClient();
+  const id = (formData.get("id") as string) || null;
+  const numOrNull = (v: FormDataEntryValue | null) => {
+    const s = (v as string)?.trim();
+    return s ? Number(s) : null;
+  };
+  const payload = {
+    articulo: (formData.get("articulo") as string)?.trim(),
+    categoria: (formData.get("categoria") as string)?.trim() || null,
+    cantidad_total: numOrNull(formData.get("cantidad_total")),
+    coste_unitario: numOrNull(formData.get("coste_unitario")),
+    precio_alquiler: numOrNull(formData.get("precio_alquiler")),
+    fianza_sugerida: numOrNull(formData.get("fianza_sugerida")),
+    fianza_especial: formData.get("fianza_especial") === "on",
+    ubicacion: (formData.get("ubicacion") as string)?.trim() || null,
+    estado: (formData.get("estado") as string) || "disponible",
+    foto_url: (formData.get("foto_url") as string)?.trim() || null,
+    notas: (formData.get("notas") as string)?.trim() || null,
+  };
+  if (!payload.articulo) throw new Error("El nombre del artículo es obligatorio.");
+
+  if (id) {
+    const { error } = await sb.from("inventario").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await sb.from("inventario").insert(payload);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath("/inventario");
+}
+
+export async function borrarInventario(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("inventario").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/inventario");
+}
+
 // --------------------------- Comisiones ---------------------------
 
 export async function guardarComisionConfig(formData: FormData) {

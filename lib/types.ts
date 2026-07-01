@@ -136,8 +136,13 @@ export type Inventario = {
   articulo: string;
   categoria: string | null;
   cantidad_total: number | null;
+  coste_unitario: number | null;
   precio_alquiler: number | null;
   fianza_sugerida: number | null;
+  fianza_especial: boolean;
+  ubicacion: string | null;
+  estado: string;
+  foto_url: string | null;
   notas: string | null;
 };
 
