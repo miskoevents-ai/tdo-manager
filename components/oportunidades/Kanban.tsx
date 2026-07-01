@@ -21,6 +21,7 @@ export type KanbanCard = {
   // usados por los filtros del tablero
   serie?: string;
   tipo_operacion?: string;
+  canal?: string | null;
   fianzaPendiente?: boolean;
 };
 
