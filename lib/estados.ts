@@ -48,6 +48,58 @@ export const TIPO_EVENTO_LABEL: Record<string, string> = {
   otro: "Otro",
 };
 
+// --- Tesorería ---
+export const NATURALEZA_LABEL: Record<string, string> = {
+  ingreso_factura: "Ingreso de factura",
+  gasto_fijo: "Gasto fijo",
+  gasto_de_evento: "Gasto de evento",
+  inversion: "Inversión",
+  comision: "Comisión",
+  personal: "Personal",
+  amigos: "Amigos",
+  otro: "Otro",
+};
+
+// Naturalezas disponibles hoy en el formulario (según el enum actual).
+export const NATURALEZAS_MOV = [
+  "ingreso_factura",
+  "gasto_fijo",
+  "gasto_de_evento",
+  "inversion",
+  "amigos",
+  "otro",
+] as const;
+
+export const METODOS = [
+  "transferencia",
+  "efectivo",
+  "bizum",
+  "tarjeta",
+  "domiciliacion",
+  "otro",
+] as const;
+
+export const ESTADOS_MOV = ["previsto", "cobrado", "pagado", "vencido"] as const;
+
+export const ESTADO_MOV_META: Record<string, { label: string; tone: BadgeTone }> = {
+  previsto: { label: "Previsto", tone: "warn" },
+  cobrado: { label: "Cobrado", tone: "ok" },
+  pagado: { label: "Pagado", tone: "sage" },
+  vencido: { label: "Vencido", tone: "error" },
+};
+
+// Regla §5.4: solo ingresos de factura propia + gastos fijos computan.
+export function computaPorNaturaleza(naturaleza: string): boolean {
+  return naturaleza === "ingreso_factura" || naturaleza === "gasto_fijo";
+}
+
+// Etapas: corte 25-may-2026.
+export const CORTE_ETAPA = "2026-05-25";
+export function etapaDeFecha(fechaISO: string | null | undefined): "cristina" | "nueva" {
+  if (!fechaISO) return "nueva";
+  return fechaISO < CORTE_ETAPA ? "cristina" : "nueva";
+}
+
 export const CANALES: { value: string; label: string }[] = [
   { value: "instagram", label: "Instagram" },
   { value: "whatsapp", label: "WhatsApp" },

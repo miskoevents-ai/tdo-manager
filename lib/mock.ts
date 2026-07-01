@@ -186,8 +186,12 @@ function build() {
       estado: t.estado ?? "previsto",
       metodo: t.metodo ?? null,
       oportunidad_id: op?.id ?? null,
+      cliente_id: op?.cliente_id ?? null,
+      proveedor_id: null,
       computa_contabilidad: t.computa_contabilidad ?? true,
       created_at: "2026-06-01T00:00:00Z",
+      oportunidad: op ? { numero: op.numero, titulo: op.titulo } : null,
+      cliente: op?.cliente ? { nombre: op.cliente.nombre } : null,
     } as Tesoreria;
   });
 
@@ -203,6 +207,7 @@ export const mock = {
   lugares: () => build().lugares,
   oportunidades: () => build().oportunidades,
   facturas: () => build().facturas,
+  tesoreria: () => build().tesoreria,
   tesoreriaDe: (id: string) => build().tesoreria.filter((t) => t.oportunidad_id === id),
   oportunidad: (id: string) => build().oportunidades.find((o) => o.id === id) ?? null,
   cliente: (id: string) => build().clientes.find((c) => c.id === id) ?? null,

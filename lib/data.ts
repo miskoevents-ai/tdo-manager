@@ -105,6 +105,17 @@ export async function getTesoreriaDeOportunidad(oportunidadId: string): Promise<
   return (data ?? []) as Tesoreria[];
 }
 
+export async function getTesoreria(): Promise<Tesoreria[]> {
+  if (mock.enabled) return mock.tesoreria();
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("tesoreria")
+    .select("*, oportunidad:oportunidades(numero, titulo), cliente:clientes(nombre)")
+    .order("fecha", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Tesoreria[];
+}
+
 export async function getFacturas(): Promise<Factura[]> {
   if (mock.enabled) return mock.facturas();
   const sb = createAdminClient();

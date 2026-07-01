@@ -161,8 +161,14 @@ export type Tesoreria = {
   estado: string;
   metodo: string | null;
   oportunidad_id: string | null;
+  cliente_id?: string | null;
+  proveedor_id?: string | null;
+  notas?: string | null;
   computa_contabilidad: boolean;
   created_at: string;
+  // joins opcionales
+  oportunidad?: { numero: string; titulo: string } | null;
+  cliente?: { nombre: string } | null;
 };
 
 export type GastoFijo = {

@@ -186,6 +186,49 @@ export async function guardarLineas(
   revalidatePath("/");
 }
 
+// --------------------------- Tesorería ---------------------------
+
+export async function guardarMovimiento(formData: FormData) {
+  const sb = createAdminClient();
+  const id = (formData.get("id") as string) || null;
+  const importe = Math.abs(Number(formData.get("importe") || 0));
+  if (!importe || importe <= 0) throw new Error("El importe debe ser positivo y mayor que 0.");
+
+  const payload = {
+    concepto: (formData.get("concepto") as string)?.trim(),
+    tipo: formData.get("tipo") as string, // ingreso | gasto (da el signo)
+    naturaleza: formData.get("naturaleza") as string,
+    categoria: (formData.get("categoria") as string)?.trim() || null,
+    importe, // SIEMPRE positivo
+    fecha: (formData.get("fecha") as string) || new Date().toISOString().slice(0, 10),
+    estado: formData.get("estado") as string,
+    metodo: (formData.get("metodo") as string) || null,
+    oportunidad_id: (formData.get("oportunidad_id") as string) || null,
+    cliente_id: (formData.get("cliente_id") as string) || null,
+    computa_contabilidad: formData.get("computa_contabilidad") === "on",
+    notas: (formData.get("notas") as string)?.trim() || null,
+  };
+  if (!payload.concepto) throw new Error("El concepto es obligatorio.");
+
+  if (id) {
+    const { error } = await sb.from("tesoreria").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await sb.from("tesoreria").insert(payload);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath("/tesoreria");
+  revalidatePath("/");
+}
+
+export async function borrarMovimiento(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("tesoreria").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/tesoreria");
+  revalidatePath("/");
+}
+
 // --------------------------- Facturas ---------------------------
 
 // Emite una factura a partir de una oportunidad (congela los importes).
