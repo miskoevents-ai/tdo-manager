@@ -7,7 +7,7 @@ export type Aviso = {
   titulo: string;
   detalle: string;
   severidad: "alta" | "media" | "baja";
-  categoria: "cobro" | "fianza" | "evento" | "presupuesto";
+  categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead";
 };
 
 function totalOp(o: Oportunidad): number {
@@ -89,6 +89,23 @@ export function calcularAvisos(oportunidades: Oportunidad[], hoyISO: string): Av
         detalle: `Enviado hace ${diasEntre(o.fecha_entrada, hoyISO)} días · haz seguimiento`,
         severidad: "media",
         categoria: "presupuesto",
+      });
+    }
+
+    // 5) Lead frío: entró hace +7 días y sigue en fase inicial sin avanzar.
+    if (
+      ["nueva", "contestada", "en_conversacion"].includes(o.estado) &&
+      o.fecha_entrada &&
+      diasEntre(o.fecha_entrada, hoyISO) >= 7
+    ) {
+      const dias = diasEntre(o.fecha_entrada, hoyISO);
+      avisos.push({
+        id: `lead-${o.id}`,
+        href: `/oportunidades/${o.id}`,
+        titulo: `Lead sin avanzar · ${o.titulo}`,
+        detalle: `Entró hace ${dias} días · sigue en fase inicial · hazle seguimiento`,
+        severidad: dias >= 21 ? "alta" : "media",
+        categoria: "lead",
       });
     }
   }
