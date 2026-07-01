@@ -12,7 +12,7 @@ import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getClientes, getLugares, getTesoreriaDeOportunidad } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
-import { ESTADO_META, TIPO_EVENTO_LABEL } from "@/lib/estados";
+import { ESTADO_META, TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +114,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               <Dato label="Cliente" value={op.cliente?.nombre} />
               <Dato label="Lugar" value={op.lugar?.nombre} />
               <Dato label="Fecha evento" value={fecha(op.fecha_evento)} />
+              <Dato label="Fecha de entrada" value={fecha(op.fecha_entrada)} />
+              <Dato label="Canal" value={op.canal ? (CANAL_LABEL[op.canal] ?? op.canal) : null} />
               <Dato label="Invitados" value={op.n_invitados} />
               <Dato label="Responsable" value={op.responsable} />
               <Dato label="Serie" value={op.serie === "evento" ? "Evento" : "Alquiler / encargo"} />

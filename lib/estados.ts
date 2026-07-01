@@ -48,6 +48,20 @@ export const TIPO_EVENTO_LABEL: Record<string, string> = {
   otro: "Otro",
 };
 
+export const CANALES: { value: string; label: string }[] = [
+  { value: "instagram", label: "Instagram" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "email", label: "Email" },
+  { value: "web_bodasnet", label: "Web / Bodas.net" },
+  { value: "recomendacion", label: "Recomendación" },
+  { value: "telefono", label: "Teléfono" },
+  { value: "otro", label: "Otro" },
+];
+
+export const CANAL_LABEL: Record<string, string> = Object.fromEntries(
+  CANALES.map((c) => [c.value, c.label]),
+);
+
 export const CLIENTE_TIPO_LABEL: Record<string, string> = {
   particular: "Particular",
   empresa: "Empresa",

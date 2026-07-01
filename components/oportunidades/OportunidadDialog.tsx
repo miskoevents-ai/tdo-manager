@@ -6,9 +6,9 @@ import { Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Input, Select, Textarea, Field } from "@/components/ui/input";
-import { guardarOportunidad } from "@/app/actions";
+import { guardarOportunidad, crearClienteRapido } from "@/app/actions";
 import type { Cliente, Lugar, Oportunidad } from "@/lib/types";
-import { TIPO_EVENTO_LABEL, ESTADOS_TODOS, ESTADO_META } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, ESTADOS_TODOS, ESTADO_META, CANALES } from "@/lib/estados";
 
 export function OportunidadDialog({
   clientes,
@@ -25,10 +25,52 @@ export function OportunidadDialog({
   const [error, setError] = React.useState<string | null>(null);
   const editar = Boolean(oportunidad);
 
+  // Lista local de clientes (para poder añadir uno nuevo al vuelo).
+  const [clientesList, setClientesList] = React.useState<Cliente[]>(clientes);
+  React.useEffect(() => setClientesList(clientes), [clientes]);
+
   // Retención sugerida según el cliente seleccionado (empresa → 15%).
   const [clienteId, setClienteId] = React.useState(oportunidad?.cliente_id ?? "");
-  const clienteSel = clientes.find((c) => c.id === clienteId);
+  const clienteSel = clientesList.find((c) => c.id === clienteId);
   const retSugerida = clienteSel?.tipo === "empresa" ? 15 : 0;
+
+  // Alta rápida de cliente
+  const [nuevoAbierto, setNuevoAbierto] = React.useState(false);
+  const [nuevoNombre, setNuevoNombre] = React.useState("");
+  const [nuevoTipo, setNuevoTipo] = React.useState("particular");
+  const [creando, setCreando] = React.useState(false);
+
+  async function crearCliente() {
+    if (!nuevoNombre.trim()) return;
+    setCreando(true);
+    setError(null);
+    try {
+      const c = await crearClienteRapido(nuevoNombre, nuevoTipo);
+      const nuevo: Cliente = {
+        id: c.id,
+        nombre: c.nombre,
+        tipo: nuevoTipo as Cliente["tipo"],
+        email: null,
+        telefono: null,
+        nif_cif: null,
+        direccion: null,
+        localidad: null,
+        origen: "cliente_nuevo",
+        estado: "lead",
+        canal: null,
+        notas: null,
+        created_at: new Date().toISOString(),
+      };
+      setClientesList((l) => [nuevo, ...l].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setClienteId(c.id);
+      setNuevoAbierto(false);
+      setNuevoNombre("");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setCreando(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,18 +113,60 @@ export function OportunidadDialog({
             </Field>
           </div>
 
-          <Field label="Cliente">
-            <Select
-              name="cliente_id"
-              value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
-            >
-              <option value="">— Sin cliente —</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
-            </Select>
-          </Field>
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                Cliente
+              </span>
+              <button
+                type="button"
+                onClick={() => setNuevoAbierto((v) => !v)}
+                className="text-[11px] font-semibold text-clay hover:text-clay-600"
+              >
+                {nuevoAbierto ? "Cancelar" : "+ Nuevo"}
+              </button>
+            </div>
+            {nuevoAbierto ? (
+              <div className="space-y-2 rounded-md border-hair border-clay-tint-deep bg-clay-tint/40 p-3">
+                <Input
+                  autoFocus
+                  value={nuevoNombre}
+                  onChange={(e) => setNuevoNombre(e.target.value)}
+                  placeholder="Nombre del nuevo cliente"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      crearCliente();
+                    }
+                  }}
+                />
+                <div className="flex gap-2">
+                  <Select value={nuevoTipo} onChange={(e) => setNuevoTipo(e.target.value)}>
+                    <option value="particular">Particular</option>
+                    <option value="empresa">Empresa</option>
+                    <option value="wedding_planner">Wedding planner</option>
+                    <option value="finca_venue">Finca / venue</option>
+                  </Select>
+                  <Button type="button" size="sm" onClick={crearCliente} disabled={creando}>
+                    {creando ? "Creando…" : "Crear (Lead)"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Select
+                name="cliente_id"
+                value={clienteId}
+                onChange={(e) => setClienteId(e.target.value)}
+              >
+                <option value="">— Sin cliente —</option>
+                {clientesList.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </Select>
+            )}
+            {/* Asegura que el valor viaja en el submit aunque el mini-form esté abierto */}
+            {nuevoAbierto && <input type="hidden" name="cliente_id" value={clienteId} />}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Tipo de evento">
@@ -112,6 +196,24 @@ export function OportunidadDialog({
               <Select name="tipo_operacion" defaultValue={oportunidad?.tipo_operacion ?? "normal"}>
                 <option value="normal">Normal (con factura)</option>
                 <option value="amigos_prestamo">Amigos / préstamo</option>
+              </Select>
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Fecha de entrada">
+              <Input
+                type="date"
+                name="fecha_entrada"
+                defaultValue={oportunidad?.fecha_entrada ?? ""}
+              />
+            </Field>
+            <Field label="Canal">
+              <Select name="canal" defaultValue={oportunidad?.canal ?? ""}>
+                <option value="">— Sin especificar —</option>
+                {CANALES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
               </Select>
             </Field>
           </div>

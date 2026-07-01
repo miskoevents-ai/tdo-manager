@@ -26,6 +26,7 @@ export type Cliente = {
   localidad: string | null;
   origen: ClienteOrigen;
   estado: ClienteEstado;
+  canal: string | null;
   notas: string | null;
   created_at: string;
 };
@@ -70,6 +71,8 @@ export type Oportunidad = {
   tipo_operacion: TipoOperacion;
   estado: OportunidadEstado;
   presupuesto_enviado: boolean;
+  fecha_entrada: string | null;
+  canal: string | null;
   fecha_evento: string | null;
   fecha_montaje: string | null;
   fecha_recogida: string | null;
