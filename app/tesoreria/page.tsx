@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Repeat } from "lucide-react";
 import { Overline } from "@/components/ui/card";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { TesoreriaClient } from "@/components/tesoreria/TesoreriaClient";
@@ -25,9 +27,17 @@ export default async function TesoreriaPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Overline className="!mt-0">Tesorería</Overline>
-        <MovimientoDialog clientes={clientes} oportunidades={oportunidades} />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/gastos-fijos"
+            className="inline-flex items-center gap-1.5 rounded-sm border-med border-border-strong px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-sage transition-colors hover:bg-sage-tint"
+          >
+            <Repeat size={14} /> Gastos fijos
+          </Link>
+          <MovimientoDialog clientes={clientes} oportunidades={oportunidades} />
+        </div>
       </div>
       <TesoreriaClient movimientos={movimientos} clientes={clientes} oportunidades={oportunidades} />
     </div>

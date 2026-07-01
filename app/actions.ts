@@ -229,6 +229,101 @@ export async function borrarMovimiento(id: string) {
   revalidatePath("/");
 }
 
+// --------------------------- Gastos fijos ---------------------------
+
+export async function guardarGastoFijo(formData: FormData) {
+  const sb = createAdminClient();
+  const id = (formData.get("id") as string) || null;
+  const payload = {
+    concepto: (formData.get("concepto") as string)?.trim(),
+    importe_mensual: Math.abs(Number(formData.get("importe_mensual") || 0)),
+    periodicidad: (formData.get("periodicidad") as string) || "mensual",
+    quien_lo_paga: (formData.get("quien_lo_paga") as string)?.trim() || null,
+    activo: formData.get("activo") === "on",
+    notas: (formData.get("notas") as string)?.trim() || null,
+  };
+  if (!payload.concepto) throw new Error("El concepto es obligatorio.");
+
+  if (id) {
+    const { error } = await sb.from("gastos_fijos").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await sb.from("gastos_fijos").insert(payload);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath("/gastos-fijos");
+}
+
+export async function borrarGastoFijo(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("gastos_fijos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/gastos-fijos");
+}
+
+// ¿Toca este gasto en el mes indicado según su periodicidad?
+function tocaEnMes(periodicidad: string, mes: number): boolean {
+  if (periodicidad === "mensual") return true;
+  if (periodicidad === "trimestral") return [1, 4, 7, 10].includes(mes);
+  if (periodicidad === "anual") return mes === 1;
+  return true;
+}
+
+// Genera en Tesorería los movimientos de gastos fijos de un mes (YYYY-MM),
+// a partir de la plantilla activa. No duplica si ya existe el del mes.
+export async function generarGastosDelMes(
+  ym: string,
+): Promise<{ creados: number; existentes: number }> {
+  const sb = createAdminClient();
+  const mes = Number(ym.slice(5, 7));
+  const desde = `${ym}-01`;
+  // fin de mes
+  const finMes = new Date(Number(ym.slice(0, 4)), mes, 0).getDate();
+  const hasta = `${ym}-${String(finMes).padStart(2, "0")}`;
+
+  const { data: plantillas, error } = await sb
+    .from("gastos_fijos")
+    .select("*")
+    .eq("activo", true);
+  if (error) throw new Error(error.message);
+
+  const activos = (plantillas ?? []).filter((g) => tocaEnMes(g.periodicidad, mes));
+
+  // Movimientos ya generados en ese mes (por gasto_fijo_id)
+  const { data: existentesMov } = await sb
+    .from("tesoreria")
+    .select("gasto_fijo_id")
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
+    .not("gasto_fijo_id", "is", null);
+  const yaHechos = new Set((existentesMov ?? []).map((m) => m.gasto_fijo_id));
+
+  const nuevos = activos
+    .filter((g) => !yaHechos.has(g.id))
+    .map((g) => ({
+      concepto: g.concepto,
+      tipo: "gasto",
+      naturaleza: "gasto_fijo",
+      categoria: "Gasto fijo",
+      importe: Math.abs(Number(g.importe_mensual)),
+      fecha: g.dia_cargo
+        ? `${ym}-${String(Math.min(g.dia_cargo, finMes)).padStart(2, "0")}`
+        : desde,
+      estado: "previsto",
+      gasto_fijo_id: g.id,
+      computa_contabilidad: true,
+    }));
+
+  if (nuevos.length) {
+    const { error: insErr } = await sb.from("tesoreria").insert(nuevos);
+    if (insErr) throw new Error(insErr.message);
+  }
+  revalidatePath("/tesoreria");
+  revalidatePath("/gastos-fijos");
+  revalidatePath("/");
+  return { creados: nuevos.length, existentes: activos.length - nuevos.length };
+}
+
 // --------------------------- Facturas ---------------------------
 
 // Emite una factura a partir de una oportunidad (congela los importes).
