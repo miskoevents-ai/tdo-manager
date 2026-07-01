@@ -419,6 +419,44 @@ export async function borrarReserva(id: string, oportunidadId: string) {
   revalidatePath("/inventario");
 }
 
+// --------------------------- Equipo ---------------------------
+
+export async function guardarEquipo(formData: FormData) {
+  const sb = createAdminClient();
+  const id = (formData.get("id") as string) || null;
+  const numOrNull = (v: FormDataEntryValue | null) => {
+    const s = (v as string)?.trim();
+    return s ? Number(s) : null;
+  };
+  const payload = {
+    nombre: (formData.get("nombre") as string)?.trim(),
+    rol: (formData.get("rol") as string)?.trim() || null,
+    email: (formData.get("email") as string)?.trim() || null,
+    telefono: (formData.get("telefono") as string)?.trim() || null,
+    porcentaje: numOrNull(formData.get("porcentaje")),
+    precio_hora: numOrNull(formData.get("precio_hora")),
+    activo: formData.get("activo") === "on",
+    notas: (formData.get("notas") as string)?.trim() || null,
+  };
+  if (!payload.nombre) throw new Error("El nombre es obligatorio.");
+
+  if (id) {
+    const { error } = await sb.from("equipo").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await sb.from("equipo").insert(payload);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath("/equipo");
+}
+
+export async function borrarEquipo(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("equipo").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/equipo");
+}
+
 // --------------------------- Inventario ---------------------------
 
 export async function guardarInventario(formData: FormData) {
