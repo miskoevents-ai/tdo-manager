@@ -63,3 +63,4 @@ El resto (ROI de inventario, cuadro de mando, daños, login multi-socio, portal,
 
 - **jul-2026 · Fotos en presupuestos:** se añaden **cuando el catálogo esté listo** (presupuestar desde catálogo). Primero las fotos vendrán de los artículos del inventario (ya tienen `foto_url`); las **fotos propias** (subir imagen) se harán con **Supabase Storage** más adelante (requiere crear un bucket).
 - **jul-2026 · Diseño del presupuesto:** plantilla actual funcional; un **diseño más elaborado (Claude design)** queda para más adelante.
+- **jul-2026 · Automatizaciones de fidelización (a definir juntos):** post-evento (mensaje de agradecimiento + petición de reseña en Google/Instagram unos días después del evento) y felicitación de **aniversario de boda** / re-contacto a clientes recurrentes B2B antes de su temporada. Pendiente de definir el detalle (plazos, textos, canal) antes de construir.
