@@ -8,8 +8,16 @@ import { SetupNotice } from "@/components/SetupNotice";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
 import { EmitirFacturaBtn, FianzaBtn } from "@/components/oportunidades/FichaAcciones";
+import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidad, getClientes, getLugares, getTesoreriaDeOportunidad } from "@/lib/data";
+import {
+  getOportunidad,
+  getClientes,
+  getLugares,
+  getTesoreriaDeOportunidad,
+  getReservas,
+  getInventario,
+} from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
 import { ESTADO_META, TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
@@ -31,13 +39,24 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (!supabaseConfigurado()) return <SetupNotice />;
   const { id } = await params;
 
-  const [op, clientes, lugares, cobros] = await Promise.all([
+  const [op, clientes, lugares, cobros, reservas, inventario] = await Promise.all([
     getOportunidad(id),
     getClientes(),
     getLugares(),
     getTesoreriaDeOportunidad(id),
+    getReservas(),
+    getInventario(),
   ]);
   if (!op) notFound();
+
+  const reservasEvento = reservas.filter((r) => r.oportunidad_id === id);
+  const invLite = inventario.map((i) => ({
+    id: i.id,
+    articulo: i.articulo,
+    cantidad_total: i.cantidad_total,
+  }));
+  const salidaDef = op.fecha_montaje ?? op.fecha_evento ?? "";
+  const devolucionDef = op.fecha_recogida ?? op.fecha_evento ?? "";
 
   const t = calcularTotales(
     (op.presupuesto_lineas ?? []).map((l) => ({
@@ -148,13 +167,18 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </TabsContent>
 
         <TabsContent value="material">
-          <Card className="max-w-container-narrow">
-            <Overline className="text-clay">Fase 3</Overline>
-            <p className="mt-2 text-small text-ink-secondary">
-              Reserva de material del inventario con fechas de salida y devolución, y control de
-              disponibilidad para no vender dos veces la misma pieza. Llegará con el módulo de
-              Inventario (Fase 3).
-            </p>
+          <Card>
+            <Overline className="!mt-0">Material reservado</Overline>
+            <div className="mt-3">
+              <MaterialTab
+                oportunidadId={op.id}
+                reservasEvento={reservasEvento}
+                reservasGlobal={reservas}
+                inventario={invLite}
+                fechaSalidaDefault={salidaDef}
+                fechaDevolucionDefault={devolucionDef}
+              />
+            </div>
           </Card>
         </TabsContent>
 

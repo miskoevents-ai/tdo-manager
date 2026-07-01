@@ -12,6 +12,7 @@ import type {
   ComisionConfig,
   Comision,
   Inventario,
+  Reserva,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -109,6 +110,17 @@ export async function getTesoreriaDeOportunidad(oportunidadId: string): Promise<
     .order("fecha", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Tesoreria[];
+}
+
+export async function getReservas(): Promise<Reserva[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("reservas_material")
+    .select("*, articulo:inventario(articulo, cantidad_total), oportunidad:oportunidades(numero, titulo)")
+    .order("fecha_salida", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Reserva[];
 }
 
 export async function getInventario(): Promise<Inventario[]> {

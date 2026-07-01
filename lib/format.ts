@@ -36,6 +36,14 @@ export function fechaCorta(iso: string | null | undefined): string {
   return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit" }).format(d);
 }
 
+// Normaliza para búsquedas: minúsculas y sin acentos.
+export function normaliza(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export function iniciales(nombre: string): string {
   return nombre
     .split(/\s+/)

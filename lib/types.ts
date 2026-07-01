@@ -188,6 +188,20 @@ export type Proveedor = {
   created_at: string;
 };
 
+export type Reserva = {
+  id: string;
+  oportunidad_id: string | null;
+  articulo_id: string | null;
+  cantidad: number;
+  fecha_salida: string | null;
+  fecha_devolucion: string | null;
+  estado: string;
+  notas: string | null;
+  created_at: string;
+  articulo?: { articulo: string; cantidad_total: number | null } | null;
+  oportunidad?: { numero: string; titulo: string } | null;
+};
+
 export type ComisionConfig = {
   id: string;
   tipo_evento: string | null;

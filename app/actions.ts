@@ -230,6 +230,47 @@ export async function borrarMovimiento(id: string) {
   revalidatePath("/");
 }
 
+// --------------------------- Reservas de material ---------------------------
+
+export async function crearReserva(input: {
+  oportunidadId: string;
+  articuloId: string;
+  cantidad: number;
+  fechaSalida: string | null;
+  fechaDevolucion: string | null;
+  notas?: string | null;
+}) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("reservas_material").insert({
+    oportunidad_id: input.oportunidadId,
+    articulo_id: input.articuloId,
+    cantidad: Math.max(1, Math.round(input.cantidad)),
+    fecha_salida: input.fechaSalida || null,
+    fecha_devolucion: input.fechaDevolucion || null,
+    estado: "reservado",
+    notas: input.notas || null,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${input.oportunidadId}`);
+  revalidatePath("/inventario");
+}
+
+export async function cambiarEstadoReserva(id: string, estado: string, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("reservas_material").update({ estado }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/inventario");
+}
+
+export async function borrarReserva(id: string, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("reservas_material").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/inventario");
+}
+
 // --------------------------- Inventario ---------------------------
 
 export async function guardarInventario(formData: FormData) {
