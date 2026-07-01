@@ -9,6 +9,7 @@ export type Aviso = {
   detalle: string;
   severidad: "alta" | "media" | "baja";
   categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead" | "material";
+  oportunidadId?: string;
 };
 
 function totalOp(o: Oportunidad): number {
@@ -52,11 +53,12 @@ export function calcularAvisos(
     if ((o.fianza ?? 0) > 0 && !o.fianza_devuelta && o.fecha_devolucion_fianza && o.fecha_devolucion_fianza <= hoyISO) {
       avisos.push({
         id: `fianza-${o.id}`,
-        href: `/oportunidades/${o.id}`,
+        href: `/oportunidades/${o.id}?tab=cobros`,
         titulo: `Devolver fianza · ${o.titulo}`,
         detalle: `${eur0(o.fianza ?? 0)} · vencía ${o.fecha_devolucion_fianza}`,
         severidad: "alta",
         categoria: "fianza",
+        oportunidadId: o.id,
       });
     }
 
@@ -73,11 +75,12 @@ export function calcularAvisos(
       const dias = diasEntre(o.fecha_evento, hoyISO);
       avisos.push({
         id: `fianza-ret-${o.id}`,
-        href: `/oportunidades/${o.id}`,
+        href: `/oportunidades/${o.id}?tab=cobros`,
         titulo: `Fianza retenida ${dias} días · ${o.titulo}`,
         detalle: `${eur0(o.fianza ?? 0)} del cliente sin devolver desde el evento`,
         severidad: dias >= 30 ? "alta" : "media",
         categoria: "fianza",
+        oportunidadId: o.id,
       });
     }
 
@@ -88,13 +91,14 @@ export function calcularAvisos(
       const alarma = dias >= 21;
       avisos.push({
         id: `cobro-${o.id}`,
-        href: `/oportunidades/${o.id}`,
+        href: `/oportunidades/${o.id}?tab=cobros`,
         titulo: alarma ? `🚨 Impago +3 semanas · ${o.titulo}` : `Cobro pendiente · ${o.titulo}`,
         detalle: alarma
           ? `${eur0(pendiente)} · el evento fue hace ${dias} días y sigue sin cobrar`
           : `${eur0(pendiente)} · evento del ${o.fecha_evento} ya pasó`,
         severidad: "alta",
         categoria: "cobro",
+        oportunidadId: o.id,
       });
     }
 
@@ -108,6 +112,7 @@ export function calcularAvisos(
         detalle: `${o.fecha_evento}${o.lugar?.nombre ? ` · ${o.lugar.nombre}` : ""}${pendiente > 0.01 ? ` · pendiente ${eur0(pendiente)}` : ""}`,
         severidad: "media",
         categoria: "evento",
+        oportunidadId: o.id,
       });
     }
 
@@ -115,11 +120,12 @@ export function calcularAvisos(
     if (o.estado === "presupuesto_enviado" && o.fecha_entrada && diasEntre(o.fecha_entrada, hoyISO) >= 7) {
       avisos.push({
         id: `presup-${o.id}`,
-        href: `/oportunidades/${o.id}`,
+        href: `/oportunidades/${o.id}?tab=presupuesto`,
         titulo: `Presupuesto sin respuesta · ${o.titulo}`,
         detalle: `Enviado hace ${diasEntre(o.fecha_entrada, hoyISO)} días · haz seguimiento`,
         severidad: "media",
         categoria: "presupuesto",
+        oportunidadId: o.id,
       });
     }
 
@@ -133,6 +139,7 @@ export function calcularAvisos(
         detalle: `Entró hace ${dias} días y aún no se ha contestado · responde cuanto antes`,
         severidad: dias >= 4 ? "alta" : "media",
         categoria: "lead",
+        oportunidadId: o.id,
       });
     }
 
@@ -150,6 +157,7 @@ export function calcularAvisos(
         detalle: `En conversación desde hace ${dias} días sin cerrar · hazle seguimiento`,
         severidad: dias >= 21 ? "alta" : "media",
         categoria: "lead",
+        oportunidadId: o.id,
       });
     }
   }
