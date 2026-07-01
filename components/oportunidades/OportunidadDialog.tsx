@@ -253,6 +253,14 @@ export function OportunidadDialog({
             </Field>
           </div>
 
+          <Field label="Fecha devolución de la fianza">
+            <Input
+              type="date"
+              name="fecha_devolucion_fianza"
+              defaultValue={oportunidad?.fecha_devolucion_fianza ?? ""}
+            />
+          </Field>
+
           <Field label="Responsable">
             <Input name="responsable" defaultValue={oportunidad?.responsable ?? ""} />
           </Field>

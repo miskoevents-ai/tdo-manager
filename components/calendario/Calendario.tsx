@@ -94,10 +94,11 @@ export function Calendario({
             <button
               key={t}
               onClick={() => toggle(t)}
-              className={`rounded-pill border-hair px-3 py-1 text-[11.5px] font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-pill border-hair px-3 py-1 text-[11.5px] font-medium transition-colors ${
                 on ? CAL_META[t].clase + " border-transparent" : "border-border bg-white text-ink-muted"
               }`}
             >
+              <span className={`h-2 w-2 rounded-full ${CAL_META[t].punto} ${on ? "" : "opacity-40"}`} />
               {CAL_META[t].label}
             </button>
           );

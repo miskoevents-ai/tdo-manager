@@ -9,6 +9,7 @@ import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog"
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
 import { EmitirFacturaBtn, FianzaBtn } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
+import { CostesTab } from "@/components/costes/CostesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import {
   getOportunidad,
@@ -17,6 +18,11 @@ import {
   getTesoreriaDeOportunidad,
   getReservas,
   getInventario,
+  getPartesHoras,
+  getDesplazamientos,
+  getEquipo,
+  getProveedores,
+  getKmPrecio,
 } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
@@ -39,15 +45,32 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (!supabaseConfigurado()) return <SetupNotice />;
   const { id } = await params;
 
-  const [op, clientes, lugares, cobros, reservas, inventario] = await Promise.all([
-    getOportunidad(id),
-    getClientes(),
-    getLugares(),
-    getTesoreriaDeOportunidad(id),
-    getReservas(),
-    getInventario(),
-  ]);
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio] =
+    await Promise.all([
+      getOportunidad(id),
+      getClientes(),
+      getLugares(),
+      getTesoreriaDeOportunidad(id),
+      getReservas(),
+      getInventario(),
+      getPartesHoras(id),
+      getDesplazamientos(id),
+      getEquipo(),
+      getProveedores(),
+      getKmPrecio(),
+    ]);
   if (!op) notFound();
+
+  // Compras/material = gastos de evento en tesorería que NO vienen de un desplazamiento
+  const desplTesoIds = new Set(desplazamientos.map((d) => d.tesoreria_id).filter(Boolean));
+  const compras = cobros.filter(
+    (m) => m.naturaleza === "gasto_de_evento" && !desplTesoIds.has(m.id),
+  );
+  const equipoLite = equipo.map((e) => ({ id: e.id, nombre: e.nombre, precio_hora: e.precio_hora }));
+  const provLite = proveedores.map((p) => ({ id: p.id, nombre: p.nombre }));
+  const lugarInfo = op.lugar
+    ? { id: op.lugar.id, nombre: op.lugar.nombre, distancia_km: op.lugar.distancia_km ?? null }
+    : null;
 
   const reservasEvento = reservas.filter((r) => r.oportunidad_id === id);
   const invLite = inventario.map((i) => ({
@@ -124,6 +147,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="presupuesto">Presupuesto</TabsTrigger>
           <TabsTrigger value="material">Material</TabsTrigger>
+          <TabsTrigger value="costes">Costes</TabsTrigger>
           <TabsTrigger value="cobros">Cobros</TabsTrigger>
         </TabsList>
 
@@ -180,6 +204,20 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               />
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="costes">
+          <CostesTab
+            oportunidadId={op.id}
+            base={t.base}
+            partes={partes}
+            desplazamientos={desplazamientos}
+            compras={compras}
+            equipo={equipoLite}
+            proveedores={provLite}
+            kmPrecio={kmPrecio}
+            lugar={lugarInfo}
+          />
         </TabsContent>
 
         <TabsContent value="cobros">

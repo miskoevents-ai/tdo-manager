@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calcularTotales } from "@/lib/calc";
 import { runSeed, type SeedData } from "@/lib/seed-core";
+import { getKmPrecio } from "@/lib/data";
 
 // ---------------------------- Seed (setup) ----------------------------
 // Carga docs/seed-data.json en Supabase. Protegido por SEED_TOKEN.
@@ -109,6 +110,7 @@ export async function guardarOportunidad(formData: FormData) {
     iva_pct: numToNull(formData.get("iva_pct")) ?? 21,
     retencion_pct: numToNull(formData.get("retencion_pct")) ?? 0,
     fianza: numToNull(formData.get("fianza")),
+    fecha_devolucion_fianza: (formData.get("fecha_devolucion_fianza") as string) || null,
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.numero || !payload.titulo) throw new Error("Número y título son obligatorios.");
@@ -228,6 +230,152 @@ export async function borrarMovimiento(id: string) {
   if (error) throw new Error(error.message);
   revalidatePath("/tesoreria");
   revalidatePath("/");
+}
+
+// --------------------------- Costes del evento ---------------------------
+
+const revCostes = (opId: string) => {
+  revalidatePath(`/oportunidades/${opId}`);
+  revalidatePath("/tesoreria");
+  revalidatePath("/");
+};
+
+// Horas del equipo (coste de personal; no toca tesorería)
+export async function crearParteHoras(input: {
+  oportunidadId: string;
+  equipoId: string | null;
+  tarea: string;
+  horas: number;
+  precioHora: number;
+  fecha: string | null;
+}) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("partes_horas").insert({
+    oportunidad_id: input.oportunidadId,
+    equipo_id: input.equipoId,
+    tarea: input.tarea || null,
+    horas: Math.max(0, input.horas),
+    precio_hora: Math.max(0, input.precioHora),
+    fecha: input.fecha || null,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${input.oportunidadId}`);
+}
+
+export async function borrarParteHoras(id: string, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("partes_horas").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Desplazamiento: calcula gasolina y crea el gasto en Tesorería (gasto de evento).
+export async function crearDesplazamiento(input: {
+  oportunidadId: string;
+  trayecto: string;
+  km: number;
+  idaVuelta: boolean;
+  gasolinaManual: number | null;
+  peaje: number;
+  parking: number;
+  fecha: string | null;
+}) {
+  const sb = createAdminClient();
+  const kmPrecio = await getKmPrecio();
+  const kmTotal = (input.km || 0) * (input.idaVuelta ? 2 : 1);
+  const gasolina =
+    input.gasolinaManual != null && input.gasolinaManual > 0
+      ? input.gasolinaManual
+      : Math.round(kmTotal * kmPrecio * 100) / 100;
+  const total = Math.round((gasolina + (input.peaje || 0) + (input.parking || 0)) * 100) / 100;
+
+  // Gasto en tesorería (gasto de evento, no computa)
+  const { data: mov, error: movErr } = await sb
+    .from("tesoreria")
+    .insert({
+      concepto: `Desplazamiento${input.trayecto ? ` · ${input.trayecto}` : ""}`,
+      tipo: "gasto",
+      naturaleza: "gasto_de_evento",
+      categoria: "Desplazamiento",
+      importe: total,
+      fecha: input.fecha || new Date().toISOString().slice(0, 10),
+      estado: "pagado",
+      oportunidad_id: input.oportunidadId,
+      computa_contabilidad: false,
+    })
+    .select("id")
+    .single();
+  if (movErr) throw new Error(movErr.message);
+
+  const { error } = await sb.from("desplazamientos").insert({
+    oportunidad_id: input.oportunidadId,
+    trayecto: input.trayecto || null,
+    km: input.km || null,
+    ida_vuelta: input.idaVuelta,
+    coste_gasolina: gasolina,
+    peaje: input.peaje || null,
+    parking: input.parking || null,
+    tesoreria_id: mov.id,
+    fecha: input.fecha || null,
+  });
+  if (error) throw new Error(error.message);
+  revCostes(input.oportunidadId);
+}
+
+export async function borrarDesplazamiento(id: string, tesoreriaId: string | null, oportunidadId: string) {
+  const sb = createAdminClient();
+  if (tesoreriaId) await sb.from("tesoreria").delete().eq("id", tesoreriaId);
+  const { error } = await sb.from("desplazamientos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revCostes(oportunidadId);
+}
+
+// Compra / material del evento -> gasto en Tesorería (gasto de evento).
+export async function crearCompra(input: {
+  oportunidadId: string;
+  concepto: string;
+  importe: number;
+  proveedorId: string | null;
+  fecha: string | null;
+}) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("tesoreria").insert({
+    concepto: input.concepto,
+    tipo: "gasto",
+    naturaleza: "gasto_de_evento",
+    categoria: "Material",
+    importe: Math.abs(input.importe),
+    fecha: input.fecha || new Date().toISOString().slice(0, 10),
+    estado: "pagado",
+    oportunidad_id: input.oportunidadId,
+    proveedor_id: input.proveedorId,
+    computa_contabilidad: false,
+  });
+  if (error) throw new Error(error.message);
+  revCostes(input.oportunidadId);
+}
+
+export async function borrarCompra(tesoreriaId: string, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("tesoreria").delete().eq("id", tesoreriaId);
+  if (error) throw new Error(error.message);
+  revCostes(oportunidadId);
+}
+
+export async function guardarKmPrecio(valor: number) {
+  const sb = createAdminClient();
+  const { error } = await sb
+    .from("ajustes")
+    .upsert({ clave: "km_precio", valor: String(valor), updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+}
+
+export async function guardarDistanciaLugar(lugarId: string, km: number | null, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("lugares").update({ distancia_km: km }).eq("id", lugarId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
 }
 
 // --------------------------- Reservas de material ---------------------------

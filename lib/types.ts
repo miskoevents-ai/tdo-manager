@@ -35,6 +35,7 @@ export type Lugar = {
   id: string;
   nombre: string;
   localidad: string | null;
+  distancia_km: number | null;
   notas: string | null;
 };
 
@@ -82,6 +83,7 @@ export type Oportunidad = {
   retencion_pct: number;
   fianza: number | null;
   fianza_devuelta: boolean;
+  fecha_devolucion_fianza: string | null;
   cliente_id: string | null;
   lugar_id: string | null;
   notas: string | null;
@@ -184,6 +186,34 @@ export type Proveedor = {
   email: string | null;
   telefono: string | null;
   localidad: string | null;
+  notas: string | null;
+  created_at: string;
+};
+
+export type ParteHoras = {
+  id: string;
+  oportunidad_id: string | null;
+  equipo_id: string | null;
+  fecha: string | null;
+  tarea: string | null;
+  horas: number;
+  precio_hora: number;
+  notas: string | null;
+  created_at: string;
+  equipo?: { nombre: string } | null;
+};
+
+export type Desplazamiento = {
+  id: string;
+  oportunidad_id: string | null;
+  trayecto: string | null;
+  km: number | null;
+  ida_vuelta: boolean;
+  coste_gasolina: number | null;
+  peaje: number | null;
+  parking: number | null;
+  tesoreria_id: string | null;
+  fecha: string | null;
   notas: string | null;
   created_at: string;
 };

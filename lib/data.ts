@@ -13,6 +13,8 @@ import type {
   Comision,
   Inventario,
   Reserva,
+  ParteHoras,
+  Desplazamiento,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -110,6 +112,38 @@ export async function getTesoreriaDeOportunidad(oportunidadId: string): Promise<
     .order("fecha", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Tesoreria[];
+}
+
+export async function getPartesHoras(oportunidadId: string): Promise<ParteHoras[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("partes_horas")
+    .select("*, equipo:equipo(nombre)")
+    .eq("oportunidad_id", oportunidadId)
+    .order("fecha", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ParteHoras[];
+}
+
+export async function getDesplazamientos(oportunidadId: string): Promise<Desplazamiento[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("desplazamientos")
+    .select("*")
+    .eq("oportunidad_id", oportunidadId)
+    .order("fecha", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Desplazamiento[];
+}
+
+export async function getKmPrecio(): Promise<number> {
+  if (mock.enabled) return 0.26;
+  const sb = createAdminClient();
+  const { data } = await sb.from("ajustes").select("valor").eq("clave", "km_precio").maybeSingle();
+  const v = data?.valor ? Number(data.valor) : NaN;
+  return isFinite(v) ? v : 0.26;
 }
 
 export async function getReservas(): Promise<Reserva[]> {

@@ -1,6 +1,6 @@
 import type { Oportunidad, Reserva, Tesoreria } from "@/lib/types";
 
-export type CalTipo = "evento" | "montaje" | "recogida" | "salida" | "devolucion" | "cobro";
+export type CalTipo = "evento" | "montaje" | "recogida" | "salida" | "devolucion" | "cobro" | "fianza";
 
 export type CalEvento = {
   fecha: string; // YYYY-MM-DD
@@ -9,13 +9,14 @@ export type CalEvento = {
   href?: string;
 };
 
-export const CAL_META: Record<CalTipo, { label: string; clase: string }> = {
-  evento: { label: "Evento", clase: "bg-sage-tint text-sage" },
-  montaje: { label: "Montaje", clase: "bg-clay-tint text-clay-600" },
-  recogida: { label: "Recogida", clase: "bg-clay-tint-deep text-clay-600" },
-  salida: { label: "Salida material", clase: "bg-warn-tint text-warn" },
-  devolucion: { label: "Devolución material", clase: "bg-ok-tint text-ok" },
-  cobro: { label: "Cobro previsto", clase: "bg-error-tint text-error" },
+export const CAL_META: Record<CalTipo, { label: string; clase: string; punto: string }> = {
+  evento: { label: "Evento", clase: "bg-sage-tint text-sage", punto: "bg-sage" },
+  montaje: { label: "Montaje", clase: "bg-clay-tint text-clay-600", punto: "bg-clay" },
+  recogida: { label: "Recogida", clase: "bg-clay-tint-deep text-clay-600", punto: "bg-clay-600" },
+  salida: { label: "Salida material", clase: "bg-warn-tint text-warn", punto: "bg-warn" },
+  devolucion: { label: "Devolución material", clase: "bg-ok-tint text-ok", punto: "bg-ok" },
+  cobro: { label: "Cobro previsto", clase: "bg-error-tint text-error", punto: "bg-error" },
+  fianza: { label: "Devolución fianza", clase: "bg-clay-tint text-clay-600", punto: "bg-clay-300" },
 };
 
 // Construye la lista de eventos del calendario a partir de los datos.
@@ -31,6 +32,8 @@ export function construirEventos(
     if (o.fecha_evento) ev.push({ fecha: o.fecha_evento, tipo: "evento", titulo: o.titulo, href });
     if (o.fecha_montaje) ev.push({ fecha: o.fecha_montaje, tipo: "montaje", titulo: `Montaje · ${o.titulo}`, href });
     if (o.fecha_recogida) ev.push({ fecha: o.fecha_recogida, tipo: "recogida", titulo: `Recogida · ${o.titulo}`, href });
+    if (o.fecha_devolucion_fianza && !o.fianza_devuelta)
+      ev.push({ fecha: o.fecha_devolucion_fianza, tipo: "fianza", titulo: `Devolver fianza · ${o.titulo}`, href });
   }
 
   for (const r of reservas) {
