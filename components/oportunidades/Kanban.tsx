@@ -18,6 +18,10 @@ export type KanbanCard = {
   tipo_evento: string;
   total: number;
   pendiente: number;
+  // usados por los filtros del tablero
+  serie?: string;
+  tipo_operacion?: string;
+  fianzaPendiente?: boolean;
 };
 
 // Acento de color por estado (cabecera de columna + borde izquierdo de tarjeta).

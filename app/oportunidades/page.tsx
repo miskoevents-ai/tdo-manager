@@ -1,6 +1,7 @@
 import { Overline } from "@/components/ui/card";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
-import { Kanban, type KanbanCard } from "@/components/oportunidades/Kanban";
+import { type KanbanCard } from "@/components/oportunidades/Kanban";
+import { OportunidadesBoard } from "@/components/oportunidades/OportunidadesBoard";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades, getClientes, getLugares } from "@/lib/data";
@@ -41,11 +42,13 @@ export default async function OportunidadesPage() {
       tipo_evento: o.tipo_evento,
       total: t.total,
       pendiente: Math.max(0, t.total - (o.cobrado ?? 0)),
+      serie: o.serie,
+      tipo_operacion: o.tipo_operacion,
+      fianzaPendiente: Boolean((o.fianza ?? 0) > 0 && !o.fianza_devuelta),
     };
   });
 
   const activas = cards.filter((c) => !["perdida", "descartada"].includes(c.estado));
-  const cerradas = cards.filter((c) => ["perdida", "descartada"].includes(c.estado));
 
   return (
     <div className="space-y-5">
@@ -54,28 +57,7 @@ export default async function OportunidadesPage() {
         <OportunidadDialog clientes={clientes} lugares={lugares} />
       </div>
 
-      <Kanban cards={activas} />
-
-      {cerradas.length > 0 && (
-        <details className="rounded-lg border-hair border-error/40 bg-error-tint/30 p-4">
-          <summary className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-error">
-            <span className="h-2 w-2 rounded-full bg-error" />
-            Rechazadas / perdidas ({cerradas.length})
-          </summary>
-          <div className="mt-3 space-y-1 text-[13px]">
-            {cerradas.map((c) => (
-              <a
-                key={c.id}
-                href={`/oportunidades/${c.id}`}
-                className="flex items-center justify-between border-t border-error/20 py-2 hover:text-error"
-              >
-                <span className="line-through decoration-error/40">{c.titulo}</span>
-                <span className="text-ink-muted">{c.cliente ?? "—"}</span>
-              </a>
-            ))}
-          </div>
-        </details>
-      )}
+      <OportunidadesBoard cards={cards} />
     </div>
   );
 }
