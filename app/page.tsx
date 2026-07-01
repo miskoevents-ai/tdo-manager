@@ -87,11 +87,11 @@ export default async function Home() {
 
   const avisos = calcularAvisos(ops, HOY_ISO).slice(0, 6);
 
-  const hoy = new Date("2026-07-01");
-  const proximos = ops
-    .filter((o) => o.fecha_evento && new Date(o.fecha_evento) >= hoy)
-    .sort((a, b) => (a.fecha_evento! < b.fecha_evento! ? -1 : 1))
-    .slice(0, 5);
+  const futuros = ops
+    .filter((o) => o.fecha_evento && o.fecha_evento >= HOY_ISO)
+    .sort((a, b) => (a.fecha_evento! < b.fecha_evento! ? -1 : 1));
+  const proximos = futuros.filter((o) => o.serie === "evento").slice(0, 5);
+  const proximosAlquileres = futuros.filter((o) => o.serie === "alquiler_encargo").slice(0, 5);
 
   const pipeline = ops.filter((o) =>
     ["nueva", "contestada", "en_conversacion", "presupuesto_enviado"].includes(o.estado),
@@ -205,6 +205,39 @@ export default async function Home() {
                   <span>{o.titulo}</span>
                   <small className="text-[11.5px] text-ink-muted">
                     {fecha(o.fecha_evento)} · {o.lugar?.nombre ?? "—"}
+                  </small>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge tone={meta.tone}>{meta.label}</Badge>
+                  <ChevronRight size={15} className="text-ink-muted" />
+                </div>
+              </Link>
+            );
+          })}
+        </Card>
+
+        <Card>
+          <CardTitle>
+            Próximos alquileres
+            <span className="font-body text-[11px] font-medium tracking-[0.03em] text-ink-muted">
+              material / encargos
+            </span>
+          </CardTitle>
+          {proximosAlquileres.length === 0 && (
+            <p className="py-2 text-small text-ink-muted">Sin alquileres próximos.</p>
+          )}
+          {proximosAlquileres.map((o) => {
+            const meta = ESTADO_META[o.estado];
+            return (
+              <Link
+                key={o.id}
+                href={`/oportunidades/${o.id}`}
+                className="flex items-center justify-between border-t border-border py-[10px] text-[13px] first:border-t-0 hover:text-clay"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span>{o.titulo}</span>
+                  <small className="text-[11.5px] text-ink-muted">
+                    {fecha(o.fecha_evento)} · {o.cliente?.nombre ?? o.lugar?.nombre ?? "—"}
                   </small>
                 </div>
                 <div className="flex items-center gap-2">
