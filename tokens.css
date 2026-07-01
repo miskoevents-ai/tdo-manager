@@ -1,0 +1,109 @@
+@import url("https://fonts.googleapis.com/css2?family=Marcellus&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Pinyon+Script&display=swap");
+
+:root {
+  /* Neutros base */
+  --beige-bg: #F4EDE1;
+  --beige-light: #FAF6EE;
+  --beige-warm: #EAE0CF;
+  --beige-deep: #E3D7C2;
+  --white: #FFFFFF;
+  --cream: #FCFAF5;
+
+  /* Bordes */
+  --border: #D8CFBE;
+  --border-soft: #E7DECD;
+  --border-strong: #C7BBA4;
+
+  /* Texto */
+  --ink: #1F1F1F;
+  --ink-secondary: #555555;
+  --ink-muted: #7C7468;
+  --foot: #9A9A9A;
+
+  /* Salvia (primario) */
+  --sage: #3F4A36;
+  --sage-600: #4C5841;
+  --sage-300: #8A957C;
+  --sage-tint: #EEF1EA;
+  --sage-tint-deep: #DFE6D6;
+
+  /* Arcilla (secundario) */
+  --clay: #BE6E4C;
+  --clay-600: #A85C3C;
+  --clay-300: #D9A88E;
+  --clay-tint: #F4E4DA;
+  --clay-tint-deep: #EAD0C0;
+
+  /* Madera */
+  --wood: #B07F4F;
+  --wood-deep: #8A5A36;
+
+  /* Estados */
+  --ok: #5B7350;    --ok-tint: #E9EFE3;
+  --warn: #B98A3E;  --warn-tint: #F6ECD7;
+  --error: #A65441; --error-tint: #F3E0DA;
+
+  /* Alias semánticos */
+  --surface-page: var(--beige-bg);
+  --surface-card: var(--white);
+  --surface-raised: var(--cream);
+  --surface-sunken: var(--beige-light);
+  --surface-band: var(--beige-warm);
+  --text-body: var(--ink);
+  --text-secondary: var(--ink-secondary);
+  --text-muted: var(--ink-muted);
+  --text-caption: var(--foot);
+  --text-on-accent: var(--cream);
+  --accent: var(--sage);
+  --accent-hover: var(--sage-600);
+  --accent-tint: var(--sage-tint);
+  --accent-2: var(--clay);
+  --accent-2-hover: var(--clay-600);
+  --accent-2-tint: var(--clay-tint);
+  --line: var(--border);
+  --line-soft: var(--border-soft);
+
+  /* Tipografía */
+  --font-display: "Marcellus", "Cormorant Garamond", Georgia, serif;
+  --font-body: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --font-ui: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --font-script: "Pinyon Script", "Snell Roundhand", cursive;
+  --w-light: 300; --w-regular: 400; --w-medium: 500; --w-semibold: 600; --w-bold: 700;
+  --t-display: 4.5rem; --t-h1: 3rem; --t-h2: 2.25rem; --t-h3: 1.625rem; --t-h4: 1.25rem;
+  --t-lead: 1.25rem; --t-body: 1rem; --t-small: 0.875rem; --t-caption: 0.75rem; --t-overline: 0.6875rem;
+  --lh-tight: 1.08; --lh-snug: 1.25; --lh-normal: 1.55; --lh-relaxed: 1.7;
+  --ls-display: -0.01em; --ls-normal: 0; --ls-label: 0.04em; --ls-overline: 0.22em;
+
+  /* Espaciado */
+  --space-0: 0; --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.5rem; --space-6: 2rem; --space-7: 3rem; --space-8: 4rem; --space-9: 6rem; --space-10: 8rem;
+
+  /* Radios */
+  --radius-xs: 3px; --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 24px; --radius-pill: 999px;
+
+  /* Bordes */
+  --bw-hair: 1px; --bw-med: 1.5px; --bw-thick: 2px;
+
+  /* Sombras */
+  --shadow-xs: 0 1px 2px rgba(60, 48, 30, 0.06);
+  --shadow-sm: 0 2px 8px rgba(60, 48, 30, 0.07);
+  --shadow-md: 0 8px 24px rgba(60, 48, 30, 0.09);
+  --shadow-lg: 0 18px 48px rgba(60, 48, 30, 0.12);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --ring: 0 0 0 3px rgba(63, 74, 54, 0.22);
+
+  /* Layout */
+  --container: 1200px; --container-narrow: 820px; --gutter: var(--space-5);
+
+  /* Movimiento */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
+  --dur-fast: 140ms; --dur-base: 240ms; --dur-slow: 420ms;
+
+  /* Textura */
+  --texture-paper:
+    radial-gradient(circle at 20% 30%, rgba(190,110,76,0.018) 0, transparent 38%),
+    radial-gradient(circle at 80% 70%, rgba(63,74,54,0.018) 0, transparent 40%),
+    repeating-linear-gradient(115deg, rgba(120,100,70,0.012) 0 2px, transparent 2px 4px);
+  --seam-dots: radial-gradient(circle, var(--border-strong) 1.1px, transparent 1.4px);
+}
