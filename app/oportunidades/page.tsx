@@ -23,6 +23,12 @@ export default async function OportunidadesPage() {
     return <ErrorNotice message={(e as Error).message} />;
   }
 
+  // Nº de oportunidades por cliente → recurrente si tiene más de una.
+  const opsPorCliente = new Map<string, number>();
+  for (const o of ops) {
+    if (o.cliente_id) opsPorCliente.set(o.cliente_id, (opsPorCliente.get(o.cliente_id) ?? 0) + 1);
+  }
+
   const cards: KanbanCard[] = ops.map((o) => {
     const t = calcularTotales(
       (o.presupuesto_lineas ?? []).map((l) => ({
@@ -46,6 +52,7 @@ export default async function OportunidadesPage() {
       tipo_operacion: o.tipo_operacion,
       canal: o.canal,
       fianzaPendiente: Boolean((o.fianza ?? 0) > 0 && !o.fianza_devuelta),
+      clienteRecurrente: o.cliente_id ? (opsPorCliente.get(o.cliente_id) ?? 0) > 1 : undefined,
     };
   });
 

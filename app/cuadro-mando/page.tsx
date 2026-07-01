@@ -23,6 +23,16 @@ export default async function CuadroMandoPage() {
         gastoPorOp.set(t.oportunidad_id, (gastoPorOp.get(t.oportunidad_id) ?? 0) + Number(t.importe));
       }
     }
+    // Nº de oportunidades por cliente → recurrente si tiene más de una.
+    const opsPorCliente = new Map<string, number>();
+    for (const o of ops) {
+      if (o.cliente_id) opsPorCliente.set(o.cliente_id, (opsPorCliente.get(o.cliente_id) ?? 0) + 1);
+    }
+    const diasEntre = (a?: string | null, b?: string | null) => {
+      if (!a || !b) return null;
+      const ms = Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`);
+      return isNaN(ms) ? null : Math.max(0, Math.round(ms / 86_400_000));
+    };
 
     rows = ops.map((o) => {
       const total = calcularTotales(
@@ -55,6 +65,8 @@ export default async function CuadroMandoPage() {
         gastos,
         margen: total - gastos,
         fianza: (o.fianza ?? 0) > 0 && !o.fianza_devuelta ? Number(o.fianza) : 0,
+        clienteRecurrente: o.cliente_id ? (opsPorCliente.get(o.cliente_id) ?? 0) > 1 : false,
+        diasCierre: diasEntre(o.fecha_entrada, o.fecha_confirmacion),
       };
     });
   } catch (e) {

@@ -133,6 +133,15 @@ export async function cambiarEstado(id: string, estado: string) {
   const sb = createAdminClient();
   const { error } = await sb.from("oportunidades").update({ estado }).eq("id", id);
   if (error) throw new Error(error.message);
+  // Al confirmar por primera vez, sella la fecha de confirmación (tiempo de cierre).
+  if (["confirmada", "realizada", "facturada"].includes(estado)) {
+    const hoy = new Date().toISOString().slice(0, 10);
+    await sb
+      .from("oportunidades")
+      .update({ fecha_confirmacion: hoy })
+      .eq("id", id)
+      .is("fecha_confirmacion", null);
+  }
   revalidatePath("/oportunidades");
   revalidatePath(`/oportunidades/${id}`);
   revalidatePath("/");

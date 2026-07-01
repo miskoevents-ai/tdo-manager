@@ -87,7 +87,13 @@ function build() {
     }
   }
 
-  const oportunidades: Oportunidad[] = data.oportunidades.map((o) => {
+  const CANALES_DEMO = ["instagram", "whatsapp", "email", "recomendacion", "web_bodasnet"];
+  const shiftDays = (iso: string, delta: number) => {
+    const d = new Date(`${iso}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + delta);
+    return d.toISOString().slice(0, 10);
+  };
+  const oportunidades: Oportunidad[] = data.oportunidades.map((o, i) => {
     const tieneBase = typeof o.base_imponible === "number";
     let ivaPct = 0;
     let retPct = 0;
@@ -134,8 +140,10 @@ function build() {
       tipo_operacion: "normal",
       estado: o.estado ?? "nueva",
       presupuesto_enviado: Boolean(o.presupuesto_enviado),
-      fecha_entrada: null,
-      canal: null,
+      // Valores sintéticos solo en modo demo para ilustrar canal y tiempo de cierre.
+      fecha_entrada: o.fecha_evento ? shiftDays(o.fecha_evento, -45) : null,
+      canal: CANALES_DEMO[i % CANALES_DEMO.length],
+      fecha_confirmacion: o.fecha_evento ? shiftDays(o.fecha_evento, -30 - (i % 5) * 3) : null,
       fecha_evento: o.fecha_evento ?? null,
       fecha_montaje: null,
       fecha_recogida: null,
