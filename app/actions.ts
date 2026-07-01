@@ -15,7 +15,9 @@ export async function seedAction(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
   const token = (formData.get("token") as string)?.trim();
-  if (!process.env.SEED_TOKEN || token !== process.env.SEED_TOKEN) {
+  // Usa SEED_TOKEN si está definido; si no, el valor por defecto de puesta en marcha.
+  const expected = process.env.SEED_TOKEN?.trim() || "tdo-seed-2026";
+  if (token !== expected) {
     return { ok: false, message: "Token incorrecto." };
   }
   try {
