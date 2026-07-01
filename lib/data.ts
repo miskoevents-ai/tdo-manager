@@ -195,7 +195,7 @@ export async function getComisiones(): Promise<Comision[]> {
 export async function getEquipo(): Promise<Equipo[]> {
   if (mock.enabled) return mock.equipo();
   const sb = createAdminClient();
-  const { data, error } = await sb.from("equipo").select("*").order("porcentaje", { ascending: false });
+  const { data, error } = await sb.from("equipo").select("*").order("nombre", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Equipo[];
 }

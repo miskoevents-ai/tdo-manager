@@ -222,8 +222,58 @@ export async function guardarLineas(
     const { error } = await sb.from("presupuesto_lineas").insert(rows);
     if (error) throw new Error(error.message);
   }
+
+  // Pre-reserva de material "en negociación": sincroniza reservas presupuestado
+  // con las líneas del catálogo, para no re-añadirlo a mano y evitar duplicidades.
+  try {
+    const { data: op } = await sb
+      .from("oportunidades")
+      .select("fecha_montaje, fecha_recogida, fecha_evento")
+      .eq("id", oportunidadId)
+      .maybeSingle();
+    const salida = op?.fecha_montaje ?? op?.fecha_evento ?? null;
+    const devolucion = op?.fecha_recogida ?? op?.fecha_evento ?? null;
+
+    const porArticulo = new Map<string, number>();
+    for (const l of limpias) {
+      if (l.articulo_id) porArticulo.set(l.articulo_id, (porArticulo.get(l.articulo_id) ?? 0) + (l.cantidad || 1));
+    }
+
+    const { data: existentes } = await sb
+      .from("reservas_material")
+      .select("id, articulo_id, estado")
+      .eq("oportunidad_id", oportunidadId);
+    const firmes = new Set(
+      (existentes ?? []).filter((r) => r.estado !== "presupuestado" && r.articulo_id).map((r) => r.articulo_id),
+    );
+    const presup = (existentes ?? []).filter((r) => r.estado === "presupuestado");
+
+    const idsBorrar = presup
+      .filter((r) => !r.articulo_id || !porArticulo.has(r.articulo_id))
+      .map((r) => r.id);
+    if (idsBorrar.length) await sb.from("reservas_material").delete().in("id", idsBorrar);
+
+    const yaPresup = new Set(presup.map((r) => r.articulo_id));
+    const nuevas = [];
+    for (const [articuloId, cantidad] of porArticulo) {
+      if (firmes.has(articuloId) || yaPresup.has(articuloId)) continue;
+      nuevas.push({
+        oportunidad_id: oportunidadId,
+        articulo_id: articuloId,
+        cantidad,
+        fecha_salida: salida,
+        fecha_devolucion: devolucion,
+        estado: "presupuestado",
+      });
+    }
+    if (nuevas.length) await sb.from("reservas_material").insert(nuevas);
+  } catch {
+    /* no bloquear el guardado del presupuesto por un fallo en la pre-reserva */
+  }
+
   revalidatePath(`/oportunidades/${oportunidadId}`);
   revalidatePath("/oportunidades");
+  revalidatePath("/inventario");
   revalidatePath("/");
 }
 

@@ -73,14 +73,9 @@ export function EquipoDialog({ persona }: { persona?: Equipo }) {
           <Field label="Email">
             <Input name="email" type="email" defaultValue={persona?.email ?? ""} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="% participación (socios)">
-              <Input type="number" step="0.01" name="porcentaje" defaultValue={persona?.porcentaje ?? ""} />
-            </Field>
-            <Field label="€/hora">
-              <Input type="number" step="0.01" name="precio_hora" defaultValue={persona?.precio_hora ?? ""} />
-            </Field>
-          </div>
+          <Field label="€/hora">
+            <Input type="number" step="0.01" name="precio_hora" defaultValue={persona?.precio_hora ?? ""} />
+          </Field>
           <label className="flex items-center gap-2 text-[13px]">
             <input type="checkbox" name="activo" defaultChecked={persona?.activo ?? true} className="h-4 w-4 accent-sage" />
             Activo

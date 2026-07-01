@@ -4,7 +4,7 @@ import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { EquipoDialog } from "@/components/equipo/EquipoDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getEquipo } from "@/lib/data";
-import { eur, num } from "@/lib/format";
+import { eur } from "@/lib/format";
 import type { Equipo } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function EquipoPage() {
         <table className="w-full border-collapse bg-white">
           <thead>
             <tr>
-              {["Nombre", "Rol", "%", "€/hora", "Estado", ""].map((h) => (
+              {["Nombre", "Rol", "€/hora", "Estado", ""].map((h) => (
                 <th key={h} className="bg-beige-warm px-[15px] py-3 text-left text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
                   {h}
                 </th>
@@ -46,9 +46,6 @@ export default async function EquipoPage() {
                   {p.notas && <span className="ml-2 text-[11px] text-ink-muted">{p.notas}</span>}
                 </td>
                 <td className="border-t border-border px-[15px] py-3 text-[12px] text-ink-secondary">{p.rol ?? "—"}</td>
-                <td className="border-t border-border px-[15px] py-3 text-[13px] tabular">
-                  {p.porcentaje != null ? `${num(p.porcentaje, 0)}%` : "—"}
-                </td>
                 <td className="border-t border-border px-[15px] py-3 text-[13px] tabular">
                   {p.precio_hora != null ? eur(p.precio_hora) : "—"}
                 </td>
@@ -69,10 +66,7 @@ export default async function EquipoPage() {
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-[14px] font-semibold">{p.nombre}</div>
-                <div className="mt-0.5 text-[12px] text-ink-muted">
-                  {p.rol ?? "—"}
-                  {p.porcentaje != null ? ` · ${num(p.porcentaje, 0)}%` : ""}
-                </div>
+                <div className="mt-0.5 text-[12px] text-ink-muted">{p.rol ?? "—"}</div>
               </div>
               <EquipoDialog persona={p} />
             </div>
