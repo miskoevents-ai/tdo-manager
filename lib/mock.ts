@@ -58,6 +58,7 @@ function build() {
     id: `lugar-${slug(l.nombre)}`,
     nombre: l.nombre,
     localidad: l.localidad ?? null,
+    distancia_km: null,
     notas: null,
   }));
   const lugarByName = Object.fromEntries(lugares.map((l, i) => [data.lugares[i].nombre, l]));
@@ -144,6 +145,7 @@ function build() {
       retencion_pct: retPct,
       fianza: o.fianza ?? null,
       fianza_devuelta: false,
+      fecha_devolucion_fianza: null,
       cliente_id: cli?.id ?? null,
       lugar_id: lug?.id ?? null,
       notas: o.notas ?? null,

@@ -77,6 +77,7 @@ create table if not exists lugares (
   id uuid primary key default gen_random_uuid(),
   nombre text not null,
   localidad text,
+  distancia_km numeric,
   notas text
 );
 
@@ -139,6 +140,7 @@ create table if not exists oportunidades (
   retencion_pct numeric not null default 0,
   fianza numeric,
   fianza_devuelta boolean not null default false,
+  fecha_devolucion_fianza date,
   cliente_id uuid references clientes(id) on delete set null,
   lugar_id uuid references lugares(id) on delete set null,
   notas text,
@@ -283,8 +285,16 @@ alter table presupuesto_lineas add column if not exists articulo_id uuid referen
 create table if not exists desplazamientos (
   id uuid primary key default gen_random_uuid(),
   oportunidad_id uuid references oportunidades(id) on delete cascade,
-  trayecto text, km numeric, coste_gasolina numeric, peaje numeric, parking numeric,
+  trayecto text, km numeric, ida_vuelta boolean not null default true,
+  coste_gasolina numeric, peaje numeric, parking numeric,
+  tesoreria_id uuid references tesoreria(id) on delete set null,
   fecha date, notas text, created_at timestamptz not null default now()
+);
+
+create table if not exists ajustes (
+  clave text primary key,
+  valor text,
+  updated_at timestamptz not null default now()
 );
 create table if not exists partes_horas (
   id uuid primary key default gen_random_uuid(),
@@ -296,7 +306,7 @@ create table if not exists partes_horas (
 do $$
 declare t text;
 begin
-  foreach t in array array['reservas_material','packs','pack_items','desplazamientos','partes_horas'] loop
+  foreach t in array array['reservas_material','packs','pack_items','desplazamientos','partes_horas','ajustes'] loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists "auth_all" on %I', t);
     execute format('create policy "auth_all" on %I for all to authenticated using (true) with check (true)', t);
