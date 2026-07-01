@@ -2,15 +2,21 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Package, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { guardarLineas } from "@/app/actions";
 import { calcularTotales } from "@/lib/calc";
-import { eur, num } from "@/lib/format";
+import { eur, num, normaliza } from "@/lib/format";
 import type { PresupuestoLinea } from "@/lib/types";
 
-type Fila = { concepto: string; cantidad: number; precio_unitario: number };
+type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null };
+export type CatalogoItem = {
+  id: string;
+  articulo: string;
+  precio_alquiler: number | null;
+  fianza_sugerida: number | null;
+};
 
 export function PresupuestoEditor({
   oportunidadId,
@@ -18,12 +24,14 @@ export function PresupuestoEditor({
   ivaPct,
   retPct,
   esEmpresa,
+  catalogo = [],
 }: {
   oportunidadId: string;
   lineasIniciales: PresupuestoLinea[];
   ivaPct: number;
   retPct: number;
   esEmpresa: boolean;
+  catalogo?: CatalogoItem[];
 }) {
   const router = useRouter();
   const [filas, setFilas] = React.useState<Fila[]>(
@@ -32,8 +40,9 @@ export function PresupuestoEditor({
           concepto: l.concepto,
           cantidad: Number(l.cantidad),
           precio_unitario: Number(l.precio_unitario),
+          articulo_id: l.articulo_id ?? null,
         }))
-      : [{ concepto: "", cantidad: 1, precio_unitario: 0 }],
+      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null }],
   );
   const [iva, setIva] = React.useState(ivaPct);
   const [ret, setRet] = React.useState(retPct);
@@ -46,11 +55,33 @@ export function PresupuestoEditor({
     setFilas((f) => f.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   }
   function addFila() {
-    setFilas((f) => [...f, { concepto: "", cantidad: 1, precio_unitario: 0 }]);
+    setFilas((f) => [...f, { concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null }]);
   }
   function delFila(i: number) {
     setFilas((f) => (f.length === 1 ? f : f.filter((_, idx) => idx !== i)));
   }
+  // Añade una línea a partir de un artículo del catálogo (precio automático).
+  function addDesdeCatalogo(it: CatalogoItem) {
+    const nueva: Fila = {
+      concepto: it.articulo,
+      cantidad: 1,
+      precio_unitario: Number(it.precio_alquiler ?? 0),
+      articulo_id: it.id,
+    };
+    setFilas((f) => {
+      const soloVacia = f.length === 1 && !f[0].concepto.trim() && !f[0].articulo_id;
+      return soloVacia ? [nueva] : [...f, nueva];
+    });
+  }
+
+  // Fianza sugerida de los artículos del catálogo presentes en el presupuesto.
+  const fianzaSugerida = React.useMemo(() => {
+    const byId = new Map(catalogo.map((c) => [c.id, c]));
+    return filas.reduce((s, f) => {
+      const it = f.articulo_id ? byId.get(f.articulo_id) : null;
+      return s + (it?.fianza_sugerida ? Number(it.fianza_sugerida) * (f.cantidad || 1) : 0);
+    }, 0);
+  }, [filas, catalogo]);
 
   async function guardar() {
     setSaving(true);
@@ -84,12 +115,19 @@ export function PresupuestoEditor({
             {filas.map((f, i) => (
               <tr key={i}>
                 <td className="border-b border-[#f0eae1] py-1.5 pr-2">
-                  <Input
-                    value={f.concepto}
-                    onChange={(e) => setFila(i, { concepto: e.target.value })}
-                    placeholder="Descripción del concepto"
-                    className="py-2 text-[13px]"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    {f.articulo_id && (
+                      <span title="Del catálogo de inventario" className="shrink-0 text-sage">
+                        <Package size={13} />
+                      </span>
+                    )}
+                    <Input
+                      value={f.concepto}
+                      onChange={(e) => setFila(i, { concepto: e.target.value })}
+                      placeholder="Descripción del concepto"
+                      className="py-2 text-[13px]"
+                    />
+                  </div>
                 </td>
                 <td className="border-b border-[#f0eae1] py-1.5">
                   <Input
@@ -127,9 +165,18 @@ export function PresupuestoEditor({
         </table>
       </div>
 
-      <Button variant="outline" size="sm" onClick={addFila}>
-        <Plus size={14} /> Añadir línea
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" onClick={addFila}>
+          <Plus size={14} /> Añadir línea
+        </Button>
+        {catalogo.length > 0 && <CatalogoPicker catalogo={catalogo} onPick={addDesdeCatalogo} />}
+        {fianzaSugerida > 0 && (
+          <span className="text-[11.5px] text-ink-muted">
+            Fianza sugerida del material:{" "}
+            <b className="tabular text-clay">{eur(fianzaSugerida)}</b>
+          </span>
+        )}
+      </div>
 
       {/* IVA / Retención + Totales */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -191,6 +238,76 @@ export function PresupuestoEditor({
         </Button>
         {msg && <span className="text-caption text-ink-muted">{msg}</span>}
       </div>
+    </div>
+  );
+}
+
+// Buscador desplegable del catálogo de inventario para añadir líneas con precio automático.
+function CatalogoPicker({
+  catalogo,
+  onPick,
+}: {
+  catalogo: CatalogoItem[];
+  onPick: (it: CatalogoItem) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState("");
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const visibles = React.useMemo(() => {
+    const t = normaliza(q.trim());
+    const arr = t ? catalogo.filter((c) => normaliza(c.articulo).includes(t)) : catalogo;
+    return arr.slice(0, 40);
+  }, [q, catalogo]);
+
+  return (
+    <div ref={ref} className="relative">
+      <Button variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
+        <Package size={14} /> Añadir del catálogo
+      </Button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-[300px] rounded-md border-hair border-border bg-white p-2 shadow-lg">
+          <div className="flex items-center gap-1.5 rounded-sm border-med border-border px-2 py-1.5">
+            <Search size={14} className="text-ink-muted" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar artículo…"
+              className="w-full text-[13px] focus:outline-none"
+            />
+          </div>
+          <div className="mt-1 max-h-[260px] overflow-y-auto">
+            {visibles.length === 0 && (
+              <div className="px-2 py-3 text-center text-[12px] text-ink-muted">Sin resultados.</div>
+            )}
+            {visibles.map((it) => (
+              <button
+                key={it.id}
+                onClick={() => {
+                  onPick(it);
+                  setOpen(false);
+                  setQ("");
+                }}
+                className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-[13px] hover:bg-beige-warm"
+              >
+                <span className="truncate">{it.articulo}</span>
+                <span className="shrink-0 tabular text-[12px] text-ink-muted">
+                  {it.precio_alquiler != null ? eur(it.precio_alquiler) : "—"}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
