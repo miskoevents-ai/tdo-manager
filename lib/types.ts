@@ -171,6 +171,18 @@ export type Tesoreria = {
   cliente?: { nombre: string } | null;
 };
 
+export type Proveedor = {
+  id: string;
+  nombre: string;
+  tipo_servicio: string | null;
+  contacto: string | null;
+  email: string | null;
+  telefono: string | null;
+  localidad: string | null;
+  notas: string | null;
+  created_at: string;
+};
+
 export type GastoFijo = {
   id: string;
   concepto: string;

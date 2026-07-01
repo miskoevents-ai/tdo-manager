@@ -205,6 +205,7 @@ export async function guardarMovimiento(formData: FormData) {
     metodo: (formData.get("metodo") as string) || null,
     oportunidad_id: (formData.get("oportunidad_id") as string) || null,
     cliente_id: (formData.get("cliente_id") as string) || null,
+    proveedor_id: (formData.get("proveedor_id") as string) || null,
     computa_contabilidad: formData.get("computa_contabilidad") === "on",
     notas: (formData.get("notas") as string)?.trim() || null,
   };
@@ -227,6 +228,39 @@ export async function borrarMovimiento(id: string) {
   if (error) throw new Error(error.message);
   revalidatePath("/tesoreria");
   revalidatePath("/");
+}
+
+// --------------------------- Proveedores ---------------------------
+
+export async function guardarProveedor(formData: FormData) {
+  const sb = createAdminClient();
+  const id = (formData.get("id") as string) || null;
+  const payload = {
+    nombre: (formData.get("nombre") as string)?.trim(),
+    tipo_servicio: (formData.get("tipo_servicio") as string)?.trim() || null,
+    contacto: (formData.get("contacto") as string)?.trim() || null,
+    email: (formData.get("email") as string)?.trim() || null,
+    telefono: (formData.get("telefono") as string)?.trim() || null,
+    localidad: (formData.get("localidad") as string)?.trim() || null,
+    notas: (formData.get("notas") as string)?.trim() || null,
+  };
+  if (!payload.nombre) throw new Error("El nombre es obligatorio.");
+
+  if (id) {
+    const { error } = await sb.from("proveedores").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await sb.from("proveedores").insert(payload);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath("/proveedores");
+}
+
+export async function borrarProveedor(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("proveedores").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/proveedores");
 }
 
 // --------------------------- Gastos fijos ---------------------------

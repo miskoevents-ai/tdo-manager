@@ -14,7 +14,7 @@ import {
   ESTADO_MOV_META,
   etapaDeFecha,
 } from "@/lib/estados";
-import type { Cliente, Oportunidad, Tesoreria } from "@/lib/types";
+import type { Cliente, Oportunidad, Tesoreria, Proveedor } from "@/lib/types";
 
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic",
@@ -28,10 +28,12 @@ export function TesoreriaClient({
   movimientos,
   clientes,
   oportunidades,
+  proveedores = [],
 }: {
   movimientos: Tesoreria[];
   clientes: Cliente[];
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
+  proveedores?: Pick<Proveedor, "id" | "nombre">[];
 }) {
   const [q, setQ] = React.useState("");
   const [mes, setMes] = React.useState("");
@@ -175,7 +177,7 @@ export function TesoreriaClient({
                     {m.tipo === "ingreso" ? "+" : "−"}{eur(Number(m.importe))}
                   </td>
                   <td className="border-t border-border px-[14px] py-3 text-right">
-                    <MovimientoDialog clientes={clientes} oportunidades={oportunidades} movimiento={m} />
+                    <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} movimiento={m} />
                   </td>
                 </tr>
               );
@@ -212,7 +214,7 @@ export function TesoreriaClient({
               )}
               <div className="mt-2 flex items-center justify-between">
                 <Badge tone={em.tone}>{em.label}</Badge>
-                <MovimientoDialog clientes={clientes} oportunidades={oportunidades} movimiento={m} />
+                <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} movimiento={m} />
               </div>
             </Card>
           );

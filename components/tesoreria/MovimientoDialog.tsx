@@ -15,16 +15,18 @@ import {
   ESTADO_MOV_META,
   computaPorNaturaleza,
 } from "@/lib/estados";
-import type { Cliente, Oportunidad, Tesoreria } from "@/lib/types";
+import type { Cliente, Oportunidad, Tesoreria, Proveedor } from "@/lib/types";
 
 export function MovimientoDialog({
   clientes,
   oportunidades,
+  proveedores = [],
   movimiento,
   tipoInicial = "gasto",
 }: {
   clientes: Cliente[];
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
+  proveedores?: Pick<Proveedor, "id" | "nombre">[];
   movimiento?: Tesoreria;
   tipoInicial?: "ingreso" | "gasto";
 }) {
@@ -187,6 +189,17 @@ export function MovimientoDialog({
               </Select>
             </Field>
           </div>
+
+          {proveedores.length > 0 && (
+            <Field label="Proveedor (opcional)">
+              <Select name="proveedor_id" defaultValue={movimiento?.proveedor_id ?? ""}>
+                <option value="">— Ninguno —</option>
+                {proveedores.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </Select>
+            </Field>
+          )}
 
           <label className="flex items-center gap-2 rounded-md bg-beige-light px-3 py-2 text-[12px]">
             <input

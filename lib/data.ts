@@ -8,6 +8,7 @@ import type {
   Tesoreria,
   GastoFijo,
   Equipo,
+  Proveedor,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -105,6 +106,14 @@ export async function getTesoreriaDeOportunidad(oportunidadId: string): Promise<
     .order("fecha", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Tesoreria[];
+}
+
+export async function getProveedores(): Promise<Proveedor[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb.from("proveedores").select("*").order("nombre");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Proveedor[];
 }
 
 export async function getEquipo(): Promise<Equipo[]> {

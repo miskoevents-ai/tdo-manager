@@ -50,7 +50,7 @@ exception when duplicate_object then null; end $$;
 
 do $$ begin
   create type tesoreria_naturaleza as enum
-    ('ingreso_factura','gasto_fijo','gasto_de_evento','inversion','amigos','otro');
+    ('ingreso_factura','gasto_fijo','gasto_de_evento','inversion','comision','personal','amigos','otro');
 exception when duplicate_object then null; end $$;
 
 -- ---------------------------------------------------------------------------
@@ -186,9 +186,45 @@ create table if not exists tesoreria (
   notas text,
   cliente_id uuid references clientes(id) on delete set null,
   oportunidad_id uuid references oportunidades(id) on delete set null,
+  proveedor_id uuid,
   factura_id uuid references facturas(id) on delete set null,
   gasto_fijo_id uuid references gastos_fijos(id) on delete set null,
   computa_contabilidad boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists proveedores (
+  id uuid primary key default gen_random_uuid(),
+  nombre text not null,
+  tipo_servicio text,
+  contacto text,
+  email text,
+  telefono text,
+  localidad text,
+  notas text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists comisiones_config (
+  id uuid primary key default gen_random_uuid(),
+  tipo_evento text,
+  equipo_id uuid references equipo(id) on delete cascade,
+  porcentaje numeric not null default 0,
+  activo boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists comisiones (
+  id uuid primary key default gen_random_uuid(),
+  oportunidad_id uuid references oportunidades(id) on delete cascade,
+  equipo_id uuid references equipo(id) on delete set null,
+  base numeric not null default 0,
+  porcentaje numeric not null default 0,
+  importe numeric not null default 0,
+  estado text not null default 'pendiente',
+  fecha_devengo date,
+  pagada_el date,
+  tesoreria_id uuid references tesoreria(id) on delete set null,
   created_at timestamptz not null default now()
 );
 create index if not exists idx_tesoreria_oportunidad on tesoreria(oportunidad_id);
@@ -203,7 +239,8 @@ declare t text;
 begin
   foreach t in array array[
     'clientes','lugares','equipo','inventario','gastos_fijos',
-    'oportunidades','presupuesto_lineas','facturas','tesoreria'
+    'oportunidades','presupuesto_lineas','facturas','tesoreria',
+    'proveedores','comisiones_config','comisiones'
   ] loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists "auth_all" on %I', t);
