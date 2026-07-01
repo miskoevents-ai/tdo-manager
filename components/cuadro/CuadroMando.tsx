@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { eur, num } from "@/lib/format";
-import { ESTADO_META, ESTADOS_TODOS, TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
+import { ESTADO_META, ESTADOS_TODOS, KANBAN_COLS, TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
 
 export type OpRow = {
   id: string;
@@ -162,6 +162,32 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
     return Array.from(m.entries()).map(([k, v]) => ({ k, ...v })).sort((a, b) => b.valor - a.valor);
   }, [contratadas]);
   const totalServicio = porServicio.reduce((s, p) => s + p.valor, 0);
+
+  // ¿Por dónde cerramos más? — por canal: leads, cerradas, conversión y facturación.
+  const porCanal = React.useMemo(() => {
+    const m = new Map<string, { leads: number; cerradas: number; facturacion: number }>();
+    for (const r of filtradas) {
+      const k = r.canal || "sin_canal";
+      const cur = m.get(k) ?? { leads: 0, cerradas: 0, facturacion: 0 };
+      cur.leads += 1;
+      if (r.contratada) {
+        cur.cerradas += 1;
+        cur.facturacion += r.total;
+      }
+      m.set(k, cur);
+    }
+    return Array.from(m.entries())
+      .map(([k, v]) => ({ k, ...v, conv: v.leads ? (v.cerradas / v.leads) * 100 : 0 }))
+      .sort((a, b) => b.facturacion - a.facturacion || b.cerradas - a.cerradas);
+  }, [filtradas]);
+  const maxCanalFact = Math.max(1, ...porCanal.map((c) => c.facturacion));
+
+  // Embudo de conversión del pipeline.
+  const embudo = React.useMemo(() => {
+    return KANBAN_COLS.map((e) => ({ e, n: filtradas.filter((r) => r.estado === e).length }));
+  }, [filtradas]);
+  const perdidas = filtradas.filter((r) => ["perdida", "descartada"].includes(r.estado)).length;
+  const maxEmbudo = Math.max(1, ...embudo.map((x) => x.n));
 
   function exportCSV() {
     const head = ["titulo", "estado", "tipo_evento", "serie", "canal", "cliente", "lugar", "fecha", "total", "cobrado", "pendiente", "margen", "fianza"];
@@ -345,6 +371,72 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
         </Card>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* ¿Por dónde cerramos más? (canal) */}
+        <Card>
+          <SecTitle>¿Por dónde cerramos más?</SecTitle>
+          <p className="mt-1 text-[11px] text-ink-muted">Por canal de origen. Pincha un canal para ver sus oportunidades.</p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-[0.08em] text-ink-secondary">
+                  <th className="border-b border-border py-2 text-left font-semibold">Canal</th>
+                  <th className="border-b border-border py-2 text-right font-semibold">Leads</th>
+                  <th className="border-b border-border py-2 text-right font-semibold">Cerradas</th>
+                  <th className="border-b border-border py-2 text-right font-semibold">Conv.</th>
+                  <th className="border-b border-border py-2 text-right font-semibold">Facturación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {porCanal.length === 0 && <FilaVacia n={5} />}
+                {porCanal.map((c) => {
+                  const label = c.k === "sin_canal" ? "Sin canal" : CANAL_LABEL[c.k] ?? c.k;
+                  const href = c.k === "sin_canal" ? null : `/oportunidades?canal=${encodeURIComponent(c.k)}`;
+                  return (
+                    <tr key={c.k} className="hover:bg-beige-light">
+                      <Td>
+                        {href ? <Link href={href} className="hover:text-clay">{label}</Link> : label}
+                      </Td>
+                      <Td right>{c.leads}</Td>
+                      <Td right>{c.cerradas}</Td>
+                      <Td right>{num(c.conv, 0)}%</Td>
+                      <Td right bold>{eur(c.facturacion)}</Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* Embudo de conversión */}
+        <Card>
+          <SecTitle>Embudo de conversión</SecTitle>
+          <p className="mt-1 text-[11px] text-ink-muted">Oportunidades por etapa del pipeline (en el filtro actual).</p>
+          <div className="mt-3 space-y-1.5">
+            {embudo.map(({ e, n }) => (
+              <div key={e} className="flex items-center gap-3">
+                <span className="w-28 shrink-0 text-[11.5px] text-ink-secondary">{ESTADO_META[e].label}</span>
+                <div className="h-5 flex-1 overflow-hidden rounded-sm bg-beige-warm">
+                  <div className="h-full rounded-sm bg-sage" style={{ width: `${(n / maxEmbudo) * 100}%` }} />
+                </div>
+                <span className="w-8 shrink-0 text-right text-[12px] tabular font-semibold">{n}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between border-t border-border pt-2 text-[11.5px] text-ink-muted">
+              <span>Conversión global (contratadas / total)</span>
+              <span className="tabular font-semibold text-sage">{num(conversion, 0)}%</span>
+            </div>
+            {perdidas > 0 && (
+              <div className="flex items-center justify-between text-[11.5px] text-ink-muted">
+                <span>Perdidas / descartadas</span>
+                <span className="tabular text-error">{perdidas}</span>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
       {/* Pivot dinámico */}
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -426,6 +518,7 @@ function drillHref(dimK: keyof OpRow, value: string): string | null {
   if (dimK === "serie") return `/oportunidades?serie=${encodeURIComponent(value)}`;
   if (dimK === "tipoOperacion") return `/oportunidades?operacion=${encodeURIComponent(value)}`;
   if (dimK === "ym") return `/oportunidades?mes=${encodeURIComponent(value)}`;
+  if (dimK === "canal") return `/oportunidades?canal=${encodeURIComponent(value)}`;
   return null;
 }
 function uniq(arr: (string | null)[]): string[] {

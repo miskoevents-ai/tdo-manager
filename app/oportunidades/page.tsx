@@ -44,6 +44,7 @@ export default async function OportunidadesPage() {
       pendiente: Math.max(0, t.total - (o.cobrado ?? 0)),
       serie: o.serie,
       tipo_operacion: o.tipo_operacion,
+      canal: o.canal,
       fianzaPendiente: Boolean((o.fianza ?? 0) > 0 && !o.fianza_devuelta),
     };
   });

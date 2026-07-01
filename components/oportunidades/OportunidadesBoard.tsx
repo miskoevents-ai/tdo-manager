@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { Kanban, type KanbanCard } from "@/components/oportunidades/Kanban";
-import { TIPO_EVENTO_LABEL } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
 
 const HOY = "2026-07-01";
 const MESES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -20,6 +20,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
   const [operacion, setOperacion] = React.useState(sp.get("operacion") ?? "");
   const [temporal, setTemporal] = React.useState(sp.get("temporal") ?? ""); // "" | proximos | mes | pasados
   const [mes, setMes] = React.useState(sp.get("mes") ?? ""); // YYYY-MM (drill-down)
+  const [canal, setCanal] = React.useState(sp.get("canal") ?? ""); // drill-down por canal
 
   const filtra = (c: KanbanCard) => {
     if (tipoEvento && c.tipo_evento !== tipoEvento) return false;
@@ -29,6 +30,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
     if (serie && c.serie !== serie) return false;
     if (operacion && c.tipo_operacion !== operacion) return false;
     if (mes && (c.fecha_evento ?? "").slice(0, 7) !== mes) return false;
+    if (canal && c.canal !== canal) return false;
     if (temporal) {
       const f = c.fecha_evento ?? "";
       if (temporal === "proximos" && !(f >= HOY)) return false;
@@ -50,7 +52,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
   const tiposPresentes = Array.from(new Set(cards.map((c) => c.tipo_evento)));
   const selectCls =
     "rounded-sm border-med border-border bg-white px-3 py-2 text-[12.5px] text-ink-secondary focus:border-sage-300 focus:outline-none";
-  const hayFiltro = q || tipoEvento || cobro || fianza || serie || operacion || temporal || mes;
+  const hayFiltro = q || tipoEvento || cobro || fianza || serie || operacion || temporal || mes || canal;
 
   return (
     <div className="space-y-4">
@@ -98,10 +100,16 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
             <button onClick={() => setMes("")} aria-label="Quitar filtro de mes" className="text-sage hover:text-sage-600">×</button>
           </span>
         )}
+        {canal && (
+          <span className="inline-flex items-center gap-1.5 rounded-pill border-hair border-sage-tint-deep bg-sage-tint/60 px-3 py-1.5 text-[12px] font-medium text-sage">
+            Canal: {CANAL_LABEL[canal] ?? canal}
+            <button onClick={() => setCanal("")} aria-label="Quitar filtro de canal" className="text-sage hover:text-sage-600">×</button>
+          </span>
+        )}
         {hayFiltro && (
           <button
             onClick={() => {
-              setQ(""); setTipoEvento(""); setCobro(""); setFianza(""); setSerie(""); setOperacion(""); setTemporal(""); setMes("");
+              setQ(""); setTipoEvento(""); setCobro(""); setFianza(""); setSerie(""); setOperacion(""); setTemporal(""); setMes(""); setCanal("");
             }}
             className="rounded-sm border-med border-border-strong px-3 py-2 text-[12px] text-ink-secondary hover:bg-beige-warm"
           >
