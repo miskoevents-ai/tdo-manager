@@ -1,0 +1,32 @@
+import {
+  Home,
+  Target,
+  Calendar,
+  FileText,
+  Wallet,
+  BarChart3,
+  Package,
+  Users,
+  Contact,
+  type LucideIcon,
+} from "lucide-react";
+
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  fase: 1 | 2 | 3;
+};
+
+// Secciones del mockup, en orden.
+export const NAV: NavItem[] = [
+  { href: "/", label: "Inicio", icon: Home, fase: 1 },
+  { href: "/oportunidades", label: "Oportunidades", icon: Target, fase: 1 },
+  { href: "/calendario", label: "Calendario", icon: Calendar, fase: 3 },
+  { href: "/facturas", label: "Facturas", icon: FileText, fase: 1 },
+  { href: "/tesoreria", label: "Tesorería", icon: Wallet, fase: 2 },
+  { href: "/contabilidad", label: "Contabilidad", icon: BarChart3, fase: 2 },
+  { href: "/inventario", label: "Inventario", icon: Package, fase: 3 },
+  { href: "/equipo", label: "Equipo", icon: Users, fase: 2 },
+  { href: "/clientes", label: "Clientes", icon: Contact, fase: 1 },
+];

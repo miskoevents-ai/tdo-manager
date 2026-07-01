@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Neutros base */
+  --beige-bg: #f4ede1;
+  --beige-light: #faf6ee;
+  --beige-warm: #eae0cf;
+  --beige-deep: #e3d7c2;
+  --white: #ffffff;
+  --cream: #fcfaf5;
+
+  /* Bordes */
+  --border: #d8cfbe;
+  --border-soft: #e7decd;
+  --border-strong: #c7bba4;
+
+  /* Texto */
+  --ink: #1f1f1f;
+  --ink-secondary: #555555;
+  --ink-muted: #7c7468;
+  --foot: #9a9a9a;
+
+  /* Salvia (primario) */
+  --sage: #3f4a36;
+  --sage-600: #4c5841;
+  --sage-300: #8a957c;
+  --sage-tint: #eef1ea;
+  --sage-tint-deep: #dfe6d6;
+
+  /* Arcilla (secundario) */
+  --clay: #be6e4c;
+  --clay-600: #a85c3c;
+  --clay-300: #d9a88e;
+  --clay-tint: #f4e4da;
+  --clay-tint-deep: #ead0c0;
+
+  /* Estados */
+  --ok: #5b7350;
+  --ok-tint: #e9efe3;
+  --warn: #b98a3e;
+  --warn-tint: #f6ecd7;
+  --error: #a65441;
+  --error-tint: #f3e0da;
+
+  --shadow-sm: 0 2px 8px rgba(60, 48, 30, 0.07);
+  --shadow-md: 0 8px 24px rgba(60, 48, 30, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--beige-bg);
+  color: var(--ink);
+  font-family: var(--font-montserrat), "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Paper grain texture, felt not seen */
+.paper {
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(190, 110, 76, 0.018) 0, transparent 38%),
+    radial-gradient(circle at 80% 70%, rgba(63, 74, 54, 0.018) 0, transparent 40%),
+    repeating-linear-gradient(115deg, rgba(120, 100, 70, 0.012) 0 2px, transparent 2px 4px);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hide scrollbars on horizontal scroll areas but keep function */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
