@@ -338,7 +338,8 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
           ) : (
             <div className="mt-3 space-y-2">
               {porMes.map((p) => {
-                const href = drillHref("ym", p.k);
+                const base = drillHref("ym", p.k);
+                const href = base ? `${base}&contratadas=1` : null;
                 const fila = (
                   <div className="flex items-center gap-3">
                     <span className="w-14 shrink-0 text-[11.5px] text-ink-muted">{p.k === "—" ? "Sin fecha" : mesLabel(p.k)}</span>
@@ -368,7 +369,8 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
             <div className="mt-3 space-y-2">
               {porServicio.map((p) => {
                 const pctv = totalServicio > 0 ? (p.valor / totalServicio) * 100 : 0;
-                const href = drillHref("tipoEvento", p.k);
+                const base = drillHref("tipoEvento", p.k);
+                const href = base ? `${base}&contratadas=1` : null;
                 const fila = (
                   <div className="flex items-center gap-3">
                     <span className="w-24 shrink-0 truncate text-[12px] text-ink-secondary">{TIPO_EVENTO_LABEL[p.k] ?? p.k}</span>
@@ -473,7 +475,7 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
             ].map((row) => {
               const pctv = factClientesTotal > 0 ? (row.val / factClientesTotal) * 100 : 0;
               return (
-                <Link key={row.k} href={`/oportunidades?recurrencia=${row.k}`} className="block rounded-sm hover:bg-beige-warm/60">
+                <Link key={row.k} href={`/oportunidades?recurrencia=${row.k}&contratadas=1`} className="block rounded-sm hover:bg-beige-warm/60">
                   <div className="flex items-center gap-3">
                     <span className="w-24 shrink-0 text-[12px] text-ink-secondary">{row.label}</span>
                     <div className="h-5 flex-1 overflow-hidden rounded-sm bg-beige-warm">
@@ -510,7 +512,9 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
         ) : (
           <div className="mt-4 space-y-2">
             {pivot.map((p) => {
-              const href = drillHref(dim.k, p.k);
+              const base = drillHref(dim.k, p.k);
+              // Las métricas de dinero se calculan sobre contratadas → el enlace filtra igual.
+              const href = base && met.money && met.k !== "fianza" ? `${base}&contratadas=1` : base;
               const fila = (
                 <div className="flex items-center gap-3">
                   <span className="w-32 shrink-0 truncate text-[12px] text-ink-secondary" title={p.k}>{dim.fmt ? dim.fmt(p.k) : p.k}</span>
