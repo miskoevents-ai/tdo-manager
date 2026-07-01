@@ -23,6 +23,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
   const [canal, setCanal] = React.useState(sp.get("canal") ?? ""); // drill-down por canal
   const [recurrencia, setRecurrencia] = React.useState(sp.get("recurrencia") ?? ""); // "" | nuevos | recurrentes
   const [soloContratadas, setSoloContratadas] = React.useState(sp.get("contratadas") === "1");
+  const [soloPipeline, setSoloPipeline] = React.useState(sp.get("pipeline") === "1");
 
   const filtra = (c: KanbanCard) => {
     if (tipoEvento && c.tipo_evento !== tipoEvento) return false;
@@ -36,6 +37,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
     if (recurrencia === "nuevos" && c.clienteRecurrente !== false) return false;
     if (recurrencia === "recurrentes" && c.clienteRecurrente !== true) return false;
     if (soloContratadas && !["confirmada", "realizada", "facturada"].includes(c.estado)) return false;
+    if (soloPipeline && !["nueva", "contestada", "en_conversacion", "presupuesto_enviado"].includes(c.estado)) return false;
     if (temporal) {
       const f = c.fecha_evento ?? "";
       if (temporal === "proximos" && !(f >= HOY)) return false;
@@ -57,7 +59,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
   const tiposPresentes = Array.from(new Set(cards.map((c) => c.tipo_evento)));
   const selectCls =
     "rounded-sm border-med border-border bg-white px-3 py-2 text-[12.5px] text-ink-secondary focus:border-sage-300 focus:outline-none";
-  const hayFiltro = q || tipoEvento || cobro || fianza || serie || operacion || temporal || mes || canal || recurrencia || soloContratadas;
+  const hayFiltro = q || tipoEvento || cobro || fianza || serie || operacion || temporal || mes || canal || recurrencia || soloContratadas || soloPipeline;
 
   return (
     <div className="space-y-4">
@@ -122,10 +124,16 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
             <button onClick={() => setSoloContratadas(false)} aria-label="Quitar filtro" className="text-sage hover:text-sage-600">×</button>
           </span>
         )}
+        {soloPipeline && (
+          <span className="inline-flex items-center gap-1.5 rounded-pill border-hair border-sage-tint-deep bg-sage-tint/60 px-3 py-1.5 text-[12px] font-medium text-sage">
+            En pipeline
+            <button onClick={() => setSoloPipeline(false)} aria-label="Quitar filtro" className="text-sage hover:text-sage-600">×</button>
+          </span>
+        )}
         {hayFiltro && (
           <button
             onClick={() => {
-              setQ(""); setTipoEvento(""); setCobro(""); setFianza(""); setSerie(""); setOperacion(""); setTemporal(""); setMes(""); setCanal(""); setRecurrencia(""); setSoloContratadas(false);
+              setQ(""); setTipoEvento(""); setCobro(""); setFianza(""); setSerie(""); setOperacion(""); setTemporal(""); setMes(""); setCanal(""); setRecurrencia(""); setSoloContratadas(false); setSoloPipeline(false);
             }}
             className="rounded-sm border-med border-border-strong px-3 py-2 text-[12px] text-ink-secondary hover:bg-beige-warm"
           >
