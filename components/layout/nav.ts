@@ -5,6 +5,7 @@ import {
   FileText,
   Wallet,
   BarChart3,
+  LineChart,
   Package,
   Users,
   Contact,
@@ -15,7 +16,7 @@ export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  fase: 1 | 2 | 3;
+  fase: 1 | 2 | 3 | 4;
 };
 
 // Secciones del mockup, en orden.
@@ -26,6 +27,7 @@ export const NAV: NavItem[] = [
   { href: "/facturas", label: "Facturas", icon: FileText, fase: 1 },
   { href: "/tesoreria", label: "Tesorería", icon: Wallet, fase: 2 },
   { href: "/contabilidad", label: "Contabilidad", icon: BarChart3, fase: 2 },
+  { href: "/cuadro-mando", label: "Cuadro de mando", icon: LineChart, fase: 4 },
   { href: "/inventario", label: "Inventario", icon: Package, fase: 3 },
   { href: "/equipo", label: "Equipo", icon: Users, fase: 2 },
   { href: "/clientes", label: "Clientes", icon: Contact, fase: 1 },
