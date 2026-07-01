@@ -3,8 +3,8 @@ import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { InventarioDialog } from "@/components/inventario/InventarioDialog";
 import { InventarioGrid } from "@/components/inventario/InventarioGrid";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getInventario } from "@/lib/data";
-import type { Inventario } from "@/lib/types";
+import { getInventario, getReservas } from "@/lib/data";
+import type { Inventario, Reserva } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +12,9 @@ export default async function InventarioPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
   let items: Inventario[];
+  let reservas: Reserva[];
   try {
-    items = await getInventario();
+    [items, reservas] = await Promise.all([getInventario(), getReservas()]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -24,7 +25,7 @@ export default async function InventarioPage() {
         <Overline className="!mt-0">{items.length} artículos</Overline>
         <InventarioDialog />
       </div>
-      <InventarioGrid items={items} />
+      <InventarioGrid items={items} reservas={reservas} />
     </div>
   );
 }
