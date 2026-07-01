@@ -54,7 +54,8 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
 
   const filtradas = cards.filter(filtra);
   const activas = filtradas.filter((c) => !["perdida", "descartada"].includes(c.estado));
-  const cerradas = filtradas.filter((c) => ["perdida", "descartada"].includes(c.estado));
+  const perdidas = filtradas.filter((c) => c.estado === "perdida");
+  const descartadas = filtradas.filter((c) => c.estado === "descartada");
 
   const tiposPresentes = Array.from(new Set(cards.map((c) => c.tipo_evento)));
   const selectCls =
@@ -148,22 +149,44 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
 
       <Kanban cards={activas} />
 
-      {cerradas.length > 0 && (
-        <details className="rounded-lg border-hair border-error/40 bg-error-tint/30 p-4">
-          <summary className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-error">
-            <span className="h-2 w-2 rounded-full bg-error" />
-            Rechazadas / perdidas ({cerradas.length})
-          </summary>
-          <div className="mt-3 space-y-1 text-[13px]">
-            {cerradas.map((c) => (
-              <a key={c.id} href={`/oportunidades/${c.id}`} className="flex items-center justify-between border-t border-error/20 py-2 hover:text-error">
-                <span className="line-through decoration-error/40">{c.titulo}</span>
-                <span className="text-ink-muted">{c.cliente ?? "—"}</span>
-              </a>
-            ))}
-          </div>
-        </details>
+      {perdidas.length > 0 && (
+        <GrupoCerrado titulo="Perdidas" items={perdidas} tone="error" />
+      )}
+      {descartadas.length > 0 && (
+        <GrupoCerrado titulo="Descartadas" items={descartadas} tone="neutral" />
       )}
     </div>
+  );
+}
+
+// Sección plegable para oportunidades cerradas (perdidas o descartadas).
+function GrupoCerrado({
+  titulo,
+  items,
+  tone,
+}: {
+  titulo: string;
+  items: KanbanCard[];
+  tone: "error" | "neutral";
+}) {
+  const c =
+    tone === "error"
+      ? { box: "border-error/40 bg-error-tint/30", head: "text-error", dot: "bg-error", row: "border-error/20 hover:text-error", line: "decoration-error/40" }
+      : { box: "border-border bg-beige-warm/40", head: "text-ink-secondary", dot: "bg-ink-muted", row: "border-border hover:text-ink", line: "decoration-ink-muted/50" };
+  return (
+    <details className={`rounded-lg border-hair p-4 ${c.box}`}>
+      <summary className={`flex cursor-pointer items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] ${c.head}`}>
+        <span className={`h-2 w-2 rounded-full ${c.dot}`} />
+        {titulo} ({items.length})
+      </summary>
+      <div className="mt-3 space-y-1 text-[13px]">
+        {items.map((it) => (
+          <a key={it.id} href={`/oportunidades/${it.id}`} className={`flex items-center justify-between border-t py-2 ${c.row}`}>
+            <span className={`line-through ${c.line}`}>{it.titulo}</span>
+            <span className="text-ink-muted">{it.cliente ?? "—"}</span>
+          </a>
+        ))}
+      </div>
+    </details>
   );
 }
