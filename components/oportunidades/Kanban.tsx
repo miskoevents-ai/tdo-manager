@@ -23,6 +23,7 @@ export type KanbanCard = {
   tipo_operacion?: string;
   canal?: string | null;
   fianzaPendiente?: boolean;
+  clienteRecurrente?: boolean;
 };
 
 // Acento de color por estado (cabecera de columna + borde izquierdo de tarjeta).
@@ -102,9 +103,20 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                   onClick={() => router.push(`/oportunidades/${c.id}`)}
                 >
                   <b className="mb-0.5 block text-[12.5px] leading-snug">{c.titulo}</b>
-                  <small className="block truncate text-[11px] text-ink-muted">
-                    {c.cliente ?? "Sin cliente"}
-                  </small>
+                  <div className="flex items-center gap-1.5">
+                    <small className="min-w-0 flex-1 truncate text-[11px] text-ink-muted">
+                      {c.cliente ?? "Sin cliente"}
+                    </small>
+                    {c.clienteRecurrente != null && (
+                      <span
+                        className={`shrink-0 rounded-pill px-1.5 text-[9px] font-semibold uppercase tracking-[0.05em] ${
+                          c.clienteRecurrente ? "bg-sage-tint text-sage" : "bg-clay-tint text-clay-600"
+                        }`}
+                      >
+                        {c.clienteRecurrente ? "Recurrente" : "Nuevo"}
+                      </span>
+                    )}
+                  </div>
                   <div className="mt-1.5 text-[10px] text-ink-muted">
                     {TIPO_EVENTO_LABEL[c.tipo_evento] ?? c.tipo_evento} · {fecha(c.fecha_evento)}
                   </div>

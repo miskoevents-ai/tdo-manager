@@ -84,6 +84,7 @@ export type Oportunidad = {
   fianza: number | null;
   fianza_devuelta: boolean;
   fecha_devolucion_fianza: string | null;
+  fecha_confirmacion?: string | null;
   cliente_id: string | null;
   lugar_id: string | null;
   notas: string | null;

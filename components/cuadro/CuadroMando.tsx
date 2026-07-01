@@ -27,6 +27,8 @@ export type OpRow = {
   gastos: number;
   margen: number;
   fianza: number;
+  clienteRecurrente: boolean;
+  diasCierre: number | null;
 };
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -189,6 +191,17 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
   const perdidas = filtradas.filter((r) => ["perdida", "descartada"].includes(r.estado)).length;
   const maxEmbudo = Math.max(1, ...embudo.map((x) => x.n));
 
+  // Tiempo medio hasta el cierre (días desde la entrada hasta la confirmación).
+  const cierres = contratadas.map((r) => r.diasCierre).filter((d): d is number => d != null);
+  const tiempoCierre = cierres.length ? Math.round(cierres.reduce((s, d) => s + d, 0) / cierres.length) : null;
+
+  // Clientes nuevos vs recurrentes (sobre contratadas).
+  const recu = contratadas.filter((r) => r.clienteRecurrente);
+  const nuevos = contratadas.filter((r) => !r.clienteRecurrente);
+  const factRecu = recu.reduce((s, r) => s + r.total, 0);
+  const factNuevos = nuevos.reduce((s, r) => s + r.total, 0);
+  const factClientesTotal = factRecu + factNuevos;
+
   function exportCSV() {
     const head = ["titulo", "estado", "tipo_evento", "serie", "canal", "cliente", "lugar", "fecha", "total", "cobrado", "pendiente", "margen", "fianza"];
     const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -307,6 +320,12 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
         <Kpi label="Conversión" value={`${num(conversion, 0)}%`} sub={`${contratadas.length}/${filtradas.length} oportunidades`} tone="text-sage" />
         <Kpi label="Fianzas activas" value={eur(fianzas)} tone="text-warn" />
         <Kpi label="Nº oportunidades" value={String(filtradas.length)} sub={`${contratadas.length} contratadas`} tone="text-ink" />
+        <Kpi
+          label="Tiempo medio de cierre"
+          value={tiempoCierre != null ? `${tiempoCierre} días` : "—"}
+          sub={tiempoCierre != null ? `${cierres.length} con fecha` : "sin datos aún"}
+          tone="text-clay"
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -436,6 +455,40 @@ export function CuadroMando({ rows }: { rows: OpRow[] }) {
           </div>
         </Card>
       </div>
+
+      {/* Clientes nuevos vs recurrentes */}
+      <Card>
+        <SecTitle>Clientes nuevos vs recurrentes</SecTitle>
+        <p className="mt-1 text-[11px] text-ink-muted">
+          Facturación contratada según si el cliente tiene una sola oportunidad (nuevo) o más de una (recurrente).
+          Pincha para ver sus oportunidades.
+        </p>
+        {factClientesTotal === 0 ? (
+          <Vacio />
+        ) : (
+          <div className="mt-3 space-y-2">
+            {[
+              { k: "recurrentes", label: "Recurrentes", n: recu.length, val: factRecu, color: "bg-sage" },
+              { k: "nuevos", label: "Nuevos", n: nuevos.length, val: factNuevos, color: "bg-clay" },
+            ].map((row) => {
+              const pctv = factClientesTotal > 0 ? (row.val / factClientesTotal) * 100 : 0;
+              return (
+                <Link key={row.k} href={`/oportunidades?recurrencia=${row.k}`} className="block rounded-sm hover:bg-beige-warm/60">
+                  <div className="flex items-center gap-3">
+                    <span className="w-24 shrink-0 text-[12px] text-ink-secondary">{row.label}</span>
+                    <div className="h-5 flex-1 overflow-hidden rounded-sm bg-beige-warm">
+                      <div className={`h-full rounded-sm ${row.color}`} style={{ width: `${pctv}%` }} />
+                    </div>
+                    <span className="w-10 shrink-0 text-right text-[12px] tabular font-semibold">{Math.round(pctv)}%</span>
+                    <span className="w-24 shrink-0 text-right text-[12px] tabular font-semibold">{eur(row.val)}</span>
+                    <span className="w-16 shrink-0 text-right text-[11px] text-ink-muted">{row.n} op.</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       {/* Pivot dinámico */}
       <Card>
