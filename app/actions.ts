@@ -297,6 +297,7 @@ export async function guardarMovimiento(formData: FormData) {
     oportunidad_id: (formData.get("oportunidad_id") as string) || null,
     cliente_id: (formData.get("cliente_id") as string) || null,
     proveedor_id: (formData.get("proveedor_id") as string) || null,
+    quien_lo_paga: (formData.get("quien_lo_paga") as string)?.trim() || null,
     computa_contabilidad: formData.get("computa_contabilidad") === "on",
     notas: (formData.get("notas") as string)?.trim() || null,
   };

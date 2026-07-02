@@ -172,6 +172,7 @@ export type Tesoreria = {
   oportunidad_id: string | null;
   cliente_id?: string | null;
   proveedor_id?: string | null;
+  quien_lo_paga?: string | null;
   notas?: string | null;
   computa_contabilidad: boolean;
   created_at: string;

@@ -29,11 +29,13 @@ export function TesoreriaClient({
   clientes,
   oportunidades,
   proveedores = [],
+  responsables = [],
 }: {
   movimientos: Tesoreria[];
   clientes: Cliente[];
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
   proveedores?: Pick<Proveedor, "id" | "nombre">[];
+  responsables?: string[];
 }) {
   const [q, setQ] = React.useState("");
   const [mes, setMes] = React.useState("");
@@ -68,11 +70,68 @@ export function TesoreriaClient({
   const ingresos = visibles.filter((m) => m.tipo === "ingreso").reduce((s, m) => s + Number(m.importe), 0);
   const gastos = visibles.filter((m) => m.tipo === "gasto").reduce((s, m) => s + Number(m.importe), 0);
 
+  // Deudas / pendiente de pago: gastos aún no pagados (previsto o vencido).
+  // "A quién": el proveedor si está enlazado; si no, quien lo pagó de su bolsillo
+  // (reembolso pendiente); si tampoco, el concepto. Se calcula sobre TODOS los
+  // movimientos (no solo los filtrados) para que sea un panel fijo de alarma.
+  const provNombre = React.useMemo(
+    () => Object.fromEntries(proveedores.map((p) => [p.id, p.nombre])),
+    [proveedores],
+  );
+  const deudas = movimientos.filter(
+    (m) => m.tipo === "gasto" && (m.estado === "previsto" || m.estado === "vencido"),
+  );
+  const totalDeuda = deudas.reduce((s, m) => s + Number(m.importe), 0);
+  const aQuien = (m: Tesoreria) =>
+    (m.proveedor_id ? provNombre[m.proveedor_id] : null) ?? m.quien_lo_paga ?? m.concepto;
+
   const selectCls =
     "rounded-sm border-med border-border bg-white px-3 py-2 text-[13px] text-ink-secondary focus:border-sage-300 focus:outline-none";
 
   return (
     <div className="space-y-4">
+      {/* Deudas / pendiente de pago (gastos sin pagar) */}
+      {deudas.length > 0 && (
+        <Card className="border-l-[3px] border-l-warn">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-ink">
+              Pendiente de pagar
+              <span className="ml-2 text-[11px] font-medium text-ink-muted">
+                {deudas.length} {deudas.length === 1 ? "deuda" : "deudas"}
+              </span>
+            </span>
+            <span className="tabular font-display text-[18px] text-warn">{eur(totalDeuda)}</span>
+          </div>
+          <div className="space-y-1">
+            {deudas.map((m) => {
+              const em = ESTADO_MOV_META[m.estado] ?? { label: m.estado, tone: "neutral" as const };
+              return (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-[12.5px] hover:bg-beige-light"
+                >
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-medium">{aQuien(m)}</span>
+                    <span className="truncate text-[11px] text-ink-muted">
+                      {m.concepto} · {fecha(m.fecha)}
+                    </span>
+                  </span>
+                  <Badge tone={em.tone}>{em.label}</Badge>
+                  <span className="tabular shrink-0 font-semibold text-error">−{eur(Number(m.importe))}</span>
+                  <MovimientoDialog
+                    clientes={clientes}
+                    oportunidades={oportunidades}
+                    proveedores={proveedores}
+                    responsables={responsables}
+                    movimiento={m}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       {/* Resumen del filtro */}
       <div className="grid grid-cols-3 gap-3">
         <Card className="p-4">
@@ -177,7 +236,7 @@ export function TesoreriaClient({
                     {m.tipo === "ingreso" ? "+" : "−"}{eur(Number(m.importe))}
                   </td>
                   <td className="border-t border-border px-[14px] py-3 text-right">
-                    <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} movimiento={m} />
+                    <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} />
                   </td>
                 </tr>
               );
@@ -214,7 +273,7 @@ export function TesoreriaClient({
               )}
               <div className="mt-2 flex items-center justify-between">
                 <Badge tone={em.tone}>{em.label}</Badge>
-                <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} movimiento={m} />
+                <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} />
               </div>
             </Card>
           );

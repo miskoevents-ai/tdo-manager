@@ -21,12 +21,14 @@ export function MovimientoDialog({
   clientes,
   oportunidades,
   proveedores = [],
+  responsables = [],
   movimiento,
   tipoInicial = "gasto",
 }: {
   clientes: Cliente[];
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
   proveedores?: Pick<Proveedor, "id" | "nombre">[];
+  responsables?: string[];
   movimiento?: Tesoreria;
   tipoInicial?: "ingreso" | "gasto";
 }) {
@@ -43,6 +45,12 @@ export function MovimientoDialog({
   const [computa, setComputa] = React.useState(
     movimiento?.computa_contabilidad ?? computaPorNaturaleza(naturaleza),
   );
+
+  // Pagado por: desplegable del equipo o escribir uno externo (sirve para
+  // saber a quién reembolsar si alguien adelanta el dinero).
+  const [pagadoPor, setPagadoPor] = React.useState(movimiento?.quien_lo_paga ?? "");
+  const pagadoEnLista = responsables.includes(pagadoPor);
+  const [pagadoExterno, setPagadoExterno] = React.useState(Boolean(pagadoPor) && !pagadoEnLista);
 
   function onNaturaleza(v: string) {
     setNaturaleza(v);
@@ -190,16 +198,54 @@ export function MovimientoDialog({
             </Field>
           </div>
 
-          {proveedores.length > 0 && (
-            <Field label="Proveedor (opcional)">
-              <Select name="proveedor_id" defaultValue={movimiento?.proveedor_id ?? ""}>
-                <option value="">— Ninguno —</option>
-                {proveedores.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
-                ))}
-              </Select>
-            </Field>
-          )}
+          <div className="grid grid-cols-2 gap-3">
+            {proveedores.length > 0 && (
+              <Field label="Proveedor (opcional)">
+                <Select name="proveedor_id" defaultValue={movimiento?.proveedor_id ?? ""}>
+                  <option value="">— Ninguno —</option>
+                  {proveedores.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                  Pagado por
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPagadoExterno((v) => {
+                      setPagadoPor("");
+                      return !v;
+                    })
+                  }
+                  className="text-[11px] font-semibold text-clay hover:text-clay-600"
+                >
+                  {pagadoExterno ? "Elegir del equipo" : "+ Externo"}
+                </button>
+              </div>
+              {pagadoExterno ? (
+                <Input
+                  autoFocus
+                  value={pagadoPor}
+                  onChange={(e) => setPagadoPor(e.target.value)}
+                  placeholder="Nombre de quien lo pagó"
+                  autoComplete="off"
+                />
+              ) : (
+                <Select value={pagadoPor} onChange={(e) => setPagadoPor(e.target.value)}>
+                  <option value="">— Sin especificar —</option>
+                  {responsables.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </Select>
+              )}
+              <input type="hidden" name="quien_lo_paga" value={pagadoPor} />
+            </div>
+          </div>
 
           <label className="flex items-center gap-2 rounded-md bg-beige-light px-3 py-2 text-[12px]">
             <input
