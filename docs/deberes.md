@@ -46,6 +46,28 @@ casillas nuevas a una hoja de Excel. No borra nada.
 > Es seguro repetirlo: lleva `if not exists`, así que si lo ejecutas dos veces
 > no pasa nada.
 
+#### Migraciones posteriores (008 y 009)
+
+A medida que añadimos funciones, aparecen columnas nuevas. Pega también estas
+en el SQL Editor (son seguras de repetir):
+
+```sql
+-- 008 · "Pagado por" en los movimientos de tesorería
+alter table tesoreria
+  add column if not exists quien_lo_paga text;
+
+-- 009 · Fidelización (reseñas y recomendaciones)
+alter table oportunidades
+  add column if not exists resena_pedida boolean not null default false,
+  add column if not exists resena_conseguida boolean not null default false;
+alter table clientes
+  add column if not exists recomendacion_pedida boolean not null default false,
+  add column if not exists nos_ha_recomendado boolean not null default false;
+```
+
+Sin la 008 no se pueden guardar gastos (da error); sin la 009 no funciona la
+pestaña **Fidelización**.
+
 ---
 
 ### Tarea 3 · Quitar "Socio mayoritario" de la ficha de Sarmi
@@ -91,6 +113,7 @@ Todas se configuran en el **mismo sitio**:
 | `LEADS_TOKEN` | Protege la entrada automática de leads | Igual: texto largo al azar |
 | `ANTHROPIC_API_KEY` | El **asistente con IA** ✨ (el botón de la estrella) | https://console.anthropic.com → API Keys → Create Key (empieza por `sk-ant-...`) |
 | `APP_URL` | La dirección de tu web | La URL de Vercel, p.ej. `https://tdo-manager.vercel.app` |
+| `NEXT_PUBLIC_RESENA_URL` | El enlace de reseñas que sale en el mensaje de Fidelización | Tu ficha de Google o Bodas.net, p.ej. `https://g.page/r/...` (opcional) |
 
 **¿Cómo genero un secreto al azar (CRON_SECRET / LEADS_TOKEN)?**
 Cualquier texto largo vale. Si tienes una terminal a mano:

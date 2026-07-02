@@ -28,6 +28,8 @@ export type Cliente = {
   estado: ClienteEstado;
   canal: string | null;
   notas: string | null;
+  recomendacion_pedida?: boolean;
+  nos_ha_recomendado?: boolean;
   created_at: string;
 };
 
@@ -85,6 +87,8 @@ export type Oportunidad = {
   fianza_devuelta: boolean;
   fecha_devolucion_fianza: string | null;
   fecha_confirmacion?: string | null;
+  resena_pedida?: boolean;
+  resena_conseguida?: boolean;
   cliente_id: string | null;
   lugar_id: string | null;
   notas: string | null;

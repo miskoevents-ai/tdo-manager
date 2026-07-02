@@ -76,6 +76,8 @@ function build() {
     estado: c.estado === "cliente" ? "cliente" : "lead",
     canal: null,
     notas: c.notas ?? null,
+    recomendacion_pedida: false,
+    nos_ha_recomendado: false,
     created_at: "2026-06-01T00:00:00Z",
   }));
   const cliByName = Object.fromEntries(clientes.map((c, i) => [data.clientes[i].nombre, c]));
@@ -155,6 +157,8 @@ function build() {
       fianza: o.fianza ?? null,
       fianza_devuelta: false,
       fecha_devolucion_fianza: null,
+      resena_pedida: false,
+      resena_conseguida: false,
       cliente_id: cli?.id ?? null,
       lugar_id: lug?.id ?? null,
       notas: o.notas ?? null,
