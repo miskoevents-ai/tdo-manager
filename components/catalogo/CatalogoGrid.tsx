@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X } from "lucide-react";
+import { X, Sparkles } from "lucide-react";
 import { fotoUrl, CATEGORIAS, CAT_LABEL, type CatalogoItem } from "@/lib/catalogo";
 import { eur } from "@/lib/format";
 
@@ -9,24 +9,24 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
   const [cat, setCat] = React.useState<string>("");
   const [abierto, setAbierto] = React.useState<CatalogoItem | null>(null);
   // Fotos que no cargan (no están en el bucket) → se ocultan, para mostrar
-  // solo las que tienen foto real.
+  // solo las que tienen foto real. Los packs sin foto se muestran como tarjeta.
   const [rotas, setRotas] = React.useState<Record<string, boolean>>({});
 
-  const visibles = items.filter(
-    (it) => !rotas[it.archivo] && (!cat || it.categorias.includes(cat)),
-  );
+  const ok = (it: CatalogoItem) => !it.archivo || !rotas[it.archivo];
+  const visibles = items.filter((it) => ok(it) && (!cat || it.categorias.includes(cat)));
 
-  // Recuento por categoría (sobre las que sí tienen foto).
   const cuenta = React.useMemo(() => {
     const m: Record<string, number> = {};
     for (const it of items) {
-      if (rotas[it.archivo]) continue;
+      if (!ok(it)) continue;
       for (const c of it.categorias) m[c] = (m[c] ?? 0) + 1;
     }
     return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, rotas]);
 
-  const totalConFoto = items.filter((it) => !rotas[it.archivo]).length;
+  const total = items.filter(ok).length;
+  const clave = (it: CatalogoItem) => it.archivo ?? `pack-${it.nombre}`;
 
   function Chip({ k, label, n }: { k: string; label: string; n: number }) {
     const activo = cat === k;
@@ -49,7 +49,7 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
     <div className="space-y-4">
       {/* Filtros por categoría */}
       <div className="no-scrollbar flex flex-wrap gap-2">
-        <Chip k="" label="Todo" n={totalConFoto} />
+        <Chip k="" label="Todo" n={total} />
         {CATEGORIAS.filter((c) => cuenta[c.key]).map((c) => (
           <Chip key={c.key} k={c.key} label={c.label} n={cuenta[c.key] ?? 0} />
         ))}
@@ -59,31 +59,44 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {visibles.map((it) => (
           <button
-            key={it.archivo}
+            key={clave(it)}
             type="button"
             onClick={() => setAbierto(it)}
-            className="group overflow-hidden rounded-[12px] border-hair border-border bg-white text-left shadow-sm transition-all hover:-translate-y-px hover:shadow-md"
+            className="group flex flex-col overflow-hidden rounded-[12px] border-hair border-border bg-white text-left shadow-sm transition-all hover:-translate-y-px hover:shadow-md"
           >
-            <div className="aspect-[4/3] overflow-hidden bg-beige-warm">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={fotoUrl(it.archivo)}
-                alt={it.descripcion}
-                loading="lazy"
-                onError={() => setRotas((r) => ({ ...r, [it.archivo]: true }))}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-            </div>
-            <div className="p-2.5">
+            {it.archivo ? (
+              <div className="aspect-[4/3] overflow-hidden bg-beige-warm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={fotoUrl(it.archivo)}
+                  alt={it.nombre ?? it.descripcion}
+                  loading="lazy"
+                  onError={() => setRotas((r) => ({ ...r, [it.archivo!]: true }))}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </div>
+            ) : (
+              // Pack del dossier sin foto propia: tarjeta de texto elegante.
+              <div className="flex aspect-[4/3] flex-col items-center justify-center gap-2 bg-gradient-to-br from-sage-tint/60 to-beige-warm px-4 text-center">
+                <Sparkles size={18} className="text-sage" />
+                <span className="font-display text-[14px] leading-snug text-sage">
+                  {it.nombre}
+                </span>
+              </div>
+            )}
+            <div className="flex flex-1 flex-col p-2.5">
+              {it.nombre && it.archivo && (
+                <span className="mb-0.5 text-[12px] font-semibold leading-snug">{it.nombre}</span>
+              )}
               <p className="line-clamp-2 text-[11.5px] leading-snug text-ink-secondary">
                 {it.descripcion}
               </p>
-              <div className="mt-1.5 flex items-center justify-between">
+              <div className="mt-auto flex items-center justify-between pt-1.5">
                 <span className="truncate text-[10px] uppercase tracking-[0.06em] text-ink-muted">
                   {(it.categorias[0] && CAT_LABEL[it.categorias[0]]) ?? ""}
                 </span>
                 {typeof it.precio === "number" && (
-                  <span className="tabular text-[12px] font-semibold text-sage">{eur(it.precio)}</span>
+                  <span className="tabular text-[12.5px] font-semibold text-sage">{eur(it.precio)}</span>
                 )}
               </div>
             </div>
@@ -93,11 +106,11 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
 
       {visibles.length === 0 && (
         <p className="py-8 text-center text-small text-ink-muted">
-          No hay fotos en esta categoría todavía.
+          No hay referencias en esta categoría todavía.
         </p>
       )}
 
-      {/* Lightbox */}
+      {/* Lightbox / ficha */}
       {abierto && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4"
@@ -108,12 +121,18 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative bg-beige-warm">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={fotoUrl(abierto.archivo)}
-                alt={abierto.descripcion}
-                className="max-h-[65vh] w-full object-contain"
-              />
+              {abierto.archivo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={fotoUrl(abierto.archivo)}
+                  alt={abierto.nombre ?? abierto.descripcion}
+                  className="max-h-[65vh] w-full object-contain"
+                />
+              ) : (
+                <div className="flex h-40 items-center justify-center bg-gradient-to-br from-sage-tint/60 to-beige-warm">
+                  <Sparkles size={26} className="text-sage" />
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setAbierto(null)}
@@ -123,7 +142,10 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
               </button>
             </div>
             <div className="p-4">
-              <p className="text-[13.5px] text-ink">{abierto.descripcion}</p>
+              {abierto.nombre && (
+                <h3 className="font-display text-[18px] text-ink">{abierto.nombre}</h3>
+              )}
+              <p className="mt-1 text-[13.5px] text-ink-secondary">{abierto.descripcion}</p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {abierto.categorias.map((c) => (
                   <span
@@ -134,7 +156,7 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
                   </span>
                 ))}
                 {typeof abierto.precio === "number" && (
-                  <span className="ml-auto tabular text-[15px] font-semibold text-sage">
+                  <span className="ml-auto tabular text-[16px] font-semibold text-sage">
                     {eur(abierto.precio)}
                   </span>
                 )}
