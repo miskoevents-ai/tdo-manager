@@ -26,22 +26,29 @@ export type KanbanCard = {
   clienteRecurrente?: boolean;
 };
 
-// Acento de color por estado (cabecera de columna + borde izquierdo de tarjeta).
-const ACCENT: Record<OportunidadEstado, { dot: string; border: string; head: string }> = {
-  nueva: { dot: "bg-ink-muted", border: "border-l-border-strong", head: "text-ink-secondary" },
-  contestada: { dot: "bg-sage-300", border: "border-l-sage-300", head: "text-sage" },
-  en_conversacion: { dot: "bg-sage-300", border: "border-l-sage-300", head: "text-sage" },
-  presupuesto_enviado: { dot: "bg-clay", border: "border-l-clay", head: "text-clay-600" },
-  confirmada: { dot: "bg-ok", border: "border-l-ok", head: "text-ok" },
-  realizada: { dot: "bg-ok", border: "border-l-ok", head: "text-ok" },
-  facturada: { dot: "bg-sage", border: "border-l-sage", head: "text-sage" },
-  perdida: { dot: "bg-error", border: "border-l-error", head: "text-error" },
-  descartada: { dot: "bg-ink-muted", border: "border-l-border-strong", head: "text-ink-muted" },
+// Acento de color por estado (cabecera de columna + borde izquierdo de tarjeta
+// + color del desplegable, que así coincide con el puntito de la columna).
+const ACCENT: Record<
+  OportunidadEstado,
+  { dot: string; border: string; head: string; chip: string }
+> = {
+  nueva: { dot: "bg-ink-muted", border: "border-l-border-strong", head: "text-ink-secondary", chip: "border-border bg-beige-light text-ink-secondary" },
+  contestada: { dot: "bg-sage-300", border: "border-l-sage-300", head: "text-sage", chip: "border-sage-tint-deep bg-sage-tint/60 text-sage" },
+  en_conversacion: { dot: "bg-sage-300", border: "border-l-sage-300", head: "text-sage", chip: "border-sage-tint-deep bg-sage-tint/60 text-sage" },
+  presupuesto_enviado: { dot: "bg-clay", border: "border-l-clay", head: "text-clay-600", chip: "border-clay-tint-deep bg-clay-tint/60 text-clay-600" },
+  confirmada: { dot: "bg-ok", border: "border-l-ok", head: "text-ok", chip: "border-ok/30 bg-ok-tint text-ok" },
+  realizada: { dot: "bg-ok", border: "border-l-ok", head: "text-ok", chip: "border-ok/30 bg-ok-tint text-ok" },
+  facturada: { dot: "bg-sage", border: "border-l-sage", head: "text-sage", chip: "border-sage-tint-deep bg-sage-tint/60 text-sage" },
+  perdida: { dot: "bg-error", border: "border-l-error", head: "text-error", chip: "border-error/30 bg-error-tint text-error" },
+  descartada: { dot: "bg-ink-muted", border: "border-l-border-strong", head: "text-ink-muted", chip: "border-border bg-beige-light text-ink-muted" },
 };
 
 export function Kanban({ cards }: { cards: KanbanCard[] }) {
   const router = useRouter();
   const [moving, setMoving] = React.useState<string | null>(null);
+  // Arrastrar y soltar (escritorio): tarjeta en curso y columna resaltada.
+  const [dragId, setDragId] = React.useState<string | null>(null);
+  const [overCol, setOverCol] = React.useState<string | null>(null);
 
   async function mover(id: string, estado: string) {
     setMoving(id);
@@ -53,6 +60,17 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
     }
   }
 
+  function soltar(col: OportunidadEstado) {
+    const id = dragId;
+    setOverCol(null);
+    setDragId(null);
+    // Solo mueve si cambia de columna.
+    if (id) {
+      const card = cards.find((c) => c.id === id);
+      if (card && card.estado !== col) mover(id, col);
+    }
+  }
+
   return (
     <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
       {KANBAN_COLS.map((col) => {
@@ -60,12 +78,23 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
         const meta = ESTADO_META[col];
         const acc = ACCENT[col];
 
+        const resaltada = overCol === col && dragId;
+
         // Columnas vacías: colapsadas en una tira estrecha para no comerse la pantalla.
         if (items.length === 0) {
           return (
             <div
               key={col}
-              className="flex w-[44px] shrink-0 flex-col items-center rounded-[14px] bg-beige-warm/40 py-3"
+              onDragOver={(e) => {
+                if (dragId) {
+                  e.preventDefault();
+                  setOverCol(col);
+                }
+              }}
+              onDrop={() => soltar(col)}
+              className={`flex shrink-0 flex-col items-center rounded-[14px] py-3 transition-all ${
+                resaltada ? "w-[120px] bg-sage-tint ring-2 ring-sage-300" : "w-[44px] bg-beige-warm/40"
+              }`}
             >
               <span className={`mb-2 h-2 w-2 rounded-full ${acc.dot}`} />
               <span
@@ -80,7 +109,16 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
         return (
           <div
             key={col}
-            className="flex w-[250px] shrink-0 flex-col rounded-[14px] bg-beige-warm/70 p-3"
+            onDragOver={(e) => {
+              if (dragId) {
+                e.preventDefault();
+                setOverCol(col);
+              }
+            }}
+            onDrop={() => soltar(col)}
+            className={`flex w-[250px] shrink-0 flex-col rounded-[14px] p-3 transition-all ${
+              resaltada ? "bg-sage-tint ring-2 ring-sage-300" : "bg-beige-warm/70"
+            }`}
           >
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -99,7 +137,13 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
               {items.map((c) => (
                 <div
                   key={c.id}
-                  className={`cursor-pointer rounded-[10px] border-hair border-l-[3px] border-border bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:shadow-md ${acc.border}`}
+                  draggable
+                  onDragStart={() => setDragId(c.id)}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setOverCol(null);
+                  }}
+                  className={`cursor-grab rounded-[10px] border-hair border-l-[3px] border-border bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:cursor-grabbing ${acc.border} ${dragId === c.id ? "opacity-40" : ""}`}
                   onClick={() => router.push(`/oportunidades/${c.id}`)}
                 >
                   <b className="mb-0.5 block text-[12.5px] leading-snug">{c.titulo}</b>
@@ -135,7 +179,7 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                     disabled={moving === c.id}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => mover(c.id, e.target.value)}
-                    className="mt-2 w-full rounded-sm border-hair border-border bg-beige-light px-2 py-1 text-[10.5px] text-ink-secondary"
+                    className={`mt-2 w-full rounded-sm border-hair px-2 py-1 text-[10.5px] font-semibold ${ACCENT[c.estado].chip}`}
                   >
                     {KANBAN_COLS.map((s) => (
                       <option key={s} value={s}>
