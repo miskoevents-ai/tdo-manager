@@ -801,7 +801,7 @@ export const CATALOGO: CatalogoItem[] = [
     ]
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-bicicleta.jpg",
     "nombre": "Rincón bicicleta",
     "descripcion": "Bicicleta de bambú decorada con cesta delantera de flores de temporada y flecha en peana personalizada.",
     "categorias": [
@@ -811,7 +811,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 130
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-cerveza-retro.jpg",
     "nombre": "Rincón de cerveza retro",
     "descripcion": "Bañera retro de hierro y peana con cartel de cervezas.",
     "categorias": [
@@ -820,7 +820,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 125
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-cerveza-jardin.jpg",
     "nombre": "Rincón de cerveza jardín",
     "descripcion": "Bañera antigua, peana con cartel de cervezas y bicicleta con flores de colores a elegir.",
     "categorias": [
@@ -830,7 +830,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 315
   },
   {
-    "archivo": null,
+    "archivo": "pack-ceremonia-roma-jardin.jpg",
     "nombre": "Ceremonia Roma Jardín",
     "descripcion": "Altar con centro alargado de flores de temporada, diván para los novios y 8 ramitos de pasillo.",
     "categorias": [
@@ -840,7 +840,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 280
   },
   {
-    "archivo": null,
+    "archivo": "pack-ceremonia-roma.jpg",
     "nombre": "Ceremonia Roma",
     "descripcion": "Altar con centro alargado, diván para los novios, pareja de copas con flores y 6 cestos de pasillo.",
     "categorias": [
@@ -850,7 +850,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 590
   },
   {
-    "archivo": null,
+    "archivo": "pack-ceremonia-boho.jpg",
     "nombre": "Ceremonia Boho",
     "descripcion": "Centro sobre consola rústica con verde y paniculata y 6 arreglos de pasillo con pampas y flores blancas.",
     "categorias": [
@@ -860,7 +860,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 455
   },
   {
-    "archivo": null,
+    "archivo": "pack-ceremonia-provenza.jpg",
     "nombre": "Ceremonia Provenza",
     "descripcion": "6 arreglos de pasillo, centro sobre consola, carrito antiguo con 60 conos de pétalos, damajuana, cesto de paniculata y alfombras de yute.",
     "categorias": [
@@ -870,7 +870,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 755
   },
   {
-    "archivo": null,
+    "archivo": "pack-ceremonia-italia.jpg",
     "nombre": "Ceremonia Italia",
     "descripcion": "Arco de madera con dos arreglos asimétricos, centro con paniculata, diván y 10 ramitos de pasillo.",
     "categorias": [
@@ -880,7 +880,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 605
   },
   {
-    "archivo": null,
+    "archivo": "pack-ceremonia-melodia-alegria.jpg",
     "nombre": "Ceremonia Melodía",
     "descripcion": "Arco de madera con arreglos asimétricos, 12 ramitos de pasillo, 8 cestitos y rincón de pétalos con 100 conos.",
     "categorias": [
@@ -890,7 +890,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 885
   },
   {
-    "archivo": null,
+    "archivo": "pack-ceremonia-melodia-alegria.jpg",
     "nombre": "Ceremonia Alegría",
     "descripcion": "Arco con arreglos asimétricos, arreglos sobre mesa, 8 ramitos, cesto floral, 2 faroles y 4 cestos de pétalos sobre carrito y bancos.",
     "categorias": [
@@ -901,7 +901,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 955
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-lucia.jpg",
     "nombre": "Rincón Lucía (pétalos)",
     "descripcion": "Cesto de 60 conos con confeti de pétalo natural, carrito antiguo, damajuana y cesto de paniculata.",
     "categorias": [
@@ -911,7 +911,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 200
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-angela.jpg",
     "nombre": "Rincón Ángela (pétalos)",
     "descripcion": "Pareja de cestos con 100 conos de confeti de pétalo natural y carrito antiguo.",
     "categorias": [
@@ -921,7 +921,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 260
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-casilda.jpg",
     "nombre": "Rincón Casilda (pétalos) (unidad)",
     "descripcion": "Cesto sobre banco de madera con pétalos de rosas frescas del color a elegir.",
     "categorias": [
@@ -931,7 +931,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 56
   },
   {
-    "archivo": null,
+    "archivo": "pack-entrada-toscana.jpg",
     "nombre": "Entrada Toscana (pareja)",
     "descripcion": "Pareja de cestos con base verde y flores de temporada de colores a elegir.",
     "categorias": [
@@ -941,7 +941,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 94
   },
   {
-    "archivo": null,
+    "archivo": "pack-camino-provenza.jpg",
     "nombre": "Camino Provenza (unidad)",
     "descripcion": "Bodegón de tronco de árbol, farol con vela led y cesto con verde y paniculata.",
     "categorias": [
@@ -951,7 +951,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 67
   },
   {
-    "archivo": null,
+    "archivo": "pack-camino-entrevelas-1.jpg",
     "nombre": "Camino Entrevelas I (unidad)",
     "descripcion": "Bodegón de 3 jarrones de cristal ahumado con velas flotantes y farol con vela led.",
     "categorias": [
@@ -961,7 +961,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 67
   },
   {
-    "archivo": null,
+    "archivo": "pack-camino-entrevelas-2.jpg",
     "nombre": "Camino Entrevelas II (unidad)",
     "descripcion": "Bodegón de 3 jarrones con velas flotantes, farol con vela led y cesto floral de color a elegir.",
     "categorias": [
@@ -972,7 +972,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 76
   },
   {
-    "archivo": null,
+    "archivo": "pack-pasillo-boho.jpg",
     "nombre": "Pasillo Boho (7 alfombras persas)",
     "descripcion": "Camino de 7 alfombras persas/kilim para el pasillo de ceremonia.",
     "categorias": [
@@ -981,7 +981,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 275
   },
   {
-    "archivo": null,
+    "archivo": "pack-seating-verona.jpg",
     "nombre": "Seating Verona",
     "descripcion": "Marco antiguo con tela de gallinero y ramaje sobre atril, 2 cestos de flores de temporada y 3 jarrones blancos.",
     "categorias": [
@@ -991,7 +991,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 215
   },
   {
-    "archivo": null,
+    "archivo": "pack-seating-boho.jpg",
     "nombre": "Seating Boho",
     "descripcion": "Marco de madera con tela de gallinero y ramaje, 2 cestos y 3 damajuanas con pampas y paniculata.",
     "categorias": [
@@ -1001,7 +1001,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 215
   },
   {
-    "archivo": null,
+    "archivo": "pack-seating-niza.jpg",
     "nombre": "Seating Niza",
     "descripcion": "Mesa con botellas de cristal con flores, nombres pintados a mano, cajas de madera, cinco faroles y damajuanas con pampas.",
     "categorias": [
@@ -1012,7 +1012,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 310
   },
   {
-    "archivo": null,
+    "archivo": "pack-seating-viajero.jpg",
     "nombre": "Seating Viajero",
     "descripcion": "Cartel mapamundi de musgo preservado con nombres pintados a mano y conjunto de 8 maletas antiguas.",
     "categorias": [
@@ -1021,7 +1021,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 315
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-celina.jpg",
     "nombre": "Rincón Celina (alpargatas)",
     "descripcion": "Puerta rústica con frase pintada, 6 cestos con números, 5 cajas de madera y 2 faroles.",
     "categorias": [
@@ -1030,7 +1030,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 160
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-claudia.jpg",
     "nombre": "Rincón Claudia (alpargatas)",
     "descripcion": "Biombo hindú, cajas en estanterías, escalera con cajones, banco rústico con tapa y cartel.",
     "categorias": [
@@ -1039,7 +1039,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 215
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-chopo.jpg",
     "nombre": "Rincón Chopo (fotos)",
     "descripcion": "Trasera de madera rústica, pareja de maletas y cesto floral de temporada.",
     "categorias": [
@@ -1049,7 +1049,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 110
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-haya.jpg",
     "nombre": "Rincón Haya (detalles)",
     "descripcion": "Trasera vintage con tela de gallinero decorada con ramaje y flores de temporada.",
     "categorias": [
@@ -1059,7 +1059,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 260
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-encina.jpg",
     "nombre": "Rincón Encina (fotos)",
     "descripcion": "Puertas antiguas con arreglo de ramaje y flores de temporada de colores a elegir.",
     "categorias": [
@@ -1069,7 +1069,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 260
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-acacia.jpg",
     "nombre": "Rincón Acacia (regalos)",
     "descripcion": "Puertas antiguas, 3 cajas de fruta y pareja de maletas.",
     "categorias": [
@@ -1078,7 +1078,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 170
   },
   {
-    "archivo": null,
+    "archivo": "pack-rincon-firmas-cerezo.jpg",
     "nombre": "Rincón de firmas Cerezo",
     "descripcion": "Consola francesa, candelabro, portacartas, elefantes con libros, cartel y máquina de escribir antigua.",
     "categorias": [
@@ -1087,7 +1087,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 170
   },
   {
-    "archivo": null,
+    "archivo": "pack-photocall-chester.jpg",
     "nombre": "Photocall Chester Flores",
     "descripcion": "Sofá Chester con pareja de copas florales bajo estructura de madera con ramaje y neón a elegir.",
     "categorias": [
@@ -1098,7 +1098,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 560
   },
   {
-    "archivo": null,
+    "archivo": "pack-letras-luz-madera.jpg",
     "nombre": "Letras con luz (madera)",
     "descripcion": "Iniciales de madera con bombillas de luz cálida.",
     "categorias": [
@@ -1107,7 +1107,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 335
   },
   {
-    "archivo": null,
+    "archivo": "pack-letras-luz-blancas.jpg",
     "nombre": "Letras con luz blancas",
     "descripcion": "Iniciales de madera blancas con bombillas de luz cálida.",
     "categorias": [
@@ -1116,7 +1116,7 @@ export const CATALOGO: CatalogoItem[] = [
     "precio": 420
   },
   {
-    "archivo": null,
+    "archivo": "pack-candelabros-forja.jpg",
     "nombre": "Candelabros de forja",
     "descripcion": "Candelabros de forja con velas led de luz cálida.",
     "categorias": [

@@ -10,14 +10,29 @@ import { eur } from "@/lib/format";
 // (Vercel la redimensiona a WebP ligero y la cachea); si el optimizador falla
 // por lo que sea, cae a la imagen directa de Supabase (probada y funcional).
 // Solo si ambas fallan se muestra el fondo suave.
-function FotoCatalogo({ archivo, alt, grande = false }: { archivo: string; alt: string; grande?: boolean }) {
+function FotoCatalogo({
+  archivo,
+  alt,
+  grande = false,
+  nombre,
+}: {
+  archivo: string;
+  alt: string;
+  grande?: boolean;
+  nombre?: string;
+}) {
   // fase 0 = optimizada · fase 1 = directa (sin optimizador) · fase 2 = fallo
   const [fase, setFase] = React.useState(0);
 
   if (fase >= 2) {
+    // Si el pack tiene nombre, mantenemos la tarjeta elegante (p. ej. cuando
+    // su foto aún no se ha subido al bucket).
     return (
-      <div className="flex h-full w-full items-center justify-center bg-beige-warm">
-        <Sparkles size={18} className="text-ink-muted" />
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-sage-tint/60 to-beige-warm px-4 text-center">
+        <Sparkles size={18} className={nombre ? "text-sage" : "text-ink-muted"} />
+        {nombre && (
+          <span className="font-display text-[14px] leading-snug text-sage">{nombre}</span>
+        )}
       </div>
     );
   }
@@ -71,7 +86,7 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
   }, [items]);
 
   const total = items.length;
-  const clave = (it: CatalogoItem) => it.archivo ?? `pack-${it.nombre}`;
+  const clave = (it: CatalogoItem) => `${it.archivo ?? "sin-foto"}·${it.nombre ?? it.descripcion}`;
 
   function Chip({ k, label, n }: { k: string; label: string; n: number }) {
     const activo = cat === k;
@@ -122,7 +137,7 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
           >
             {it.archivo ? (
               <div className="relative aspect-[4/3] overflow-hidden bg-beige-warm">
-                <FotoCatalogo archivo={it.archivo} alt={it.nombre ?? it.descripcion} />
+                <FotoCatalogo archivo={it.archivo} alt={it.nombre ?? it.descripcion} nombre={it.nombre} />
               </div>
             ) : (
               // Pack del dossier sin foto propia: tarjeta de texto elegante.
@@ -177,6 +192,7 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
                   <FotoCatalogo
                     archivo={abierto.archivo}
                     alt={abierto.nombre ?? abierto.descripcion}
+                    nombre={abierto.nombre}
                     grande
                   />
                 </div>
