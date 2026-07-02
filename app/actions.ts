@@ -322,6 +322,15 @@ export async function borrarMovimiento(id: string) {
   revalidatePath("/");
 }
 
+// Marca un movimiento (gasto pendiente) como pagado en un clic.
+export async function marcarMovimientoPagado(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("tesoreria").update({ estado: "pagado" }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/tesoreria");
+  revalidatePath("/");
+}
+
 // --------------------------- Costes del evento ---------------------------
 
 const revCostes = (opId: string) => {

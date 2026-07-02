@@ -2,11 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ExternalLink, Check, ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { Donut, DONUT_COLORS } from "@/components/ui/Donut";
+import { marcarMovimientoPagado } from "@/app/actions";
 import { eur, fecha } from "@/lib/format";
 import {
   NATURALEZA_LABEL,
@@ -38,11 +40,25 @@ export function TesoreriaClient({
   proveedores?: Pick<Proveedor, "id" | "nombre">[];
   responsables?: string[];
 }) {
+  const router = useRouter();
   const [q, setQ] = React.useState("");
   const [mes, setMes] = React.useState("");
   const [tipo, setTipo] = React.useState("");
   const [naturaleza, setNaturaleza] = React.useState("");
   const [estado, setEstado] = React.useState("");
+  // Panel de deudas: marcar pagado en un clic y ver solo unas pocas por defecto.
+  const [pagando, setPagando] = React.useState<string | null>(null);
+  const [verTodasDeudas, setVerTodasDeudas] = React.useState(false);
+
+  async function pagar(id: string) {
+    setPagando(id);
+    try {
+      await marcarMovimientoPagado(id);
+      router.refresh();
+    } finally {
+      setPagando(null);
+    }
+  }
   const [etapa, setEtapa] = React.useState("");
 
   const meses = React.useMemo(() => {
@@ -149,33 +165,56 @@ export function TesoreriaClient({
                 ))}
               </ul>
             </div>
-            {/* Lista de deudas */}
-            <div className="space-y-1">
-              {deudas.map((m) => {
-                const em = ESTADO_MOV_META[m.estado] ?? { label: m.estado, tone: "neutral" as const };
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-[12.5px] hover:bg-beige-light"
-                  >
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate font-medium">{aQuien(m)}</span>
-                      <span className="truncate text-[11px] text-ink-muted">
-                        {m.concepto} · {fecha(m.fecha)}
-                      </span>
+            {/* Lista de deudas (solo unas pocas por defecto para no saturar) */}
+            <div className="space-y-0.5">
+              {(verTodasDeudas ? deudas : deudas.slice(0, 5)).map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-[12.5px] hover:bg-beige-light"
+                >
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-medium">{aQuien(m)}</span>
+                    <span className="truncate text-[11px] text-ink-muted">
+                      {m.concepto} · {fecha(m.fecha)}
                     </span>
-                    <Badge tone={em.tone}>{em.label}</Badge>
-                    <span className="tabular shrink-0 font-semibold text-error">−{eur(Number(m.importe))}</span>
-                    <MovimientoDialog
-                      clientes={clientes}
-                      oportunidades={oportunidades}
-                      proveedores={proveedores}
-                      responsables={responsables}
-                      movimiento={m}
-                    />
-                  </div>
-                );
-              })}
+                  </span>
+                  {m.estado === "vencido" && <Badge tone="error">Vencido</Badge>}
+                  <span
+                    className={`tabular shrink-0 font-semibold ${m.estado === "vencido" ? "text-error" : "text-ink-secondary"}`}
+                  >
+                    {eur(Number(m.importe))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => pagar(m.id)}
+                    disabled={pagando === m.id}
+                    title="Marcar como pagado"
+                    className="shrink-0 rounded-full border-hair border-ok/40 bg-ok-tint p-1 text-ok transition-colors hover:bg-ok hover:text-white disabled:opacity-50"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <MovimientoDialog
+                    clientes={clientes}
+                    oportunidades={oportunidades}
+                    proveedores={proveedores}
+                    responsables={responsables}
+                    movimiento={m}
+                  />
+                </div>
+              ))}
+              {deudas.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setVerTodasDeudas((v) => !v)}
+                  className="mt-1 flex items-center gap-1 px-2 text-[11.5px] font-semibold text-sage hover:text-sage-600"
+                >
+                  <ChevronDown
+                    size={14}
+                    className={`transition-transform ${verTodasDeudas ? "rotate-180" : ""}`}
+                  />
+                  {verTodasDeudas ? "Ver menos" : `Ver todas (${deudas.length})`}
+                </button>
+              )}
             </div>
           </div>
         </Card>
