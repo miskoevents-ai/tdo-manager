@@ -1123,5 +1123,96 @@ export const CATALOGO: CatalogoItem[] = [
       "iluminacion"
     ],
     "precio": 200
+  },
+  {
+    "archivo": "centro-basico-ref-a-najaraya-01.jpg",
+    "nombre": "Centro de mesa básico · ref A (finca Najaraya)",
+    "descripcion": "Centro de saco de arpillera con rosas blancas, paniculata y verdes de temporada.",
+    "categorias": [
+      "centros-mesa",
+      "flores"
+    ],
+    "precio": 20
+  },
+  {
+    "archivo": "centro-espejo-ref-c-01.jpg",
+    "nombre": "Centro de mesa sobre espejo · ref C",
+    "descripcion": "Jarroncitos de cristal con flor silvestre sobre espejo redondo.",
+    "categorias": [
+      "centros-mesa",
+      "flores"
+    ],
+    "precio": 28
+  },
+  {
+    "archivo": "centro-alargado-ref-d-01.jpg",
+    "nombre": "Centro de mesa alargado · ref D",
+    "descripcion": "Centro alargado de rosas blancas y verdes para mesas rectangulares y presidencia.",
+    "categorias": [
+      "centros-mesa",
+      "flores"
+    ],
+    "precio": 54
+  },
+  {
+    "archivo": "centro-imperial-ref-e-01.jpg",
+    "nombre": "Centro de mesa imperial · ref E",
+    "descripcion": "Mesa imperial con 14 violeteros de hortensia y flor blanca y 12 velas led.",
+    "categorias": [
+      "centros-mesa",
+      "flores",
+      "iluminacion"
+    ],
+    "precio": 170
+  },
+  {
+    "archivo": "centro-altura-ref-x-01.jpg",
+    "nombre": "Centro en altura · ref X",
+    "descripcion": "Centro en altura sobre estructura dorada con pampas y flor seca.",
+    "categorias": [
+      "centros-mesa",
+      "flores"
+    ],
+    "precio": 125
+  },
+  {
+    "archivo": "centro-girasoles-trigo-01.jpg",
+    "nombre": "Centro de mesa de girasoles",
+    "descripcion": "Centro de saco de arpillera con girasoles, espigas de trigo y flor azul silvestre.",
+    "categorias": [
+      "centros-mesa",
+      "flores"
+    ],
+    "precio": 25
+  },
+  {
+    "archivo": "centro-copa-clasica-01.jpg",
+    "nombre": "Centro en copa clásica",
+    "descripcion": "Copa clásica de cerámica blanca con hortensia, lisianthus y clavel en tonos marfil.",
+    "categorias": [
+      "centros-mesa",
+      "flores"
+    ],
+    "precio": 35
+  },
+  {
+    "archivo": "centro-altura-azul-01.jpg",
+    "nombre": "Centro en altura azul royal",
+    "descripcion": "Centro en altura sobre estructura dorada con hortensia azul, rosas azules y alstroemeria amarilla.",
+    "categorias": [
+      "centros-mesa",
+      "flores"
+    ],
+    "precio": 95
+  },
+  {
+    "archivo": "centro-otonal-01.jpg",
+    "nombre": "Centro de mesa otoñal",
+    "descripcion": "Centro otoñal de rosas rosas, gerbera naranja, eucalipto y follaje granate sobre saco de arpillera.",
+    "categorias": [
+      "centros-mesa",
+      "flores"
+    ],
+    "precio": 28
   }
 ];
