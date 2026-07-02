@@ -26,22 +26,27 @@ export type KanbanCard = {
   clienteRecurrente?: boolean;
 };
 
-// Acento de color por estado (cabecera de columna + borde izquierdo de tarjeta
-// + color del desplegable, que así coincide con el puntito de la columna).
-const ACCENT: Record<
-  OportunidadEstado,
-  { dot: string; border: string; head: string; chip: string }
-> = {
-  nueva: { dot: "bg-ink-muted", border: "border-l-border-strong", head: "text-ink-secondary", chip: "border-border bg-beige-light text-ink-secondary" },
-  contestada: { dot: "bg-sage-300", border: "border-l-sage-300", head: "text-sage", chip: "border-sage-tint-deep bg-sage-tint/60 text-sage" },
-  en_conversacion: { dot: "bg-sage-300", border: "border-l-sage-300", head: "text-sage", chip: "border-sage-tint-deep bg-sage-tint/60 text-sage" },
-  presupuesto_enviado: { dot: "bg-clay", border: "border-l-clay", head: "text-clay-600", chip: "border-clay-tint-deep bg-clay-tint/60 text-clay-600" },
-  confirmada: { dot: "bg-ok", border: "border-l-ok", head: "text-ok", chip: "border-ok/30 bg-ok-tint text-ok" },
-  realizada: { dot: "bg-ok", border: "border-l-ok", head: "text-ok", chip: "border-ok/30 bg-ok-tint text-ok" },
-  facturada: { dot: "bg-sage", border: "border-l-sage", head: "text-sage", chip: "border-sage-tint-deep bg-sage-tint/60 text-sage" },
-  perdida: { dot: "bg-error", border: "border-l-error", head: "text-error", chip: "border-error/30 bg-error-tint text-error" },
-  descartada: { dot: "bg-ink-muted", border: "border-l-border-strong", head: "text-ink-muted", chip: "border-border bg-beige-light text-ink-muted" },
+// Un color distinto por estado, siguiendo la progresión del pipeline
+// (frío → negociación → ganado → cerrado). Tonos apagados para que queden
+// bien juntos. Se aplican con estilo en línea para máxima nitidez.
+const COLOR: Record<OportunidadEstado, string> = {
+  nueva: "#94A3B8", // gris azulado · lead sin tocar
+  contestada: "#5B8FB9", // azul · primer contacto
+  en_conversacion: "#E0A458", // ámbar · negociando
+  presupuesto_enviado: "#BE6E4C", // terracota · presupuesto enviado
+  confirmada: "#5FA463", // verde · confirmada (ganada)
+  realizada: "#3F8F7A", // verde azulado · evento realizado
+  facturada: "#7D6BA6", // morado · facturada / cerrada
+  perdida: "#C0574B", // rojo · perdida
+  descartada: "#A8A29A", // gris cálido · descartada
 };
+
+const dotStyle = (e: OportunidadEstado) => ({ background: COLOR[e] });
+const chipStyle = (e: OportunidadEstado) => ({
+  color: COLOR[e],
+  background: `${COLOR[e]}1A`,
+  borderColor: `${COLOR[e]}55`,
+});
 
 export function Kanban({ cards }: { cards: KanbanCard[] }) {
   const router = useRouter();
@@ -64,7 +69,6 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
     const id = dragId;
     setOverCol(null);
     setDragId(null);
-    // Solo mueve si cambia de columna.
     if (id) {
       const card = cards.find((c) => c.id === id);
       if (card && card.estado !== col) mover(id, col);
@@ -72,16 +76,50 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
   }
 
   return (
-    <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
-      {KANBAN_COLS.map((col) => {
-        const items = cards.filter((c) => c.estado === col);
-        const meta = ESTADO_META[col];
-        const acc = ACCENT[col];
+    <div className="space-y-3">
+      {/* Leyenda de colores */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border-hair border-border bg-white px-3 py-2">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+          Estados
+        </span>
+        {KANBAN_COLS.map((e) => (
+          <span key={e} className="flex items-center gap-1.5 text-[11.5px] text-ink-secondary">
+            <span className="h-2.5 w-2.5 rounded-full" style={dotStyle(e)} />
+            {ESTADO_META[e].label}
+          </span>
+        ))}
+      </div>
 
-        const resaltada = overCol === col && dragId;
+      <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
+        {KANBAN_COLS.map((col) => {
+          const items = cards.filter((c) => c.estado === col);
+          const meta = ESTADO_META[col];
+          const resaltada = Boolean(overCol === col && dragId);
 
-        // Columnas vacías: colapsadas en una tira estrecha para no comerse la pantalla.
-        if (items.length === 0) {
+          // Columnas vacías: tira estrecha; se ensancha al arrastrar encima.
+          if (items.length === 0) {
+            return (
+              <div
+                key={col}
+                onDragOver={(e) => {
+                  if (dragId) {
+                    e.preventDefault();
+                    setOverCol(col);
+                  }
+                }}
+                onDrop={() => soltar(col)}
+                className={`flex shrink-0 flex-col items-center rounded-[14px] py-3 transition-all ${
+                  resaltada ? "w-[120px] bg-sage-tint ring-2 ring-sage-300" : "w-[44px] bg-beige-warm/40"
+                }`}
+              >
+                <span className="mb-2 h-2 w-2 rounded-full" style={dotStyle(col)} />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted [writing-mode:vertical-rl]">
+                  {meta.label} · 0
+                </span>
+              </div>
+            );
+          }
+
           return (
             <div
               key={col}
@@ -92,107 +130,95 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                 }
               }}
               onDrop={() => soltar(col)}
-              className={`flex shrink-0 flex-col items-center rounded-[14px] py-3 transition-all ${
-                resaltada ? "w-[120px] bg-sage-tint ring-2 ring-sage-300" : "w-[44px] bg-beige-warm/40"
+              className={`flex w-[250px] shrink-0 flex-col rounded-[14px] p-3 transition-all ${
+                resaltada ? "bg-sage-tint ring-2 ring-sage-300" : "bg-beige-warm/70"
               }`}
             >
-              <span className={`mb-2 h-2 w-2 rounded-full ${acc.dot}`} />
-              <span
-                className={`text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted [writing-mode:vertical-rl]`}
-              >
-                {meta.label} · 0
-              </span>
-            </div>
-          );
-        }
-
-        return (
-          <div
-            key={col}
-            onDragOver={(e) => {
-              if (dragId) {
-                e.preventDefault();
-                setOverCol(col);
-              }
-            }}
-            onDrop={() => soltar(col)}
-            className={`flex w-[250px] shrink-0 flex-col rounded-[14px] p-3 transition-all ${
-              resaltada ? "bg-sage-tint ring-2 ring-sage-300" : "bg-beige-warm/70"
-            }`}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${acc.dot}`} />
-                <span
-                  className={`text-[10.5px] font-semibold uppercase tracking-[0.1em] ${acc.head}`}
-                >
-                  {meta.label}
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full" style={dotStyle(col)} />
+                  <span
+                    className="text-[10.5px] font-semibold uppercase tracking-[0.1em]"
+                    style={{ color: COLOR[col] }}
+                  >
+                    {meta.label}
+                  </span>
+                </div>
+                <span className="rounded-pill bg-white/70 px-2 text-[11px] font-semibold text-ink-muted">
+                  {items.length}
                 </span>
               </div>
-              <span className="rounded-pill bg-white/70 px-2 text-[11px] font-semibold text-ink-muted">
-                {items.length}
-              </span>
-            </div>
-            <div className="flex flex-col gap-2">
-              {items.map((c) => (
-                <div
-                  key={c.id}
-                  draggable
-                  onDragStart={() => setDragId(c.id)}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setOverCol(null);
-                  }}
-                  className={`cursor-grab rounded-[10px] border-hair border-l-[3px] border-border bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:cursor-grabbing ${acc.border} ${dragId === c.id ? "opacity-40" : ""}`}
-                  onClick={() => router.push(`/oportunidades/${c.id}`)}
-                >
-                  <b className="mb-0.5 block text-[12.5px] leading-snug">{c.titulo}</b>
-                  <div className="flex items-center gap-1.5">
-                    <small className="min-w-0 flex-1 truncate text-[11px] text-ink-muted">
-                      {c.cliente ?? "Sin cliente"}
-                    </small>
-                    {c.clienteRecurrente != null && (
-                      <span
-                        className={`shrink-0 rounded-pill px-1.5 text-[9px] font-semibold uppercase tracking-[0.05em] ${
-                          c.clienteRecurrente ? "bg-sage-tint text-sage" : "bg-clay-tint text-clay-600"
-                        }`}
-                      >
-                        {c.clienteRecurrente ? "Recurrente" : "Nuevo"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1.5 text-[10px] text-ink-muted">
-                    {TIPO_EVENTO_LABEL[c.tipo_evento] ?? c.tipo_evento} · {fecha(c.fecha_evento)}
-                  </div>
-                  <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
-                    <span className="tabular text-[12.5px] font-semibold text-sage">
-                      {eur(c.total)}
-                    </span>
-                    {c.pendiente > 0.01 ? (
-                      <Badge tone="warn">Pdte</Badge>
-                    ) : (
-                      <Badge tone="ok">Cobrado</Badge>
-                    )}
-                  </div>
-                  <select
-                    value={c.estado}
-                    disabled={moving === c.id}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => mover(c.id, e.target.value)}
-                    className={`mt-2 w-full rounded-sm border-hair px-2 py-1 text-[10.5px] font-semibold ${ACCENT[c.estado].chip}`}
+              <div className="flex flex-col gap-2">
+                {items.map((c) => (
+                  <div
+                    key={c.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragId(c.id);
+                      // Necesario para que el arrastre se inicie en todos los
+                      // navegadores (Firefox no lo activa sin datos).
+                      e.dataTransfer.setData("text/plain", c.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setOverCol(null);
+                    }}
+                    style={{ borderLeftColor: COLOR[c.estado] }}
+                    className={`cursor-grab rounded-[10px] border-hair border-l-[3px] border-border bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:cursor-grabbing ${
+                      dragId === c.id ? "opacity-40" : ""
+                    }`}
+                    onClick={() => router.push(`/oportunidades/${c.id}`)}
                   >
-                    {KANBAN_COLS.map((s) => (
-                      <option key={s} value={s}>
-                        {ESTADO_META[s].label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
+                    <b className="mb-0.5 block text-[12.5px] leading-snug">{c.titulo}</b>
+                    <div className="flex items-center gap-1.5">
+                      <small className="min-w-0 flex-1 truncate text-[11px] text-ink-muted">
+                        {c.cliente ?? "Sin cliente"}
+                      </small>
+                      {c.clienteRecurrente != null && (
+                        <span
+                          className={`shrink-0 rounded-pill px-1.5 text-[9px] font-semibold uppercase tracking-[0.05em] ${
+                            c.clienteRecurrente ? "bg-sage-tint text-sage" : "bg-clay-tint text-clay-600"
+                          }`}
+                        >
+                          {c.clienteRecurrente ? "Recurrente" : "Nuevo"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 text-[10px] text-ink-muted">
+                      {TIPO_EVENTO_LABEL[c.tipo_evento] ?? c.tipo_evento} · {fecha(c.fecha_evento)}
+                    </div>
+                    <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+                      <span className="tabular text-[12.5px] font-semibold text-sage">
+                        {eur(c.total)}
+                      </span>
+                      {c.pendiente > 0.01 ? (
+                        <Badge tone="warn">Pdte</Badge>
+                      ) : (
+                        <Badge tone="ok">Cobrado</Badge>
+                      )}
+                    </div>
+                    <select
+                      value={c.estado}
+                      disabled={moving === c.id}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => mover(c.id, e.target.value)}
+                      style={chipStyle(c.estado)}
+                      className="mt-2 w-full rounded-sm border-hair px-2 py-1 text-[10.5px] font-semibold"
+                    >
+                      {KANBAN_COLS.map((s) => (
+                        <option key={s} value={s} style={{ color: "#2B2B2B", background: "#fff" }}>
+                          {ESTADO_META[s].label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
