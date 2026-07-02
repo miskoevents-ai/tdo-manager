@@ -13,6 +13,7 @@ import {
   METODOS,
   ESTADOS_MOV,
   ESTADO_MOV_META,
+  CATEGORIAS_MOV,
   computaPorNaturaleza,
 } from "@/lib/estados";
 import type { Cliente, Oportunidad, Tesoreria, Proveedor } from "@/lib/types";
@@ -51,6 +52,11 @@ export function MovimientoDialog({
   const [pagadoPor, setPagadoPor] = React.useState(movimiento?.quien_lo_paga ?? "");
   const pagadoEnLista = responsables.includes(pagadoPor);
   const [pagadoExterno, setPagadoExterno] = React.useState(Boolean(pagadoPor) && !pagadoEnLista);
+
+  // Categoría: desplegable de las habituales o escribir una a mano.
+  const [categoria, setCategoria] = React.useState(movimiento?.categoria ?? "");
+  const categoriaEnLista = (CATEGORIAS_MOV as readonly string[]).includes(categoria);
+  const [categoriaManual, setCategoriaManual] = React.useState(Boolean(categoria) && !categoriaEnLista);
 
   function onNaturaleza(v: string) {
     setNaturaleza(v);
@@ -153,9 +159,42 @@ export function MovimientoDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Categoría">
-              <Input name="categoria" defaultValue={movimiento?.categoria ?? ""} placeholder="Gasolina, Seña…" />
-            </Field>
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                  Categoría
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCategoriaManual((v) => {
+                      setCategoria("");
+                      return !v;
+                    })
+                  }
+                  className="text-[11px] font-semibold text-clay hover:text-clay-600"
+                >
+                  {categoriaManual ? "Elegir de la lista" : "+ Otra"}
+                </button>
+              </div>
+              {categoriaManual ? (
+                <Input
+                  autoFocus
+                  value={categoria}
+                  onChange={(e) => setCategoria(e.target.value)}
+                  placeholder="Escribe una categoría"
+                  autoComplete="off"
+                />
+              ) : (
+                <Select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+                  <option value="">— Sin categoría —</option>
+                  {CATEGORIAS_MOV.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </Select>
+              )}
+              <input type="hidden" name="categoria" value={categoria} />
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">

@@ -81,6 +81,29 @@ export const METODOS = [
 
 export const ESTADOS_MOV = ["previsto", "cobrado", "pagado", "vencido"] as const;
 
+// Categorías más habituales de ingresos/gastos (el formulario permite además
+// escribir una a mano si no encaja en ninguna).
+export const CATEGORIAS_MOV = [
+  // Ingresos
+  "Seña / anticipo",
+  "Cobro final",
+  "Fianza",
+  // Gastos
+  "Flores",
+  "Material y atrezzo",
+  "Mobiliario / alquiler",
+  "Transporte / gasolina",
+  "Personal / freelance",
+  "Alquiler local",
+  "Suministros (luz, agua, internet)",
+  "Impresión / papelería",
+  "Software / herramientas",
+  "Marketing / publicidad",
+  "Comisiones",
+  "Impuestos / gestoría",
+  "Mantenimiento",
+] as const;
+
 export const ESTADO_MOV_META: Record<string, { label: string; tone: BadgeTone }> = {
   previsto: { label: "Previsto", tone: "warn" },
   cobrado: { label: "Cobrado", tone: "ok" },
