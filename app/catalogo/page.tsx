@@ -9,12 +9,11 @@ export default function CatalogoPage() {
   return (
     <div className="space-y-5">
       <InfoNote id="catalogo">
-        Galería de vuestras decoraciones para enseñar a clientes: filtra por categoría (flores,
-        iluminación, corporativo, rincones de boda…) y pulsa una foto para verla grande con su
-        descripción. Los precios se irán añadiendo.
+        Vuestro catálogo para enseñar a clientes: fotos reales y packs del dossier con su precio
+        (tarifario 2026). Filtra por categoría y pulsa una tarjeta para ver la ficha completa.
       </InfoNote>
       <div className="flex items-center justify-between">
-        <Overline className="!mt-0">Catálogo · {CATALOGO.length} fotos</Overline>
+        <Overline className="!mt-0">Catálogo · {CATALOGO.length} referencias</Overline>
       </div>
       <CatalogoGrid items={CATALOGO} />
     </div>
