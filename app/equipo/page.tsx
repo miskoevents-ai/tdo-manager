@@ -1,4 +1,5 @@
 import { Card, Overline } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { EquipoDialog } from "@/components/equipo/EquipoDialog";
@@ -21,6 +22,7 @@ export default async function EquipoPage() {
 
   return (
     <div className="space-y-5">
+      <InfoNote id="equipo">Las personas del equipo. Se usan como responsables de eventos y en el campo «Pagado por» de los gastos.</InfoNote>
       <div className="flex items-center justify-between">
         <Overline className="!mt-0">{equipo.length} personas</Overline>
         <EquipoDialog />

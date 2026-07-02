@@ -1,4 +1,5 @@
 import { Overline } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { CuadroMando, type OpRow } from "@/components/cuadro/CuadroMando";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -75,6 +76,7 @@ export default async function CuadroMandoPage() {
 
   return (
     <div className="space-y-5">
+      <InfoNote id="cuadro-mando">Análisis y gráficas del negocio: de dónde vienen los eventos, facturación y conversión de leads. Pincha en las gráficas para ver el detalle.</InfoNote>
       <div>
         <Overline className="!mt-0">Cuadro de mando</Overline>
         <p className="mt-1 text-[12px] text-ink-muted">

@@ -6,6 +6,7 @@ import { ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
+import { Donut, DONUT_COLORS } from "@/components/ui/Donut";
 import { eur, fecha } from "@/lib/format";
 import {
   NATURALEZA_LABEL,
@@ -85,6 +86,34 @@ export function TesoreriaClient({
   const aQuien = (m: Tesoreria) =>
     (m.proveedor_id ? provNombre[m.proveedor_id] : null) ?? m.quien_lo_paga ?? m.concepto;
 
+  // Desglose de la deuda por acreedor (a quién se debe) para el donut. Se
+  // agrupan importes por "a quién" y se ordenan de mayor a menor; a partir
+  // del 7º se agrupan en "Otros" para no saturar la gráfica.
+  const deudaPorAcreedor = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of deudas) {
+      const k = aQuien(m);
+      map.set(k, (map.get(k) ?? 0) + Number(m.importe));
+    }
+    const orden = Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+    const top = orden.slice(0, 6);
+    const resto = orden.slice(6);
+    const segs = top.map(([label, value], i) => ({
+      label,
+      value,
+      color: DONUT_COLORS[i % DONUT_COLORS.length],
+    }));
+    if (resto.length) {
+      segs.push({
+        label: `Otros (${resto.length})`,
+        value: resto.reduce((s, [, v]) => s + v, 0),
+        color: "#B8AE9C",
+      });
+    }
+    return segs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deudas, provNombre]);
+
   const selectCls =
     "rounded-sm border-med border-border bg-white px-3 py-2 text-[13px] text-ink-secondary focus:border-sage-300 focus:outline-none";
 
@@ -102,32 +131,52 @@ export function TesoreriaClient({
             </span>
             <span className="tabular font-display text-[18px] text-warn">{eur(totalDeuda)}</span>
           </div>
-          <div className="space-y-1">
-            {deudas.map((m) => {
-              const em = ESTADO_MOV_META[m.estado] ?? { label: m.estado, tone: "neutral" as const };
-              return (
-                <div
-                  key={m.id}
-                  className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-[12.5px] hover:bg-beige-light"
-                >
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-medium">{aQuien(m)}</span>
-                    <span className="truncate text-[11px] text-ink-muted">
-                      {m.concepto} · {fecha(m.fecha)}
+          <div className="grid gap-4 md:grid-cols-[auto_1fr]">
+            {/* Donut: a quién se debe */}
+            <div className="flex items-center gap-4 border-b border-border pb-3 md:flex-col md:items-center md:border-b-0 md:border-r md:pb-0 md:pr-4">
+              <Donut
+                segments={deudaPorAcreedor}
+                centerLabel={`${Math.round(totalDeuda).toLocaleString("es-ES")} €`}
+                centerSub="a pagar"
+              />
+              <ul className="space-y-1 text-[11.5px]">
+                {deudaPorAcreedor.map((s) => (
+                  <li key={s.label} className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+                    <span className="max-w-[130px] truncate">{s.label}</span>
+                    <span className="ml-auto pl-2 tabular text-ink-muted">{eur(s.value)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Lista de deudas */}
+            <div className="space-y-1">
+              {deudas.map((m) => {
+                const em = ESTADO_MOV_META[m.estado] ?? { label: m.estado, tone: "neutral" as const };
+                return (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-[12.5px] hover:bg-beige-light"
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate font-medium">{aQuien(m)}</span>
+                      <span className="truncate text-[11px] text-ink-muted">
+                        {m.concepto} · {fecha(m.fecha)}
+                      </span>
                     </span>
-                  </span>
-                  <Badge tone={em.tone}>{em.label}</Badge>
-                  <span className="tabular shrink-0 font-semibold text-error">−{eur(Number(m.importe))}</span>
-                  <MovimientoDialog
-                    clientes={clientes}
-                    oportunidades={oportunidades}
-                    proveedores={proveedores}
-                    responsables={responsables}
-                    movimiento={m}
-                  />
-                </div>
-              );
-            })}
+                    <Badge tone={em.tone}>{em.label}</Badge>
+                    <span className="tabular shrink-0 font-semibold text-error">−{eur(Number(m.importe))}</span>
+                    <MovimientoDialog
+                      clientes={clientes}
+                      oportunidades={oportunidades}
+                      proveedores={proveedores}
+                      responsables={responsables}
+                      movimiento={m}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </Card>
       )}

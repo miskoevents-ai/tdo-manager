@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TrendingUp } from "lucide-react";
 import { Overline } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { InventarioDialog } from "@/components/inventario/InventarioDialog";
 import { InventarioGrid } from "@/components/inventario/InventarioGrid";
@@ -23,6 +24,7 @@ export default async function InventarioPage() {
 
   return (
     <div className="space-y-5">
+      <InfoNote id="inventario">Tu catálogo de material y atrezzo: stock, disponibilidad por fechas y las reservas de cada evento.</InfoNote>
       <div className="flex items-center justify-between">
         <Overline className="!mt-0">{items.length} artículos</Overline>
         <div className="flex items-center gap-2">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { ComisionConfigDialog } from "@/components/comisiones/ComisionConfigDialog";
@@ -33,6 +34,7 @@ export default async function ComisionesPage() {
 
   return (
     <div className="space-y-5">
+      <InfoNote id="comisiones">Reglas de comisión por evento, configurables por tipo de evento y persona.</InfoNote>
       <Link href="/tesoreria" className="inline-flex items-center gap-1.5 text-[12px] text-ink-muted hover:text-sage">
         <ArrowLeft size={14} /> Tesorería
       </Link>

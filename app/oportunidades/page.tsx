@@ -1,4 +1,5 @@
 import { Overline } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { type KanbanCard } from "@/components/oportunidades/Kanban";
 import { OportunidadesBoard } from "@/components/oportunidades/OportunidadesBoard";
@@ -62,6 +63,7 @@ export default async function OportunidadesPage() {
 
   return (
     <div className="space-y-5">
+      <InfoNote id="oportunidades">Cada solicitud y evento, desde que entra el lead hasta que se factura. Aquí gestionas los estados, los presupuestos y el seguimiento del pipeline.</InfoNote>
       <div className="flex items-center justify-between">
         <Overline className="!mt-0">{activas.length} oportunidades activas</Overline>
         <OportunidadDialog clientes={clientes} lugares={lugares} responsables={responsables} />

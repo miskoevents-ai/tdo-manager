@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Repeat, Truck, Percent } from "lucide-react";
 import { Overline } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { TesoreriaClient } from "@/components/tesoreria/TesoreriaClient";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
@@ -34,6 +35,7 @@ export default async function TesoreriaPage() {
 
   return (
     <div className="space-y-5">
+      <InfoNote id="tesoreria">La caja del negocio: todo el dinero que entra y sale, con o sin factura. Arriba ves lo pendiente de pagar. Es la base de la que sale la Contabilidad.</InfoNote>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Overline className="!mt-0">Tesorería</Overline>
         <div className="flex flex-wrap items-center gap-2">
