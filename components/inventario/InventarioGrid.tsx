@@ -1,12 +1,39 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InventarioDialog, ESTADO_INV } from "@/components/inventario/InventarioDialog";
 import { eur, normaliza } from "@/lib/format";
 import { disponible, enNegociacion } from "@/lib/disponibilidad";
 import type { Inventario, Reserva } from "@/lib/types";
+
+// Foto del artículo con doble vía: optimizada por Vercel y, si falla,
+// la imagen directa. Igual que en el catálogo.
+function FotoArticulo({ src, alt }: { src: string; alt: string }) {
+  const [fase, setFase] = React.useState(0); // 0 optimizada · 1 directa · 2 fallo
+  if (fase >= 2) {
+    return (
+      <div className="flex h-full w-full items-center justify-center font-display text-[13px] text-ink-muted">
+        Sin foto
+      </div>
+    );
+  }
+  return (
+    <Image
+      key={fase}
+      src={src}
+      alt={alt}
+      fill
+      quality={70}
+      unoptimized={fase === 1}
+      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+      onError={() => setFase((f) => f + 1)}
+      className="object-cover"
+    />
+  );
+}
 
 export function InventarioGrid({ items, reservas = [] }: { items: Inventario[]; reservas?: Reserva[] }) {
   const [q, setQ] = React.useState("");
@@ -116,8 +143,7 @@ export function InventarioGrid({ items, reservas = [] }: { items: Inventario[]; 
             <Card key={it.id} className="flex flex-col p-0">
               <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-lg bg-beige-warm">
                 {it.foto_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={it.foto_url} alt={it.articulo} className="h-full w-full object-cover" />
+                  <FotoArticulo src={it.foto_url} alt={it.articulo} />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center font-display text-[13px] text-ink-muted">
                     Sin foto
