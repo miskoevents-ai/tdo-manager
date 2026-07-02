@@ -6,14 +6,15 @@ import { X, Sparkles } from "lucide-react";
 import { fotoUrl, CATEGORIAS, CAT_LABEL, type CatalogoItem } from "@/lib/catalogo";
 import { eur } from "@/lib/format";
 
-// Imagen del catálogo optimizada: las originales pesan 2-8 MB, así que se
-// sirven a través de next/image (Vercel las redimensiona a WebP de ~100 KB y
-// las cachea en su CDN). Con reintento y fondo suave si aun así falla.
+// Imagen del catálogo con doble vía: primero intenta la versión optimizada
+// (Vercel la redimensiona a WebP ligero y la cachea); si el optimizador falla
+// por lo que sea, cae a la imagen directa de Supabase (probada y funcional).
+// Solo si ambas fallan se muestra el fondo suave.
 function FotoCatalogo({ archivo, alt, grande = false }: { archivo: string; alt: string; grande?: boolean }) {
-  const [intento, setIntento] = React.useState(0);
-  const [fallida, setFallida] = React.useState(false);
+  // fase 0 = optimizada · fase 1 = directa (sin optimizador) · fase 2 = fallo
+  const [fase, setFase] = React.useState(0);
 
-  if (fallida) {
+  if (fase >= 2) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-beige-warm">
         <Sparkles size={18} className="text-ink-muted" />
@@ -22,16 +23,14 @@ function FotoCatalogo({ archivo, alt, grande = false }: { archivo: string; alt: 
   }
   return (
     <Image
-      key={intento}
+      key={fase}
       src={fotoUrl(archivo)}
       alt={alt}
       fill
       quality={70}
+      unoptimized={fase === 1}
       sizes={grande ? "90vw" : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"}
-      onError={() => {
-        if (intento < 1) setIntento((n) => n + 1);
-        else setFallida(true);
-      }}
+      onError={() => setFase((f) => f + 1)}
       className={
         grande
           ? "object-contain"
