@@ -5,27 +5,53 @@ import { X, Sparkles } from "lucide-react";
 import { fotoUrl, CATEGORIAS, CAT_LABEL, type CatalogoItem } from "@/lib/catalogo";
 import { eur } from "@/lib/format";
 
+// Imagen del catálogo con reintentos: las fotos pesan bastante y el navegador
+// puede abortar cargas cuando hay muchas a la vez. Antes un fallo puntual
+// escondía la tarjeta para siempre; ahora se reintenta (con cache-buster) y,
+// si aun así no carga, se muestra un fondo suave en lugar de desaparecer.
+function FotoCatalogo({ archivo, alt }: { archivo: string; alt: string }) {
+  const [intento, setIntento] = React.useState(0);
+  const [fallida, setFallida] = React.useState(false);
+  const src = intento === 0 ? fotoUrl(archivo) : `${fotoUrl(archivo)}?r=${intento}`;
+
+  if (fallida) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-beige-warm">
+        <Sparkles size={18} className="text-ink-muted" />
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      onError={() => {
+        if (intento < 2) setIntento((n) => n + 1);
+        else setFallida(true);
+      }}
+      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+    />
+  );
+}
+
 export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
   const [cat, setCat] = React.useState<string>("");
   const [abierto, setAbierto] = React.useState<CatalogoItem | null>(null);
-  // Fotos que no cargan (no están en el bucket) → se ocultan, para mostrar
-  // solo las que tienen foto real. Los packs sin foto se muestran como tarjeta.
-  const [rotas, setRotas] = React.useState<Record<string, boolean>>({});
 
-  const ok = (it: CatalogoItem) => !it.archivo || !rotas[it.archivo];
-  const visibles = items.filter((it) => ok(it) && (!cat || it.categorias.includes(cat)));
+  const visibles = items.filter((it) => !cat || it.categorias.includes(cat));
 
   const cuenta = React.useMemo(() => {
     const m: Record<string, number> = {};
     for (const it of items) {
-      if (!ok(it)) continue;
       for (const c of it.categorias) m[c] = (m[c] ?? 0) + 1;
     }
     return m;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, rotas]);
+  }, [items]);
 
-  const total = items.filter(ok).length;
+  const total = items.length;
   const clave = (it: CatalogoItem) => it.archivo ?? `pack-${it.nombre}`;
 
   function Chip({ k, label, n }: { k: string; label: string; n: number }) {
@@ -66,14 +92,7 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
           >
             {it.archivo ? (
               <div className="aspect-[4/3] overflow-hidden bg-beige-warm">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={fotoUrl(it.archivo)}
-                  alt={it.nombre ?? it.descripcion}
-                  loading="lazy"
-                  onError={() => setRotas((r) => ({ ...r, [it.archivo!]: true }))}
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
+                <FotoCatalogo archivo={it.archivo} alt={it.nombre ?? it.descripcion} />
               </div>
             ) : (
               // Pack del dossier sin foto propia: tarjeta de texto elegante.
