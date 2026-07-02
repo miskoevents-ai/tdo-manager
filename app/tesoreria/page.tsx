@@ -5,7 +5,7 @@ import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { TesoreriaClient } from "@/components/tesoreria/TesoreriaClient";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getTesoreria, getClientes, getOportunidades, getProveedores } from "@/lib/data";
+import { getTesoreria, getClientes, getOportunidades, getProveedores, getEquipo } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +15,14 @@ const linkCls =
 export default async function TesoreriaPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
-  let movimientos, clientes, ops, proveedores;
+  let movimientos, clientes, ops, proveedores, equipo;
   try {
-    [movimientos, clientes, ops, proveedores] = await Promise.all([
+    [movimientos, clientes, ops, proveedores, equipo] = await Promise.all([
       getTesoreria(),
       getClientes(),
       getOportunidades(),
       getProveedores(),
+      getEquipo(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
@@ -29,6 +30,7 @@ export default async function TesoreriaPage() {
 
   const oportunidades = ops.map((o) => ({ id: o.id, numero: o.numero, titulo: o.titulo }));
   const provs = proveedores.map((p) => ({ id: p.id, nombre: p.nombre }));
+  const responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
 
   return (
     <div className="space-y-5">
@@ -44,7 +46,7 @@ export default async function TesoreriaPage() {
           <Link href="/comisiones" className={linkCls}>
             <Percent size={14} /> Comisiones
           </Link>
-          <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={provs} />
+          <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={provs} responsables={responsables} />
         </div>
       </div>
       <TesoreriaClient
@@ -52,6 +54,7 @@ export default async function TesoreriaPage() {
         clientes={clientes}
         oportunidades={oportunidades}
         proveedores={provs}
+        responsables={responsables}
       />
     </div>
   );

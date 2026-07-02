@@ -208,6 +208,7 @@ function build() {
       oportunidad_id: op?.id ?? null,
       cliente_id: op?.cliente_id ?? null,
       proveedor_id: null,
+      quien_lo_paga: (t as { quien_lo_paga?: string }).quien_lo_paga ?? null,
       computa_contabilidad: t.computa_contabilidad ?? true,
       created_at: "2026-06-01T00:00:00Z",
       oportunidad: op ? { numero: op.numero, titulo: op.titulo } : null,
