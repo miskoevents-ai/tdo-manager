@@ -4,9 +4,10 @@ import { Card, Overline } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { ClienteDialog } from "@/components/clientes/ClienteDialog";
+import { CanalBadge } from "@/components/clientes/CanalIcon";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getClientes, getOportunidades } from "@/lib/data";
-import { CLIENTE_TIPO_LABEL, CANAL_LABEL } from "@/lib/estados";
+import { CLIENTE_TIPO_LABEL } from "@/lib/estados";
 import type { Cliente } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -82,7 +83,7 @@ export default async function ClientesPage() {
                 </td>
                 <td className="border-t border-border px-[15px] py-3">
                   {c.canal ? (
-                    <Badge tone="sage">{CANAL_LABEL[c.canal] ?? c.canal}</Badge>
+                    <CanalBadge canal={c.canal} />
                   ) : (
                     <span className="text-[13px] text-ink-muted">—</span>
                   )}
@@ -124,7 +125,7 @@ export default async function ClientesPage() {
               <ClienteDialog cliente={c} />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {c.canal && <Badge tone="sage">{CANAL_LABEL[c.canal] ?? c.canal}</Badge>}
+              {c.canal && <CanalBadge canal={c.canal} />}
               <Badge tone={c.estado === "cliente" ? "ok" : "neutral"}>
                 {c.estado === "cliente" ? "Cliente" : "Lead"}
               </Badge>
