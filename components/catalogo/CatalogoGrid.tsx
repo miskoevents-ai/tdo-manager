@@ -1,18 +1,17 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { X, Sparkles } from "lucide-react";
 import { fotoUrl, CATEGORIAS, CAT_LABEL, type CatalogoItem } from "@/lib/catalogo";
 import { eur } from "@/lib/format";
 
-// Imagen del catálogo con reintentos: las fotos pesan bastante y el navegador
-// puede abortar cargas cuando hay muchas a la vez. Antes un fallo puntual
-// escondía la tarjeta para siempre; ahora se reintenta (con cache-buster) y,
-// si aun así no carga, se muestra un fondo suave en lugar de desaparecer.
-function FotoCatalogo({ archivo, alt }: { archivo: string; alt: string }) {
+// Imagen del catálogo optimizada: las originales pesan 2-8 MB, así que se
+// sirven a través de next/image (Vercel las redimensiona a WebP de ~100 KB y
+// las cachea en su CDN). Con reintento y fondo suave si aun así falla.
+function FotoCatalogo({ archivo, alt, grande = false }: { archivo: string; alt: string; grande?: boolean }) {
   const [intento, setIntento] = React.useState(0);
   const [fallida, setFallida] = React.useState(false);
-  const src = intento === 0 ? fotoUrl(archivo) : `${fotoUrl(archivo)}?r=${intento}`;
 
   if (fallida) {
     return (
@@ -22,26 +21,47 @@ function FotoCatalogo({ archivo, alt }: { archivo: string; alt: string }) {
     );
   }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
+    <Image
+      key={intento}
+      src={fotoUrl(archivo)}
       alt={alt}
-      loading="lazy"
-      decoding="async"
+      fill
+      quality={70}
+      sizes={grande ? "90vw" : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"}
       onError={() => {
-        if (intento < 2) setIntento((n) => n + 1);
+        if (intento < 1) setIntento((n) => n + 1);
         else setFallida(true);
       }}
-      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+      className={
+        grande
+          ? "object-contain"
+          : "object-cover transition-transform duration-300 group-hover:scale-105"
+      }
     />
   );
 }
 
+// Normaliza para buscar sin acentos ni mayúsculas.
+const norm = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
   const [cat, setCat] = React.useState<string>("");
+  const [q, setQ] = React.useState("");
   const [abierto, setAbierto] = React.useState<CatalogoItem | null>(null);
 
-  const visibles = items.filter((it) => !cat || it.categorias.includes(cat));
+  const visibles = items.filter((it) => {
+    if (cat && !it.categorias.includes(cat)) return false;
+    if (q.trim()) {
+      const t = norm(q);
+      const hay =
+        norm(it.nombre ?? "").includes(t) ||
+        norm(it.descripcion).includes(t) ||
+        it.categorias.some((c) => norm(CAT_LABEL[c] ?? c).includes(t));
+      if (!hay) return false;
+    }
+    return true;
+  });
 
   const cuenta = React.useMemo(() => {
     const m: Record<string, number> = {};
@@ -73,12 +93,23 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Filtros por categoría */}
+      {/* Buscador + filtros por categoría */}
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Buscar en el catálogo… (girasoles, arco, columpio, seating…)"
+        className="w-full rounded-sm border-med border-border bg-white px-3 py-2 text-[13px] focus:border-sage-300 focus:outline-none"
+      />
       <div className="no-scrollbar flex flex-wrap gap-2">
         <Chip k="" label="Todo" n={total} />
         {CATEGORIAS.filter((c) => cuenta[c.key]).map((c) => (
           <Chip key={c.key} k={c.key} label={c.label} n={cuenta[c.key] ?? 0} />
         ))}
+        {q.trim() && (
+          <span className="ml-auto self-center text-[11.5px] text-ink-muted">
+            {visibles.length} resultado{visibles.length === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
 
       {/* Galería */}
@@ -91,7 +122,7 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
             className="group flex flex-col overflow-hidden rounded-[12px] border-hair border-border bg-white text-left shadow-sm transition-all hover:-translate-y-px hover:shadow-md"
           >
             {it.archivo ? (
-              <div className="aspect-[4/3] overflow-hidden bg-beige-warm">
+              <div className="relative aspect-[4/3] overflow-hidden bg-beige-warm">
                 <FotoCatalogo archivo={it.archivo} alt={it.nombre ?? it.descripcion} />
               </div>
             ) : (
@@ -125,7 +156,9 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
 
       {visibles.length === 0 && (
         <p className="py-8 text-center text-small text-ink-muted">
-          No hay referencias en esta categoría todavía.
+          {q.trim()
+            ? `Nada que coincida con «${q.trim()}». Prueba con otra palabra.`
+            : "No hay referencias en esta categoría todavía."}
         </p>
       )}
 
@@ -141,12 +174,13 @@ export function CatalogoGrid({ items }: { items: CatalogoItem[] }) {
           >
             <div className="relative bg-beige-warm">
               {abierto.archivo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={fotoUrl(abierto.archivo)}
-                  alt={abierto.nombre ?? abierto.descripcion}
-                  className="max-h-[65vh] w-full object-contain"
-                />
+                <div className="relative h-[60vh] w-full">
+                  <FotoCatalogo
+                    archivo={abierto.archivo}
+                    alt={abierto.nombre ?? abierto.descripcion}
+                    grande
+                  />
+                </div>
               ) : (
                 <div className="flex h-40 items-center justify-center bg-gradient-to-br from-sage-tint/60 to-beige-warm">
                   <Sparkles size={26} className="text-sage" />
