@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { CobroRow } from "@/components/home/CobroRow";
 import { AvisosPanel } from "@/components/home/AvisosPanel";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades, getReservas } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
@@ -104,6 +105,10 @@ export default async function Home() {
 
   return (
     <div className="space-y-6">
+      <InfoNote id="inicio">
+        Tu panel de inicio: los avisos que requieren atención, los cobros pendientes y los próximos
+        eventos y alquileres, todo de un vistazo.
+      </InfoNote>
       <div className="rounded-md border-hair border-[#e7d3a6] bg-warn-tint px-[15px] py-[10px] text-[12.5px] text-[#7a5a1a]">
         Datos reales de TDO cargados (mayo–junio 2026). La contabilidad mensual arranca en junio
         2026 (regla §5.4).

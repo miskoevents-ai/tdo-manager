@@ -1,4 +1,5 @@
 import { Overline } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { Calendario } from "@/components/calendario/Calendario";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -27,6 +28,7 @@ export default async function CalendarioPage() {
 
   return (
     <div className="space-y-5">
+      <InfoNote id="calendario">Vista de calendario con los eventos, montajes y recogidas de material ordenados por fecha.</InfoNote>
       <Overline className="!mt-0">Calendario</Overline>
       <Calendario eventos={eventos} mesInicial={inicial} hoy={hoy} />
     </div>

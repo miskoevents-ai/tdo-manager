@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { ProveedorDialog, TIPO_SERVICIO_LABEL } from "@/components/proveedores/ProveedorDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -34,6 +35,7 @@ export default async function ProveedoresPage() {
 
   return (
     <div className="space-y-5">
+      <InfoNote id="proveedores">Tus proveedores y cuánto llevas gastado y pendiente de pagar con cada uno.</InfoNote>
       <Link href="/tesoreria" className="inline-flex items-center gap-1.5 text-[12px] text-ink-muted hover:text-sage">
         <ArrowLeft size={14} /> Tesorería
       </Link>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { ClienteDialog } from "@/components/clientes/ClienteDialog";
@@ -47,6 +48,7 @@ export default async function ClientesPage() {
 
   return (
     <div className="space-y-5">
+      <InfoNote id="clientes">Tu agenda de clientes y leads: por qué canal llegan, en qué etapa están y su última actividad.</InfoNote>
       <div className="flex items-center justify-between">
         <Overline className="!mt-0">{clientes.length} clientes</Overline>
         <ClienteDialog />

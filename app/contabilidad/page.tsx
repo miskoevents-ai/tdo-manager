@@ -1,6 +1,7 @@
 import { Overline } from "@/components/ui/card";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { ContabilidadClient } from "@/components/contabilidad/ContabilidadClient";
+import { InfoNote } from "@/components/ui/InfoNote";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getTesoreria } from "@/lib/data";
 
@@ -18,12 +19,11 @@ export default async function ContabilidadPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <Overline className="!mt-0">Contabilidad mensual</Overline>
-        <p className="mt-1 text-[12px] text-ink-muted">
-          Arranca en junio 2026. Solo cuentan ingresos de facturas propias y gastos fijos (§5.4).
-        </p>
-      </div>
+      <InfoNote id="contabilidad">
+        ¿El negocio gana o pierde? Es un resumen filtrado de Tesorería: solo cuenta, desde junio
+        2026, los ingresos de facturas propias ya cobradas y los gastos fijos (regla §5.4).
+      </InfoNote>
+      <Overline className="!mt-0">Contabilidad mensual</Overline>
       <ContabilidadClient movimientos={movimientos} />
     </div>
   );
