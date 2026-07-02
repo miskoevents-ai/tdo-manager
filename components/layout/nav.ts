@@ -9,6 +9,7 @@ import {
   Package,
   Users,
   Contact,
+  Heart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,4 +32,5 @@ export const NAV: NavItem[] = [
   { href: "/inventario", label: "Inventario", icon: Package, fase: 3 },
   { href: "/equipo", label: "Equipo", icon: Users, fase: 2 },
   { href: "/clientes", label: "Clientes", icon: Contact, fase: 1 },
+  { href: "/fidelizacion", label: "Fidelización", icon: Heart, fase: 4 },
 ];

@@ -331,6 +331,37 @@ export async function marcarMovimientoPagado(id: string) {
   revalidatePath("/");
 }
 
+// --------------------------- Fidelización -------------------------------
+
+// Marca en una oportunidad si la reseña está pedida o conseguida.
+export async function marcarResena(
+  oportunidadId: string,
+  campo: "resena_pedida" | "resena_conseguida",
+  valor: boolean,
+) {
+  const sb = createAdminClient();
+  // Conseguir una reseña implica que también se pidió.
+  const patch =
+    campo === "resena_conseguida" && valor
+      ? { resena_conseguida: true, resena_pedida: true }
+      : { [campo]: valor };
+  const { error } = await sb.from("oportunidades").update(patch).eq("id", oportunidadId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/fidelizacion");
+}
+
+// Marca en un cliente si se le pidió recomendación o si ya nos ha recomendado.
+export async function marcarRecomendacion(
+  clienteId: string,
+  campo: "recomendacion_pedida" | "nos_ha_recomendado",
+  valor: boolean,
+) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("clientes").update({ [campo]: valor }).eq("id", clienteId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/fidelizacion");
+}
+
 // --------------------------- Costes del evento ---------------------------
 
 const revCostes = (opId: string) => {
