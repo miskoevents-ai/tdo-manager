@@ -1,5 +1,5 @@
 import { getOportunidades, getReservas, getTesoreria, getReuniones } from "@/lib/data";
-import { construirEventos, CAL_META } from "@/lib/calendario";
+import { construirEventos, CAL_META, TIPOS_EVENTO_CAL } from "@/lib/calendario";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +62,9 @@ export async function GET(req: Request) {
   ];
 
   eventos.forEach((e, i) => {
-    const resumen = e.tipo === "evento" ? `Evento · ${e.titulo}` : e.titulo;
+    const resumen = TIPOS_EVENTO_CAL.includes(e.tipo)
+      ? `${CAL_META[e.tipo].label} · ${e.titulo}`
+      : e.titulo;
     const fechaCompacta = e.fecha.replace(/-/g, "");
     L.push("BEGIN:VEVENT");
     L.push(`UID:${e.fecha}-${e.tipo}-${i}@tdo-manager`);

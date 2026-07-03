@@ -1,6 +1,9 @@
 import type { Oportunidad, Reserva, Tesoreria, Reunion } from "@/lib/types";
 
-export type CalTipo = "evento" | "reunion" | "montaje" | "recogida" | "salida" | "devolucion" | "cobro" | "fianza";
+export type CalTipo = "boda" | "corporativo" | "evento" | "reunion" | "montaje" | "recogida" | "salida" | "devolucion" | "cobro" | "fianza";
+
+// Tipos que representan el día del evento en sí (para filtros y mesInicial).
+export const TIPOS_EVENTO_CAL: CalTipo[] = ["boda", "corporativo", "evento"];
 
 export type CalEvento = {
   fecha: string; // YYYY-MM-DD
@@ -11,7 +14,9 @@ export type CalEvento = {
 };
 
 export const CAL_META: Record<CalTipo, { label: string; clase: string; punto: string }> = {
-  evento: { label: "Evento", clase: "bg-sage-tint text-sage", punto: "bg-sage" },
+  boda: { label: "Boda", clase: "bg-sage-tint text-sage", punto: "bg-sage" },
+  corporativo: { label: "Corporativo", clase: "bg-[#EAF1F7] text-[#4A7BA6]", punto: "bg-[#5B8FB9]" },
+  evento: { label: "Otros eventos", clase: "bg-[#F1EEE6] text-[#8A8062]", punto: "bg-[#A99F7E]" },
   reunion: { label: "Reunión", clase: "bg-[#EFEBF6] text-[#7D6BA6]", punto: "bg-[#7D6BA6]" },
   montaje: { label: "Montaje", clase: "bg-clay-tint text-clay-600", punto: "bg-clay" },
   recogida: { label: "Recogida", clase: "bg-clay-tint-deep text-clay-600", punto: "bg-clay-600" },
@@ -45,7 +50,10 @@ export function construirEventos(
 
   for (const o of oportunidades) {
     const href = `/oportunidades/${o.id}`;
-    if (o.fecha_evento) ev.push({ fecha: o.fecha_evento, tipo: "evento", titulo: o.titulo, href });
+    // El día del evento se clasifica por tipo: boda, corporativo u otros.
+    const tipoDia: CalTipo =
+      o.tipo_evento === "boda" ? "boda" : o.tipo_evento === "corporativo" ? "corporativo" : "evento";
+    if (o.fecha_evento) ev.push({ fecha: o.fecha_evento, tipo: tipoDia, titulo: o.titulo, href });
     if (o.fecha_montaje) ev.push({ fecha: o.fecha_montaje, tipo: "montaje", titulo: `Montaje · ${o.titulo}`, href });
     if (o.fecha_recogida) ev.push({ fecha: o.fecha_recogida, tipo: "recogida", titulo: `Recogida · ${o.titulo}`, href });
     if (o.fecha_devolucion_fianza && !o.fianza_devuelta)
@@ -76,7 +84,7 @@ export function construirEventos(
 // Mes (YYYY-MM) del próximo evento futuro; si no hay, el mes actual.
 export function mesInicial(eventos: CalEvento[], hoyISO: string): string {
   const futuros = eventos
-    .filter((e) => e.tipo === "evento" && e.fecha >= hoyISO)
+    .filter((e) => TIPOS_EVENTO_CAL.includes(e.tipo) && e.fecha >= hoyISO)
     .map((e) => e.fecha)
     .sort();
   if (futuros.length) return futuros[0].slice(0, 7);
