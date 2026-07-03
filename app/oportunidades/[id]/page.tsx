@@ -192,6 +192,10 @@ export default async function Page({
                 label="Retención"
                 value={op.retencion_pct ? `−${op.retencion_pct}%` : "Sin retención"}
               />
+              <Dato
+                label="Pago"
+                value={op.pago_a_dias ? `A ${op.pago_a_dias} días` : "Al momento"}
+              />
               <Dato label="Presupuesto enviado" value={op.presupuesto_enviado ? "Sí" : "No"} />
             </div>
             {op.notas && (

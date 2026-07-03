@@ -140,6 +140,7 @@ export async function guardarOportunidad(formData: FormData) {
     retencion_pct: numToNull(formData.get("retencion_pct")) ?? 0,
     fianza: numToNull(formData.get("fianza")),
     fecha_devolucion_fianza: (formData.get("fecha_devolucion_fianza") as string) || null,
+    pago_a_dias: numToNull(formData.get("pago_a_dias")) ?? 0,
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.numero || !payload.titulo) throw new Error("Número y título son obligatorios.");
