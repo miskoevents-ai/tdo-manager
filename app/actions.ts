@@ -908,6 +908,12 @@ export async function emitirFactura(oportunidadId: string) {
     op.retencion_pct,
   );
 
+  // Vencimiento según las condiciones de pago del cliente (pago a X días).
+  const hoyMadrid = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const plazoPago = Number(op.pago_a_dias ?? 0);
+  const vence = new Date(hoyMadrid + "T00:00:00Z");
+  vence.setUTCDate(vence.getUTCDate() + (plazoPago > 0 ? plazoPago : 0));
+
   const { error: insErr } = await sb.from("facturas").insert({
     numero: op.numero,
     oportunidad_id: op.id,
@@ -917,6 +923,7 @@ export async function emitirFactura(oportunidadId: string) {
     retencion: t.retencion,
     total: t.total,
     estado: "emitida",
+    fecha_vencimiento: vence.toISOString().slice(0, 10),
   });
   if (insErr) throw new Error(insErr.message);
 

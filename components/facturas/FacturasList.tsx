@@ -21,6 +21,9 @@ const FILTROS: { key: "todas" | FacturaEstado; label: string }[] = [
 
 export function FacturasList({ facturas }: { facturas: Factura[] }) {
   const router = useRouter();
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const vencidaSinCobrar = (f: Factura) =>
+    f.estado === "emitida" && Boolean(f.fecha_vencimiento) && f.fecha_vencimiento! < hoy;
   const [filtro, setFiltro] = React.useState<"todas" | FacturaEstado>("todas");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [q, setQ] = React.useState("");
@@ -133,7 +136,7 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
         <table className="w-full border-collapse bg-white">
           <thead>
             <tr>
-              {["Nº", "Cliente", "Fecha", "Base", "Total", "Estado", ""].map((h) => (
+              {["Nº", "Cliente", "Fecha", "Vence", "Base", "Total", "Estado", ""].map((h) => (
                 <th
                   key={h}
                   className="bg-beige-warm px-[15px] py-3 text-left text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-secondary"
@@ -162,6 +165,14 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
                   </td>
                   <td className="border-t border-border px-[15px] py-3 text-[13px] text-ink-secondary">
                     {fecha(f.fecha_emision)}
+                  </td>
+                  <td
+                    className={`border-t border-border px-[15px] py-3 text-[13px] ${
+                      vencidaSinCobrar(f) ? "font-semibold text-error" : "text-ink-secondary"
+                    }`}
+                  >
+                    {f.fecha_vencimiento ? fecha(f.fecha_vencimiento) : "—"}
+                    {vencidaSinCobrar(f) && " ⚠"}
                   </td>
                   <td className="border-t border-border px-[15px] py-3 text-right text-[13px] tabular">
                     {eur(Number(f.base_imponible))}
@@ -218,6 +229,16 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
                   <div className="mt-0.5 text-[12px] text-ink-muted">
                     {f.cliente?.nombre ?? "—"} · {fecha(f.fecha_emision)}
                   </div>
+                  {f.fecha_vencimiento && (
+                    <div
+                      className={`mt-0.5 text-[11.5px] ${
+                        vencidaSinCobrar(f) ? "font-semibold text-error" : "text-ink-muted"
+                      }`}
+                    >
+                      Vence {fecha(f.fecha_vencimiento)}
+                      {vencidaSinCobrar(f) && " ⚠"}
+                    </div>
+                  )}
                 </div>
                 <Badge tone={m.tone}>{m.label}</Badge>
               </div>

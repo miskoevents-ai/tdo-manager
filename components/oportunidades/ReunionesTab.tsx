@@ -75,7 +75,25 @@ export function ReunionesTab({
               <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} autoFocus />
             </Field>
             <Field label="Hora">
-              <Input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
+              {/* step 300 = el selector va de 5 en 5 minutos */}
+              <Input
+                type="time"
+                step={300}
+                value={hora}
+                onChange={(e) => {
+                  // Redondea al múltiplo de 5 más cercano por si se teclea a mano.
+                  const v = e.target.value;
+                  if (/^\d{2}:\d{2}$/.test(v)) {
+                    const [h, m] = v.split(":").map(Number);
+                    const total = Math.round((h * 60 + m) / 5) * 5;
+                    const hh = String(Math.floor(total / 60) % 24).padStart(2, "0");
+                    const mm = String(total % 60).padStart(2, "0");
+                    setHora(`${hh}:${mm}`);
+                  } else {
+                    setHora(v);
+                  }
+                }}
+              />
             </Field>
             <Field label="Modalidad">
               <select

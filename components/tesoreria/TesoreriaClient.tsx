@@ -152,7 +152,7 @@ export function TesoreriaClient({
             <div className="flex items-center gap-4 border-b border-border pb-3 md:flex-col md:items-center md:border-b-0 md:border-r md:pb-0 md:pr-4">
               <Donut
                 segments={deudaPorAcreedor}
-                centerLabel={`${Math.round(totalDeuda).toLocaleString("es-ES")} €`}
+                centerLabel={`${new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0, useGrouping: "always" }).format(Math.round(totalDeuda))} €`}
                 centerSub="a pagar"
               />
               <ul className="space-y-1 text-[11.5px]">
