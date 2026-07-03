@@ -75,25 +75,33 @@ export function ReunionesTab({
               <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} autoFocus />
             </Field>
             <Field label="Hora">
-              {/* step 300 = el selector va de 5 en 5 minutos */}
-              <Input
-                type="time"
-                step={300}
-                value={hora}
-                onChange={(e) => {
-                  // Redondea al múltiplo de 5 más cercano por si se teclea a mano.
-                  const v = e.target.value;
-                  if (/^\d{2}:\d{2}$/.test(v)) {
-                    const [h, m] = v.split(":").map(Number);
-                    const total = Math.round((h * 60 + m) / 5) * 5;
-                    const hh = String(Math.floor(total / 60) % 24).padStart(2, "0");
-                    const mm = String(total % 60).padStart(2, "0");
-                    setHora(`${hh}:${mm}`);
-                  } else {
-                    setHora(v);
-                  }
-                }}
-              />
+              {/* Desplegables propios: horas y minutos de 5 en 5 */}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={hora ? hora.split(":")[0] : ""}
+                  onChange={(e) => {
+                    const h = e.target.value;
+                    setHora(h ? `${h}:${hora ? hora.split(":")[1] : "00"}` : "");
+                  }}
+                  className="w-full rounded-sm border-med border-border bg-white px-2 py-2 text-center text-[14px] tabular focus:border-sage-300 focus:outline-none"
+                >
+                  <option value="">--</option>
+                  {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0")).map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+                <span className="text-[14px] font-semibold text-ink-muted">:</span>
+                <select
+                  value={hora ? hora.split(":")[1] : ""}
+                  disabled={!hora}
+                  onChange={(e) => setHora(`${hora.split(":")[0]}:${e.target.value}`)}
+                  className="w-full rounded-sm border-med border-border bg-white px-2 py-2 text-center text-[14px] tabular focus:border-sage-300 focus:outline-none disabled:opacity-50"
+                >
+                  {Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
             </Field>
             <Field label="Modalidad">
               <select
