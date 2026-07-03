@@ -399,6 +399,49 @@ export async function borrarParteHoras(id: string, oportunidadId: string) {
   revalidatePath(`/oportunidades/${oportunidadId}`);
 }
 
+// Reuniones con clientes (presenciales u online) ligadas a la oportunidad.
+export async function crearReunion(input: {
+  oportunidadId: string;
+  fecha: string;
+  hora: string | null;
+  modalidad: string;
+  atendidaPor: string | null;
+  enlace: string | null;
+  lugar: string | null;
+  notas: string | null;
+}) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("reuniones").insert({
+    oportunidad_id: input.oportunidadId,
+    fecha: input.fecha,
+    hora: input.hora || null,
+    modalidad: input.modalidad === "online" ? "online" : "presencial",
+    atendida_por: input.atendidaPor || null,
+    enlace: input.enlace || null,
+    lugar: input.lugar || null,
+    notas: input.notas || null,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${input.oportunidadId}`);
+  revalidatePath("/calendario");
+}
+
+export async function toggleReunionRealizada(id: string, realizada: boolean, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("reuniones").update({ realizada }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/calendario");
+}
+
+export async function borrarReunion(id: string, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("reuniones").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/calendario");
+}
+
 // Desplazamiento: calcula gasolina y crea el gasto en Tesorería (gasto de evento).
 export async function crearDesplazamiento(input: {
   oportunidadId: string;

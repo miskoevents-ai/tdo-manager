@@ -270,3 +270,18 @@ export type GastoFijo = {
   activo: boolean;
   notas: string | null;
 };
+
+export type Reunion = {
+  id: string;
+  oportunidad_id: string;
+  fecha: string;
+  hora: string | null; // HH:MM
+  modalidad: "presencial" | "online";
+  atendida_por: string | null;
+  enlace: string | null;
+  lugar: string | null;
+  notas: string | null;
+  realizada: boolean;
+  created_at: string;
+  oportunidad?: { id: string; titulo: string } | null;
+};
