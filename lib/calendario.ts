@@ -4,6 +4,7 @@ export type CalTipo = "evento" | "reunion" | "montaje" | "recogida" | "salida" |
 
 export type CalEvento = {
   fecha: string; // YYYY-MM-DD
+  hora?: string | null; // HH:MM (solo reuniones)
   tipo: CalTipo;
   titulo: string;
   href?: string;
@@ -35,6 +36,7 @@ export function construirEventos(
     const quien = r.atendida_por ? ` (${r.atendida_por})` : "";
     ev.push({
       fecha: r.fecha,
+      hora: r.hora ? r.hora.slice(0, 5) : null,
       tipo: "reunion",
       titulo: `Reunión${hora} · ${con}${quien}`,
       href: `/oportunidades/${r.oportunidad_id}?tab=reuniones`,

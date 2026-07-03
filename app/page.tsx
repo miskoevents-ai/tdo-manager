@@ -5,15 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { CobroRow } from "@/components/home/CobroRow";
 import { AvisosPanel } from "@/components/home/AvisosPanel";
+import { EstaSemana } from "@/components/home/EstaSemana";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getReservas } from "@/lib/data";
+import { getOportunidades, getReservas, getTesoreria, getReuniones } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { calcularAvisos } from "@/lib/avisos";
+import { construirEventos } from "@/lib/calendario";
 import { eur, fecha } from "@/lib/format";
 import { ESTADO_META } from "@/lib/estados";
-
-const HOY_ISO = "2026-07-01";
 
 export const dynamic = "force-dynamic";
 
@@ -58,10 +58,19 @@ function Kpi({
 export default async function Home() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
-  let ops;
-  let reservas;
+  // Fecha de hoy en horario de Madrid (antes estaba fijada a mano).
+  const HOY_ISO = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Madrid",
+  }).format(new Date());
+
+  let ops, reservas, tesoreria, reuniones;
   try {
-    [ops, reservas] = await Promise.all([getOportunidades(), getReservas()]);
+    [ops, reservas, tesoreria, reuniones] = await Promise.all([
+      getOportunidades(),
+      getReservas(),
+      getTesoreria(),
+      getReuniones(),
+    ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -92,6 +101,7 @@ export default async function Home() {
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
 
   const avisos = calcularAvisos(ops, HOY_ISO, reservas).slice(0, 10);
+  const eventosCal = construirEventos(ops, reservas, tesoreria, reuniones);
 
   const futuros = ops
     .filter((o) => o.fecha_evento && o.fecha_evento >= HOY_ISO)
@@ -115,6 +125,8 @@ export default async function Home() {
       </div>
 
       <AvisosPanel avisos={avisos} />
+
+      <EstaSemana eventos={eventosCal} hoy={HOY_ISO} />
 
       <Overline>Resumen</Overline>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

@@ -21,8 +21,9 @@ export async function middleware(req: NextRequest) {
 export const config = {
   // Se excluyen: la propia pantalla de login, las APIs con su propia
   // autenticación (cron con CRON_SECRET, leads con LEADS_TOKEN, seed con
-  // SEED_TOKEN), los estáticos y el optimizador de imágenes.
+  // SEED_TOKEN, feed de calendario con CAL_FEED_TOKEN), los estáticos y el
+  // optimizador de imágenes.
   matcher: [
-    "/((?!login|api/login|api/cron|api/leads|api/seed|_next/static|_next/image|favicon\\.ico).*)",
+    "/((?!login|api/login|api/cron|api/leads|api/seed|api/calendario|_next/static|_next/image|favicon\\.ico).*)",
   ],
 };
