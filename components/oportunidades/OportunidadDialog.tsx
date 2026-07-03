@@ -317,12 +317,13 @@ export function OportunidadDialog({
               <Input type="number" name="n_invitados" defaultValue={oportunidad?.n_invitados ?? ""} />
             </Field>
             <Field label="IVA %">
-              <Input type="number" step="0.01" name="iva_pct" defaultValue={oportunidad?.iva_pct ?? 21} />
+              <Input type="number" step="1" min="0" name="iva_pct" defaultValue={oportunidad?.iva_pct ?? 21} />
             </Field>
             <Field label="Retención %">
               <Input
                 type="number"
-                step="0.01"
+                step="1"
+                min="0"
                 name="retencion_pct"
                 key={retSugerida + (oportunidad?.id ?? "")}
                 defaultValue={oportunidad?.retencion_pct ?? retSugerida}

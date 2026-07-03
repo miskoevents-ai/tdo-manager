@@ -136,8 +136,8 @@ export async function guardarOportunidad(formData: FormData) {
     fecha_recogida: (formData.get("fecha_recogida") as string) || null,
     responsable: (formData.get("responsable") as string)?.trim() || null,
     n_invitados: numToNull(formData.get("n_invitados")),
-    iva_pct: numToNull(formData.get("iva_pct")) ?? 21,
-    retencion_pct: numToNull(formData.get("retencion_pct")) ?? 0,
+    iva_pct: Math.round(numToNull(formData.get("iva_pct")) ?? 21),
+    retencion_pct: Math.round(numToNull(formData.get("retencion_pct")) ?? 0),
     fianza: numToNull(formData.get("fianza")),
     fecha_devolucion_fianza: (formData.get("fecha_devolucion_fianza") as string) || null,
     pago_a_dias: numToNull(formData.get("pago_a_dias")) ?? 0,
@@ -198,8 +198,9 @@ export async function guardarLineas(
 
   if (typeof ivaPct === "number" || typeof retPct === "number") {
     const patch: Record<string, number> = {};
-    if (typeof ivaPct === "number") patch.iva_pct = ivaPct;
-    if (typeof retPct === "number") patch.retencion_pct = retPct;
+    // IVA y retención siempre enteros (21, 10, 15…).
+    if (typeof ivaPct === "number") patch.iva_pct = Math.round(ivaPct);
+    if (typeof retPct === "number") patch.retencion_pct = Math.round(retPct);
     const { error } = await sb.from("oportunidades").update(patch).eq("id", oportunidadId);
     if (error) throw new Error(error.message);
   }

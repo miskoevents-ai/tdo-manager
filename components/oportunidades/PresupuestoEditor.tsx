@@ -187,9 +187,10 @@ export function PresupuestoEditor({
             </label>
             <Input
               type="number"
-              step="0.01"
+              step="1"
+              min="0"
               value={iva}
-              onChange={(e) => setIva(Number(e.target.value))}
+              onChange={(e) => setIva(Math.round(Number(e.target.value) || 0))}
               className="w-[90px] py-2 text-right text-[13px] tabular"
             />
           </div>
@@ -199,9 +200,10 @@ export function PresupuestoEditor({
             </label>
             <Input
               type="number"
-              step="0.01"
+              step="1"
+              min="0"
               value={ret}
-              onChange={(e) => setRet(Number(e.target.value))}
+              onChange={(e) => setRet(Math.round(Number(e.target.value) || 0))}
               className="w-[90px] py-2 text-right text-[13px] tabular"
             />
             <p className="mt-1 text-[10.5px] text-ink-muted">
