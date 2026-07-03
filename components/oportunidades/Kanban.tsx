@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { cambiarEstado } from "@/app/actions";
-import { KANBAN_COLS, ESTADO_META, TIPO_EVENTO_LABEL } from "@/lib/estados";
+import { KANBAN_COLS, ESTADO_META, ESTADO_COLOR, TIPO_EVENTO_LABEL } from "@/lib/estados";
 import { eur, fecha } from "@/lib/format";
 import type { OportunidadEstado } from "@/lib/types";
 
@@ -26,20 +26,7 @@ export type KanbanCard = {
   clienteRecurrente?: boolean;
 };
 
-// Un color distinto por estado, siguiendo la progresión del pipeline
-// (frío → negociación → ganado → cerrado). Tonos apagados para que queden
-// bien juntos. Se aplican con estilo en línea para máxima nitidez.
-const COLOR: Record<OportunidadEstado, string> = {
-  nueva: "#94A3B8", // gris azulado · lead sin tocar
-  contestada: "#5B8FB9", // azul · primer contacto
-  en_conversacion: "#E0A458", // ámbar · negociando
-  presupuesto_enviado: "#BE6E4C", // terracota · presupuesto enviado
-  confirmada: "#5FA463", // verde · confirmada (ganada)
-  realizada: "#3F8F7A", // verde azulado · evento realizado
-  facturada: "#7D6BA6", // morado · facturada / cerrada
-  perdida: "#C0574B", // rojo · perdida
-  descartada: "#A8A29A", // gris cálido · descartada
-};
+const COLOR = ESTADO_COLOR;
 
 const dotStyle = (e: OportunidadEstado) => ({ background: COLOR[e] });
 const chipStyle = (e: OportunidadEstado) => ({

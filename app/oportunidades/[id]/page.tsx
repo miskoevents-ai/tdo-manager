@@ -2,12 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FileDown } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SetupNotice } from "@/components/SetupNotice";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
-import { EmitirFacturaBtn, FianzaBtn } from "@/components/oportunidades/FichaAcciones";
+import { EmitirFacturaBtn, FianzaBtn, EstadoSelect } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
@@ -28,7 +27,7 @@ import {
 } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
-import { ESTADO_META, TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
 
 export const dynamic = "force-dynamic";
 
@@ -103,7 +102,6 @@ export default async function Page({
   );
   const cobrado = op.cobrado ?? 0;
   const pendiente = Math.max(0, t.total - cobrado);
-  const meta = ESTADO_META[op.estado];
   const esEmpresa = op.cliente?.tipo === "empresa";
 
   return (
@@ -119,7 +117,7 @@ export default async function Page({
         <div>
           <div className="flex items-center gap-3">
             <h2 className="font-display text-h3 font-normal">{op.titulo}</h2>
-            <Badge tone={meta.tone}>{meta.label}</Badge>
+            <EstadoSelect oportunidadId={op.id} estado={op.estado} />
           </div>
           <p className="mt-1 text-[12px] text-ink-muted">
             Nº {op.numero} · {TIPO_EVENTO_LABEL[op.tipo_evento] ?? op.tipo_evento}
