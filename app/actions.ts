@@ -159,6 +159,26 @@ export async function guardarOportunidad(formData: FormData) {
   return opId;
 }
 
+// Marca el presupuesto como enviado (y avanza el estado si aún estaba en
+// fases tempranas del pipeline). Se usa desde el botón de enviar por email.
+export async function marcarPresupuestoEnviado(id: string) {
+  const sb = createAdminClient();
+  const { data: op, error } = await sb
+    .from("oportunidades")
+    .select("estado")
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(error.message);
+  const patch: Record<string, unknown> = { presupuesto_enviado: true };
+  if (op && ["nueva", "contestada", "en_conversacion"].includes(op.estado)) {
+    patch.estado = "presupuesto_enviado";
+  }
+  const { error: updErr } = await sb.from("oportunidades").update(patch).eq("id", id);
+  if (updErr) throw new Error(updErr.message);
+  revalidatePath(`/oportunidades/${id}`);
+  revalidatePath("/oportunidades");
+}
+
 export async function cambiarEstado(id: string, estado: string) {
   const sb = createAdminClient();
   const { error } = await sb.from("oportunidades").update({ estado }).eq("id", id);
