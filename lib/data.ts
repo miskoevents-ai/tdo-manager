@@ -15,6 +15,7 @@ import type {
   Reserva,
   ParteHoras,
   Desplazamiento,
+  Reunion,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -136,6 +137,40 @@ export async function getDesplazamientos(oportunidadId: string): Promise<Desplaz
     .order("fecha", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Desplazamiento[];
+}
+
+// Si la tabla aún no existe (migración 010 sin ejecutar) devuelve vacío para
+// no romper el calendario ni las fichas.
+const tablaNoExiste = (e: { code?: string; message: string }) =>
+  e.code === "42P01" || /does not exist/i.test(e.message);
+
+export async function getReuniones(): Promise<Reunion[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("reuniones")
+    .select("*, oportunidad:oportunidades(id, titulo)")
+    .order("fecha", { ascending: true });
+  if (error) {
+    if (tablaNoExiste(error)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as Reunion[];
+}
+
+export async function getReunionesDeOportunidad(oportunidadId: string): Promise<Reunion[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("reuniones")
+    .select("*")
+    .eq("oportunidad_id", oportunidadId)
+    .order("fecha", { ascending: true });
+  if (error) {
+    if (tablaNoExiste(error)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as Reunion[];
 }
 
 export async function getKmPrecio(): Promise<number> {

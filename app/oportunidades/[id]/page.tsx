@@ -10,6 +10,7 @@ import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor"
 import { EmitirFacturaBtn, FianzaBtn } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { CostesTab } from "@/components/costes/CostesTab";
+import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import {
   getOportunidad,
@@ -20,6 +21,7 @@ import {
   getInventario,
   getPartesHoras,
   getDesplazamientos,
+  getReunionesDeOportunidad,
   getEquipo,
   getProveedores,
   getKmPrecio,
@@ -51,10 +53,10 @@ export default async function Page({
   if (!supabaseConfigurado()) return <SetupNotice />;
   const { id } = await params;
   const { tab } = (await searchParams) ?? {};
-  const TABS = ["datos", "presupuesto", "material", "costes", "cobros"];
+  const TABS = ["datos", "reuniones", "presupuesto", "material", "costes", "cobros"];
   const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
-  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio] =
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones] =
     await Promise.all([
       getOportunidad(id),
       getClientes(),
@@ -67,6 +69,7 @@ export default async function Page({
       getEquipo(),
       getProveedores(),
       getKmPrecio(),
+      getReunionesDeOportunidad(id),
     ]);
   if (!op) notFound();
 
@@ -166,6 +169,7 @@ export default async function Page({
       <Tabs defaultValue={tabInicial}>
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
+          <TabsTrigger value="reuniones">Reuniones</TabsTrigger>
           <TabsTrigger value="presupuesto">Presupuesto</TabsTrigger>
           <TabsTrigger value="material">Material</TabsTrigger>
           <TabsTrigger value="costes">Costes</TabsTrigger>
@@ -196,6 +200,19 @@ export default async function Page({
                 <p className="mt-1 text-[13px] text-ink-secondary">{op.notas}</p>
               </div>
             )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reuniones">
+          <Card>
+            <Overline className="!mt-0">Reuniones con el cliente</Overline>
+            <div className="mt-3">
+              <ReunionesTab
+                oportunidadId={op.id}
+                reuniones={reuniones}
+                responsables={equipo.filter((e) => e.activo).map((e) => e.nombre)}
+              />
+            </div>
           </Card>
         </TabsContent>
 

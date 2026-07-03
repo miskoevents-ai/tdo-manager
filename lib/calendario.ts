@@ -1,6 +1,6 @@
-import type { Oportunidad, Reserva, Tesoreria } from "@/lib/types";
+import type { Oportunidad, Reserva, Tesoreria, Reunion } from "@/lib/types";
 
-export type CalTipo = "evento" | "montaje" | "recogida" | "salida" | "devolucion" | "cobro" | "fianza";
+export type CalTipo = "evento" | "reunion" | "montaje" | "recogida" | "salida" | "devolucion" | "cobro" | "fianza";
 
 export type CalEvento = {
   fecha: string; // YYYY-MM-DD
@@ -11,6 +11,7 @@ export type CalEvento = {
 
 export const CAL_META: Record<CalTipo, { label: string; clase: string; punto: string }> = {
   evento: { label: "Evento", clase: "bg-sage-tint text-sage", punto: "bg-sage" },
+  reunion: { label: "Reunión", clase: "bg-[#EFEBF6] text-[#7D6BA6]", punto: "bg-[#7D6BA6]" },
   montaje: { label: "Montaje", clase: "bg-clay-tint text-clay-600", punto: "bg-clay" },
   recogida: { label: "Recogida", clase: "bg-clay-tint-deep text-clay-600", punto: "bg-clay-600" },
   salida: { label: "Salida material", clase: "bg-warn-tint text-warn", punto: "bg-warn" },
@@ -24,8 +25,21 @@ export function construirEventos(
   oportunidades: Oportunidad[],
   reservas: Reserva[],
   tesoreria: Tesoreria[],
+  reuniones: Reunion[] = [],
 ): CalEvento[] {
   const ev: CalEvento[] = [];
+
+  for (const r of reuniones) {
+    const hora = r.hora ? ` ${r.hora.slice(0, 5)}` : "";
+    const con = r.oportunidad?.titulo ?? "cliente";
+    const quien = r.atendida_por ? ` (${r.atendida_por})` : "";
+    ev.push({
+      fecha: r.fecha,
+      tipo: "reunion",
+      titulo: `Reunión${hora} · ${con}${quien}`,
+      href: `/oportunidades/${r.oportunidad_id}?tab=reuniones`,
+    });
+  }
 
   for (const o of oportunidades) {
     const href = `/oportunidades/${o.id}`;

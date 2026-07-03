@@ -3,7 +3,7 @@ import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { Calendario } from "@/components/calendario/Calendario";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getReservas, getTesoreria } from "@/lib/data";
+import { getOportunidades, getReservas, getTesoreria, getReuniones } from "@/lib/data";
 import { construirEventos, mesInicial } from "@/lib/calendario";
 
 export const dynamic = "force-dynamic";
@@ -11,18 +11,19 @@ export const dynamic = "force-dynamic";
 export default async function CalendarioPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
-  let ops, reservas, tesoreria;
+  let ops, reservas, tesoreria, reuniones;
   try {
-    [ops, reservas, tesoreria] = await Promise.all([
+    [ops, reservas, tesoreria, reuniones] = await Promise.all([
       getOportunidades(),
       getReservas(),
       getTesoreria(),
+      getReuniones(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
 
-  const eventos = construirEventos(ops, reservas, tesoreria);
+  const eventos = construirEventos(ops, reservas, tesoreria, reuniones);
   const hoy = new Date().toISOString().slice(0, 10);
   const inicial = mesInicial(eventos, hoy);
 
