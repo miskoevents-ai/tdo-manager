@@ -31,6 +31,13 @@ function diasEntre(aISO: string, bISO: string): number {
   return Math.floor((b - a) / 86_400_000);
 }
 
+// Suma días a una fecha ISO (YYYY-MM-DD).
+function sumaDiasISO(fechaISO: string, dias: number): string {
+  const d = new Date(fechaISO + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
 const eur0 = (n: number) => `${Math.round(n).toLocaleString("es-ES")} €`;
 
 /**
@@ -84,22 +91,29 @@ export function calcularAvisos(
       });
     }
 
-    // 2) Cobro pendiente de un evento ya pasado (vencido).
-    //    A las 3 semanas sin cobrar salta una alarma más prominente.
-    if (contratada && pendiente > 0.01 && o.fecha_evento && o.fecha_evento < hoyISO) {
-      const dias = diasEntre(o.fecha_evento, hoyISO);
-      const alarma = dias >= 21;
-      avisos.push({
-        id: `cobro-${o.id}`,
-        href: `/oportunidades/${o.id}?tab=cobros`,
-        titulo: alarma ? `🚨 Impago +3 semanas · ${o.titulo}` : `Cobro pendiente · ${o.titulo}`,
-        detalle: alarma
-          ? `${eur0(pendiente)} · el evento fue hace ${dias} días y sigue sin cobrar`
-          : `${eur0(pendiente)} · evento del ${o.fecha_evento} ya pasó`,
-        severidad: "alta",
-        categoria: "cobro",
-        oportunidadId: o.id,
-      });
+    // 2) Cobro pendiente vencido. Si el cliente tiene condiciones de pago
+    //    (pago_a_dias, p. ej. a 30 días), el vencimiento se cuenta desde el
+    //    evento + plazo y la alarma no salta antes. A las 3 semanas del
+    //    vencimiento sin cobrar salta la alarma prominente.
+    const plazo = o.pago_a_dias ?? 0;
+    if (contratada && pendiente > 0.01 && o.fecha_evento) {
+      const vencimiento = plazo > 0 ? sumaDiasISO(o.fecha_evento, plazo) : o.fecha_evento;
+      if (vencimiento < hoyISO) {
+        const dias = diasEntre(vencimiento, hoyISO);
+        const alarma = dias >= 21;
+        const condicion = plazo > 0 ? ` (pago a ${plazo} días)` : "";
+        avisos.push({
+          id: `cobro-${o.id}`,
+          href: `/oportunidades/${o.id}?tab=cobros`,
+          titulo: alarma ? `🚨 Impago +3 semanas · ${o.titulo}` : `Cobro pendiente · ${o.titulo}`,
+          detalle: alarma
+            ? `${eur0(pendiente)} · venció hace ${dias} días${condicion} y sigue sin cobrar`
+            : `${eur0(pendiente)} · venció el ${vencimiento}${condicion}`,
+          severidad: "alta",
+          categoria: "cobro",
+          oportunidadId: o.id,
+        });
+      }
     }
 
     // 3) Evento en los próximos 7 días (preparar montaje/material)

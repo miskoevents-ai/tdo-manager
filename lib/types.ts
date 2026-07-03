@@ -86,6 +86,8 @@ export type Oportunidad = {
   fianza: number | null;
   fianza_devuelta: boolean;
   fecha_devolucion_fianza: string | null;
+  pago_a_dias?: number; // 0 = al momento; 30 = el cliente paga a 30 días
+
   fecha_confirmacion?: string | null;
   resena_pedida?: boolean;
   resena_conseguida?: boolean;

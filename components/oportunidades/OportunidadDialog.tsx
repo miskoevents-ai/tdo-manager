@@ -333,19 +333,34 @@ export function OportunidadDialog({
             </Field>
           </div>
 
-          <Field label="Fecha devolución de la fianza">
-            <Input
-              type="date"
-              name="fecha_devolucion_fianza"
-              value={fianzaFecha}
-              onChange={(e) => setFianzaFecha(e.target.value)}
-            />
-            {recogida && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Fecha devolución de la fianza">
+              <Input
+                type="date"
+                name="fecha_devolucion_fianza"
+                value={fianzaFecha}
+                onChange={(e) => setFianzaFecha(e.target.value)}
+              />
+              {recogida && (
+                <p className="mt-1 text-[10.5px] text-ink-muted">
+                  Sugerido: 3 días tras la recogida ({sumaDias(recogida, 3)}). Puedes cambiarlo.
+                </p>
+              )}
+            </Field>
+            <Field label="Condiciones de pago">
+              <Select name="pago_a_dias" defaultValue={String(oportunidad?.pago_a_dias ?? 0)}>
+                <option value="0">Al momento</option>
+                <option value="15">A 15 días</option>
+                <option value="30">A 30 días</option>
+                <option value="45">A 45 días</option>
+                <option value="60">A 60 días</option>
+                <option value="90">A 90 días</option>
+              </Select>
               <p className="mt-1 text-[10.5px] text-ink-muted">
-                Sugerido: 3 días tras la recogida ({sumaDias(recogida, 3)}). Puedes cambiarlo.
+                La alarma de cobro no salta hasta que venza el plazo.
               </p>
-            )}
-          </Field>
+            </Field>
+          </div>
 
           <Field label="Responsable">
             <Select name="responsable" defaultValue={oportunidad?.responsable ?? ""}>
