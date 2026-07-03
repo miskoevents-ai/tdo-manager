@@ -33,12 +33,18 @@ export function Calendario({
     const d = new Date(year, month0 + delta, 1);
     setYm(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`);
   }
+  const TODOS = Object.keys(CAL_META) as CalTipo[];
+  const viendoTodo = activos.size === TODOS.length;
+
+  // Primer clic sobre un tipo → se ve SOLO ese tipo. Con un filtro ya puesto,
+  // los clics añaden o quitan tipos. Si no queda ninguno, se vuelve a ver todo.
   function toggle(t: CalTipo) {
     setActivos((prev) => {
+      if (prev.size === TODOS.length) return new Set([t]);
       const n = new Set(prev);
       if (n.has(t)) n.delete(t);
       else n.add(t);
-      return n;
+      return n.size === 0 ? new Set(TODOS) : n;
     });
   }
 
@@ -86,22 +92,36 @@ export function Calendario({
         </button>
       </div>
 
-      {/* Filtros por tipo: cada pastilla se activa/desactiva al pulsarla */}
+      {/* Filtro por tipo: clic en un tipo = ver solo ese tipo; más clics
+          suman/quitan; "Todas" restaura la vista completa. */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-          Filtrar:
+          Ver:
         </span>
-        {(Object.keys(CAL_META) as CalTipo[]).map((t) => {
+        <button
+          onClick={() => setActivos(new Set(TODOS))}
+          className={`rounded-pill border-hair px-3 py-1 text-[11.5px] font-semibold transition-colors ${
+            viendoTodo
+              ? "border-transparent bg-sage text-cream"
+              : "border-border bg-white text-ink-secondary hover:border-sage-300"
+          }`}
+        >
+          Todas
+        </button>
+        {TODOS.map((t) => {
           const on = activos.has(t);
+          const soloEste = on && !viendoTodo;
           return (
             <button
               key={t}
               onClick={() => toggle(t)}
-              title={on ? "Pulsa para ocultar este tipo" : "Pulsa para mostrar este tipo"}
+              title={viendoTodo ? `Ver solo ${CAL_META[t].label.toLowerCase()}` : soloEste ? "Quitar del filtro" : "Añadir al filtro"}
               className={`inline-flex items-center gap-1.5 rounded-pill border-hair px-3 py-1 text-[11.5px] font-medium transition-colors ${
-                on
-                  ? CAL_META[t].clase + " border-transparent"
-                  : "border-border bg-white text-ink-muted line-through opacity-60"
+                soloEste
+                  ? CAL_META[t].clase + " border-transparent ring-1 ring-current"
+                  : on
+                    ? CAL_META[t].clase + " border-transparent opacity-80"
+                    : "border-border bg-white text-ink-muted opacity-50"
               }`}
             >
               <span className={`h-2 w-2 rounded-full ${CAL_META[t].punto} ${on ? "" : "opacity-40"}`} />
@@ -109,20 +129,15 @@ export function Calendario({
             </button>
           );
         })}
-        <span className="mx-1 h-4 w-px bg-border" />
-        <button
-          onClick={() => setActivos(new Set(Object.keys(CAL_META) as CalTipo[]))}
-          className="text-[11px] font-semibold text-sage hover:underline"
-        >
-          Todas
-        </button>
-        <button
-          onClick={() => setActivos(new Set())}
-          className="text-[11px] font-semibold text-ink-muted hover:underline"
-        >
-          Ninguna
-        </button>
       </div>
+      {!viendoTodo && (
+        <p className="text-[11.5px] text-ink-muted">
+          Mostrando solo: {TODOS.filter((t) => activos.has(t)).map((t) => CAL_META[t].label).join(", ")} ·{" "}
+          <button onClick={() => setActivos(new Set(TODOS))} className="font-semibold text-sage hover:underline">
+            ver todo
+          </button>
+        </p>
+      )}
 
       {/* Rejilla */}
       <div className="overflow-hidden rounded-lg border-hair border-border bg-white shadow-sm">
