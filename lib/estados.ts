@@ -1,6 +1,20 @@
 import type { BadgeTone } from "@/components/ui/badge";
 import type { OportunidadEstado, FacturaEstado } from "@/lib/types";
 
+// Un color distinto por estado, siguiendo la progresión del pipeline
+// (frío → negociación → ganado → cerrado). Compartido por kanban y ficha.
+export const ESTADO_COLOR: Record<OportunidadEstado, string> = {
+  nueva: "#94A3B8",
+  contestada: "#5B8FB9",
+  en_conversacion: "#E0A458",
+  presupuesto_enviado: "#BE6E4C",
+  confirmada: "#5FA463",
+  realizada: "#3F8F7A",
+  facturada: "#7D6BA6",
+  perdida: "#C0574B",
+  descartada: "#A8A29A",
+};
+
 export const ESTADO_META: Record<OportunidadEstado, { label: string; tone: BadgeTone }> = {
   nueva: { label: "Nueva", tone: "neutral" },
   contestada: { label: "Contestada", tone: "sage" },
