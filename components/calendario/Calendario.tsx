@@ -86,16 +86,22 @@ export function Calendario({
         </button>
       </div>
 
-      {/* Filtros por tipo */}
-      <div className="flex flex-wrap gap-2">
+      {/* Filtros por tipo: cada pastilla se activa/desactiva al pulsarla */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+          Filtrar:
+        </span>
         {(Object.keys(CAL_META) as CalTipo[]).map((t) => {
           const on = activos.has(t);
           return (
             <button
               key={t}
               onClick={() => toggle(t)}
+              title={on ? "Pulsa para ocultar este tipo" : "Pulsa para mostrar este tipo"}
               className={`inline-flex items-center gap-1.5 rounded-pill border-hair px-3 py-1 text-[11.5px] font-medium transition-colors ${
-                on ? CAL_META[t].clase + " border-transparent" : "border-border bg-white text-ink-muted"
+                on
+                  ? CAL_META[t].clase + " border-transparent"
+                  : "border-border bg-white text-ink-muted line-through opacity-60"
               }`}
             >
               <span className={`h-2 w-2 rounded-full ${CAL_META[t].punto} ${on ? "" : "opacity-40"}`} />
@@ -103,6 +109,19 @@ export function Calendario({
             </button>
           );
         })}
+        <span className="mx-1 h-4 w-px bg-border" />
+        <button
+          onClick={() => setActivos(new Set(Object.keys(CAL_META) as CalTipo[]))}
+          className="text-[11px] font-semibold text-sage hover:underline"
+        >
+          Todas
+        </button>
+        <button
+          onClick={() => setActivos(new Set())}
+          className="text-[11px] font-semibold text-ink-muted hover:underline"
+        >
+          Ninguna
+        </button>
       </div>
 
       {/* Rejilla */}
