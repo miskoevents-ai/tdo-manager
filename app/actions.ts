@@ -914,6 +914,7 @@ export async function emitirFactura(oportunidadId: string) {
   const vence = new Date(hoyMadrid + "T00:00:00Z");
   vence.setUTCDate(vence.getUTCDate() + (plazoPago > 0 ? plazoPago : 0));
 
+  const fechaVencimiento = vence.toISOString().slice(0, 10);
   const { error: insErr } = await sb.from("facturas").insert({
     numero: op.numero,
     oportunidad_id: op.id,
@@ -923,24 +924,77 @@ export async function emitirFactura(oportunidadId: string) {
     retencion: t.retencion,
     total: t.total,
     estado: "emitida",
-    fecha_vencimiento: vence.toISOString().slice(0, 10),
+    fecha_vencimiento: fechaVencimiento,
   });
   if (insErr) throw new Error(insErr.message);
 
+  // Círculo completo: la factura deja su cobro previsto en tesorería con
+  // fecha del vencimiento (sale en Tesorería, Calendario y ficha → Cobros).
+  const { data: previstoExistente } = await sb
+    .from("tesoreria")
+    .select("id")
+    .eq("oportunidad_id", op.id)
+    .eq("naturaleza", "ingreso_factura")
+    .eq("estado", "previsto")
+    .limit(1)
+    .maybeSingle();
+  if (!previstoExistente) {
+    const { error: tesErr } = await sb.from("tesoreria").insert({
+      concepto: `Cobro factura ${op.numero} · ${op.titulo}`,
+      tipo: "ingreso",
+      naturaleza: "ingreso_factura",
+      categoria: "Cobro factura",
+      importe: t.total,
+      fecha: fechaVencimiento,
+      estado: "previsto",
+      oportunidad_id: op.id,
+      computa_contabilidad: true,
+    });
+    if (tesErr) throw new Error(tesErr.message);
+  }
+
   await sb.from("oportunidades").update({ estado: "facturada" }).eq("id", op.id);
   revalidatePath("/facturas");
+  revalidatePath("/tesoreria");
+  revalidatePath("/contabilidad");
   revalidatePath(`/oportunidades/${op.id}`);
   revalidatePath("/oportunidades");
 }
 
 export async function marcarFacturaCobrada(id: string, cobrada: boolean) {
   const sb = createAdminClient();
-  const { error } = await sb
+  const { data: f, error } = await sb
     .from("facturas")
     .update({ estado: cobrada ? "cobrada" : "emitida" })
-    .eq("id", id);
+    .eq("id", id)
+    .select("oportunidad_id, fecha_vencimiento")
+    .single();
   if (error) throw new Error(error.message);
+
+  // Sincroniza el cobro previsto de tesorería: al cobrar pasa a "cobrado" con
+  // fecha de hoy (y entra en contabilidad); al reabrir vuelve a "previsto"
+  // con la fecha del vencimiento.
+  if (f?.oportunidad_id) {
+    const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+    if (cobrada) {
+      await sb
+        .from("tesoreria")
+        .update({ estado: "cobrado", fecha: hoy })
+        .eq("oportunidad_id", f.oportunidad_id)
+        .eq("naturaleza", "ingreso_factura")
+        .eq("estado", "previsto");
+    } else {
+      await sb
+        .from("tesoreria")
+        .update({ estado: "previsto", fecha: f.fecha_vencimiento ?? hoy })
+        .eq("oportunidad_id", f.oportunidad_id)
+        .eq("naturaleza", "ingreso_factura")
+        .eq("estado", "cobrado");
+    }
+  }
   revalidatePath("/facturas");
+  revalidatePath("/tesoreria");
+  revalidatePath("/contabilidad");
   revalidatePath("/");
 }
 
@@ -964,6 +1018,16 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
     op.retencion_pct,
   );
 
+  // Primero se dan por cobrados los ingresos previstos ya enlazados (p. ej.
+  // el cobro previsto que dejó la factura), para no duplicar movimientos.
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  await sb
+    .from("tesoreria")
+    .update({ estado: "cobrado", fecha: hoy })
+    .eq("oportunidad_id", oportunidadId)
+    .eq("tipo", "ingreso")
+    .eq("estado", "previsto");
+
   const { data: cobros } = await sb
     .from("tesoreria")
     .select("importe")
@@ -974,7 +1038,6 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
   const pendiente = Math.round((t.total - cobrado + Number.EPSILON) * 100) / 100;
 
   if (pendiente > 0.01) {
-    const hoy = new Date().toISOString().slice(0, 10);
     const { error: insErr } = await sb.from("tesoreria").insert({
       concepto: `Cobro final ${op.titulo}`,
       tipo: "ingreso",
@@ -995,4 +1058,6 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
   revalidatePath("/oportunidades");
   revalidatePath(`/oportunidades/${oportunidadId}`);
   revalidatePath("/facturas");
+  revalidatePath("/tesoreria");
+  revalidatePath("/contabilidad");
 }
