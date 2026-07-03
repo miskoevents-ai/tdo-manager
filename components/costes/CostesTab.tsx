@@ -106,6 +106,7 @@ export function CostesTab({
           oportunidadId={oportunidadId}
           kmPrecio={kmPrecio}
           lugar={lugar}
+          pagadores={equipo.map((e) => e.nombre)}
           onDone={r}
         />
         {desplazamientos.length > 0 && (
@@ -130,13 +131,19 @@ export function CostesTab({
 
       {/* C) Material / compras */}
       <Bloque icon={<Flower2 size={15} />} titulo="Compras / material" total={eur(cMaterial)}>
-        <CompraForm oportunidadId={oportunidadId} proveedores={proveedores} onDone={r} />
+        <CompraForm oportunidadId={oportunidadId} proveedores={proveedores} pagadores={equipo.map((e) => e.nombre)} onDone={r} />
         {compras.length > 0 && (
-          <Tabla headers={["Concepto", "Fecha", "Importe", ""]}>
+          <Tabla headers={["Concepto", "Fecha", "Pagado por", "Importe", ""]}>
             {compras.map((m) => (
               <tr key={m.id}>
                 <Td>{m.concepto}</Td>
                 <Td>{fecha(m.fecha)}</Td>
+                <Td>
+                  {m.quien_lo_paga ?? "TDO"}
+                  {m.quien_lo_paga && m.estado !== "pagado" && (
+                    <span className="ml-1 text-[10.5px] font-semibold text-warn">· reembolso pdte.</span>
+                  )}
+                </Td>
                 <Td right bold>{eur(Number(m.importe))}</Td>
                 <Td right><Del onClick={async () => { await borrarCompra(m.id, oportunidadId); r(); }} /></Td>
               </tr>
@@ -232,7 +239,34 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
   );
 }
 
-function DesplForm({ oportunidadId, kmPrecio, lugar, onDone }: { oportunidadId: string; kmPrecio: number; lugar: LugarInfo; onDone: () => void }) {
+// Desplegable de "quién lo ha pagado": la empresa (por defecto), alguien del
+// equipo o una persona externa escrita a mano. Si lo pagó una persona, el
+// gasto queda como reembolso pendiente y aparece en las deudas de Tesorería.
+function PagadoPor({
+  nombres, quien, otro, setQuien, setOtro,
+}: {
+  nombres: string[]; quien: string; otro: string;
+  setQuien: (v: string) => void; setOtro: (v: string) => void;
+}) {
+  return (
+    <>
+      <Field label="Pagado por">
+        <Select value={quien} onChange={(e) => setQuien(e.target.value)}>
+          <option value="">TDO (cuenta empresa)</option>
+          {nombres.map((n) => <option key={n} value={n}>{n}</option>)}
+          <option value="__otro__">Otra persona…</option>
+        </Select>
+      </Field>
+      {quien === "__otro__" && (
+        <Field label="Nombre de quien pagó">
+          <Input value={otro} onChange={(e) => setOtro(e.target.value)} placeholder="Nombre…" autoFocus />
+        </Field>
+      )}
+    </>
+  );
+}
+
+function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { oportunidadId: string; kmPrecio: number; lugar: LugarInfo; pagadores: string[]; onDone: () => void }) {
   const [open, setOpen] = React.useState(false);
   const [trayecto, setTrayecto] = React.useState(lugar?.nombre ?? "");
   const [km, setKm] = React.useState(lugar?.distancia_km ?? 0);
@@ -241,12 +275,15 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, onDone }: { oportunidadId: 
   const [peaje, setPeaje] = React.useState(0);
   const [parking, setParking] = React.useState(0);
   const [precioKm, setPrecioKm] = React.useState(kmPrecio);
+  const [quien, setQuien] = React.useState("");
+  const [otro, setOtro] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   const kmTotal = (km || 0) * (ida ? 2 : 1);
   const gasEstim = Math.round(kmTotal * precioKm * 100) / 100;
   const gas = gasManual ? Number(gasManual) : gasEstim;
   const total = Math.round((gas + peaje + parking) * 100) / 100;
+  const quienFinal = quien === "__otro__" ? otro.trim() : quien;
 
   async function add() {
     setBusy(true);
@@ -255,6 +292,7 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, onDone }: { oportunidadId: 
         oportunidadId, trayecto, km, idaVuelta: ida,
         gasolinaManual: gasManual ? Number(gasManual) : null,
         peaje, parking, fecha: null,
+        quienLoPaga: quienFinal || null,
       });
       setOpen(false); onDone();
     } finally { setBusy(false); }
@@ -275,7 +313,13 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, onDone }: { oportunidadId: 
         <Field label="Km (solo ida)"><Input type="number" value={km} onChange={(e) => setKm(Number(e.target.value))} /></Field>
         <Field label="Peaje €"><Input type="number" step="0.01" value={peaje} onChange={(e) => setPeaje(Number(e.target.value))} /></Field>
         <Field label="Parking €"><Input type="number" step="0.01" value={parking} onChange={(e) => setParking(Number(e.target.value))} /></Field>
+        <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
       </div>
+      {quienFinal && (
+        <p className="text-[11px] text-warn">
+          Quedará como reembolso pendiente a {quienFinal} en las deudas de Tesorería.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-4 text-[12px]">
         <label className="flex items-center gap-2"><input type="checkbox" checked={ida} onChange={(e) => setIda(e.target.checked)} className="h-4 w-4 accent-sage" /> Ida y vuelta</label>
         <span className="text-ink-muted">Gasolina estimada ({kmTotal} km × {num(precioKm, 2)} €/km): <b className="text-ink">{eur(gasEstim)}</b></span>
@@ -315,26 +359,57 @@ function KmPrecioEditor({ kmPrecio, onDone }: { kmPrecio: number; onDone: () => 
   );
 }
 
-function CompraForm({ oportunidadId, proveedores, onDone }: { oportunidadId: string; proveedores: Pick<Proveedor, "id" | "nombre">[]; onDone: () => void }) {
+function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportunidadId: string; proveedores: Pick<Proveedor, "id" | "nombre">[]; pagadores: string[]; onDone: () => void }) {
   const [open, setOpen] = React.useState(false);
   const [concepto, setConcepto] = React.useState("");
   const [importe, setImporte] = React.useState(0);
   const [proveedorId, setProveedorId] = React.useState("");
+  const [proveedorNuevo, setProveedorNuevo] = React.useState("");
+  const [quien, setQuien] = React.useState("");
+  const [otro, setOtro] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const quienFinal = quien === "__otro__" ? otro.trim() : quien;
   async function add() {
     setBusy(true);
     try {
-      await crearCompra({ oportunidadId, concepto, importe, proveedorId: proveedorId || null, fecha: null });
-      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); onDone();
+      await crearCompra({
+        oportunidadId, concepto, importe, fecha: null,
+        proveedorId: proveedorId && proveedorId !== "__nuevo__" ? proveedorId : null,
+        proveedorNuevo: proveedorId === "__nuevo__" ? proveedorNuevo.trim() || null : null,
+        quienLoPaga: quienFinal || null,
+      });
+      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); setProveedorNuevo(""); setQuien(""); setOtro(""); onDone();
     } finally { setBusy(false); }
   }
   if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus size={14} /> Añadir compra</Button>;
   return (
-    <div className="grid grid-cols-2 gap-2 rounded-md bg-beige-light p-3 sm:grid-cols-4">
-      <Field label="Concepto"><Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Flores, moqueta…" /></Field>
-      <Field label="Importe €"><Input type="number" step="0.01" value={importe} onChange={(e) => setImporte(Number(e.target.value))} /></Field>
-      <Field label="Proveedor"><Select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}><option value="">—</option>{proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</Select></Field>
-      <div className="flex items-end gap-1"><Button size="sm" onClick={add} disabled={busy || !concepto}>Añadir</Button><Button size="sm" variant="ghost" onClick={() => setOpen(false)}>×</Button></div>
+    <div className="space-y-2 rounded-md bg-beige-light p-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Field label="Concepto"><Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Flores, moqueta…" /></Field>
+        <Field label="Importe €"><Input type="number" step="0.01" value={importe} onChange={(e) => setImporte(Number(e.target.value))} /></Field>
+        <Field label="Proveedor">
+          <Select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
+            <option value="">—</option>
+            {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            <option value="__nuevo__">➕ Nuevo proveedor…</option>
+          </Select>
+        </Field>
+        {proveedorId === "__nuevo__" && (
+          <Field label="Nombre del proveedor">
+            <Input value={proveedorNuevo} onChange={(e) => setProveedorNuevo(e.target.value)} placeholder="Floristería…" autoFocus />
+          </Field>
+        )}
+        <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
+      </div>
+      {quienFinal && (
+        <p className="text-[11px] text-warn">
+          Quedará como reembolso pendiente a {quienFinal} en las deudas de Tesorería.
+        </p>
+      )}
+      <div className="flex justify-end gap-1">
+        <Button size="sm" onClick={add} disabled={busy || !concepto}>{busy ? "Guardando…" : "Añadir"}</Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>×</Button>
+      </div>
     </div>
   );
 }

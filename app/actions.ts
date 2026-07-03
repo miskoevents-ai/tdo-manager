@@ -454,6 +454,7 @@ export async function crearDesplazamiento(input: {
   peaje: number;
   parking: number;
   fecha: string | null;
+  quienLoPaga?: string | null;
 }) {
   const sb = createAdminClient();
   const kmPrecio = await getKmPrecio();
@@ -464,7 +465,9 @@ export async function crearDesplazamiento(input: {
       : Math.round(kmTotal * kmPrecio * 100) / 100;
   const total = Math.round((gasolina + (input.peaje || 0) + (input.parking || 0)) * 100) / 100;
 
-  // Gasto en tesorería (gasto de evento, no computa)
+  // Gasto en tesorería (gasto de evento, no computa). Si lo adelantó una
+  // persona (socio o externo) queda como reembolso pendiente → deudas.
+  const quien = input.quienLoPaga?.trim() || null;
   const { data: mov, error: movErr } = await sb
     .from("tesoreria")
     .insert({
@@ -474,7 +477,8 @@ export async function crearDesplazamiento(input: {
       categoria: "Desplazamiento",
       importe: total,
       fecha: input.fecha || new Date().toISOString().slice(0, 10),
-      estado: "pagado",
+      estado: quien ? "previsto" : "pagado",
+      quien_lo_paga: quien,
       oportunidad_id: input.oportunidadId,
       computa_contabilidad: false,
     })
@@ -511,9 +515,37 @@ export async function crearCompra(input: {
   concepto: string;
   importe: number;
   proveedorId: string | null;
+  proveedorNuevo?: string | null;
+  quienLoPaga?: string | null;
   fecha: string | null;
 }) {
   const sb = createAdminClient();
+
+  // Proveedor nuevo escrito a mano: se reutiliza si ya existe uno con ese
+  // nombre; si no, se crea la ficha al vuelo.
+  let proveedorId = input.proveedorId;
+  const nuevo = input.proveedorNuevo?.trim();
+  if (!proveedorId && nuevo) {
+    const { data: existente } = await sb
+      .from("proveedores")
+      .select("id")
+      .ilike("nombre", nuevo)
+      .limit(1)
+      .maybeSingle();
+    if (existente) {
+      proveedorId = existente.id;
+    } else {
+      const { data: creado, error: provErr } = await sb
+        .from("proveedores")
+        .insert({ nombre: nuevo })
+        .select("id")
+        .single();
+      if (provErr) throw new Error(provErr.message);
+      proveedorId = creado.id;
+    }
+  }
+
+  const quien = input.quienLoPaga?.trim() || null;
   const { error } = await sb.from("tesoreria").insert({
     concepto: input.concepto,
     tipo: "gasto",
@@ -521,12 +553,14 @@ export async function crearCompra(input: {
     categoria: "Material",
     importe: Math.abs(input.importe),
     fecha: input.fecha || new Date().toISOString().slice(0, 10),
-    estado: "pagado",
+    estado: quien ? "previsto" : "pagado",
+    quien_lo_paga: quien,
     oportunidad_id: input.oportunidadId,
-    proveedor_id: input.proveedorId,
+    proveedor_id: proveedorId,
     computa_contabilidad: false,
   });
   if (error) throw new Error(error.message);
+  revalidatePath("/proveedores");
   revCostes(input.oportunidadId);
 }
 
