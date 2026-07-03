@@ -1,4 +1,6 @@
 // Formato español para importes y fechas.
+// useGrouping "always": el locale es-ES no separa los millares en cifras de
+// 4 dígitos (4500 → "4500,00 €"); así siempre sale "4.500,00 €".
 
 export function eur(n: number | null | undefined): string {
   const v = typeof n === "number" && isFinite(n) ? n : 0;
@@ -7,6 +9,7 @@ export function eur(n: number | null | undefined): string {
     currency: "EUR",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+    useGrouping: "always",
   }).format(v);
 }
 
@@ -15,6 +18,7 @@ export function num(n: number | null | undefined, dec = 2): string {
   return new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: dec,
     maximumFractionDigits: dec,
+    useGrouping: "always",
   }).format(v);
 }
 

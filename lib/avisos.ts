@@ -38,7 +38,8 @@ function sumaDiasISO(fechaISO: string, dias: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-const eur0 = (n: number) => `${Math.round(n).toLocaleString("es-ES")} €`;
+const eur0 = (n: number) =>
+  `${new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0, useGrouping: "always" }).format(Math.round(n))} €`;
 
 /**
  * Calcula avisos accionables a partir de las oportunidades.

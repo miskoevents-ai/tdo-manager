@@ -120,6 +120,7 @@ export type Factura = {
   oportunidad_id: string | null;
   cliente_id: string | null;
   fecha_emision: string;
+  fecha_vencimiento?: string | null; // emisión + pago_a_dias de la oportunidad
   base_imponible: number;
   iva: number;
   retencion: number;
