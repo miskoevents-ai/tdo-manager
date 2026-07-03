@@ -90,6 +90,11 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
         ))}
       </div>
 
+      {/* En pantallas pequeñas el tablero se desliza en horizontal */}
+      <p className="text-[11px] text-ink-muted xl:hidden">
+        Desliza el tablero → hay más columnas a la derecha (hasta Facturada).
+      </p>
+
       <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
         {KANBAN_COLS.map((col) => {
           const items = cards.filter((c) => c.estado === col);
@@ -130,7 +135,7 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                 }
               }}
               onDrop={() => soltar(col)}
-              className={`flex w-[250px] shrink-0 flex-col rounded-[14px] p-3 transition-all ${
+              className={`flex w-[250px] shrink-0 flex-col rounded-[14px] p-3 transition-all xl:w-auto xl:min-w-[168px] xl:flex-1 xl:shrink ${
                 resaltada ? "bg-sage-tint ring-2 ring-sage-300" : "bg-beige-warm/70"
               }`}
             >
