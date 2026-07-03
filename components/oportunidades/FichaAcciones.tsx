@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { FileText, RotateCcw } from "lucide-react";
+import { FileText, RotateCcw, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { emitirFactura, toggleFianzaDevuelta, cambiarEstado } from "@/app/actions";
+import { emitirFactura, toggleFianzaDevuelta, cambiarEstado, marcarPresupuestoEnviado } from "@/app/actions";
 import { ESTADO_META, ESTADO_COLOR } from "@/lib/estados";
 import type { OportunidadEstado } from "@/lib/types";
 
@@ -41,6 +41,52 @@ export function EstadoSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+// Abre el correo (Outlook o el que esté configurado) con el mensaje del
+// presupuesto ya redactado para el cliente, y marca "presupuesto enviado".
+// El PDF hay que adjuntarlo a mano (los enlaces mailto no admiten adjuntos).
+export function EnviarPresupuestoBtn({
+  oportunidadId,
+  numero,
+  titulo,
+  clienteEmail,
+  clienteNombre,
+  total,
+}: {
+  oportunidadId: string;
+  numero: string;
+  titulo: string;
+  clienteEmail: string | null;
+  clienteNombre: string | null;
+  total: string;
+}) {
+  const router = useRouter();
+  const asunto = `Presupuesto Nº ${numero} · Tu Decoración Original`;
+  const cuerpo = [
+    `Hola ${clienteNombre ?? ""},`.replace(" ,", ","),
+    "",
+    `Muchas gracias por contar con Tu Decoración Original. Te adjuntamos el presupuesto Nº ${numero} (${titulo}) por un total de ${total}.`,
+    "",
+    "Quedamos a tu disposición para cualquier duda o ajuste.",
+    "",
+    "Un saludo,",
+    "Equipo de Tu Decoración Original",
+    "675 758 783 · info@tudecoracionoriginal.es · www.tudecoracionoriginal.es",
+  ].join("\n");
+  const href = `mailto:${encodeURIComponent(clienteEmail ?? "")}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  return (
+    <a
+      href={href}
+      title="Abre tu correo con el mensaje redactado — recuerda adjuntar el PDF"
+      onClick={() => {
+        marcarPresupuestoEnviado(oportunidadId).then(() => router.refresh());
+      }}
+      className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
+    >
+      <Mail size={15} /> Enviar al cliente
+    </a>
   );
 }
 

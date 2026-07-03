@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SetupNotice } from "@/components/SetupNotice";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
-import { EmitirFacturaBtn, FianzaBtn, EstadoSelect } from "@/components/oportunidades/FichaAcciones";
+import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
@@ -137,6 +137,14 @@ export default async function Page({
           >
             <FileDown size={15} /> Presupuesto PDF
           </Link>
+          <EnviarPresupuestoBtn
+            oportunidadId={op.id}
+            numero={op.numero}
+            titulo={op.titulo}
+            clienteEmail={op.cliente?.email ?? null}
+            clienteNombre={op.cliente?.nombre ?? null}
+            total={eur(t.total)}
+          />
           {["confirmada", "realizada"].includes(op.estado) &&
             op.tipo_operacion === "normal" && <EmitirFacturaBtn oportunidadId={op.id} />}
         </div>
