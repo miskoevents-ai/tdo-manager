@@ -288,3 +288,22 @@ export type Reunion = {
   created_at: string;
   oportunidad?: { id: string; titulo: string } | null;
 };
+
+export type TareaPrioridad = "baja" | "normal" | "alta" | "urgente";
+export type TareaEstado = "pendiente" | "en_curso" | "hecha" | "no_puedo";
+
+export type Tarea = {
+  id: string;
+  titulo: string;
+  descripcion: string | null;
+  asignada_a: string;
+  creada_por: string | null;
+  prioridad: TareaPrioridad;
+  estado: TareaEstado;
+  fecha_limite: string | null;
+  oportunidad_id: string | null;
+  comentario: string | null;
+  completada_en: string | null;
+  created_at: string;
+  oportunidad?: { id: string; titulo: string } | null;
+};

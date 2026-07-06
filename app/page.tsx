@@ -8,7 +8,7 @@ import { AvisosPanel } from "@/components/home/AvisosPanel";
 import { EstaSemana } from "@/components/home/EstaSemana";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getReservas, getTesoreria, getReuniones } from "@/lib/data";
+import { getOportunidades, getReservas, getTesoreria, getReuniones, getTareas } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { calcularAvisos } from "@/lib/avisos";
 import { construirEventos } from "@/lib/calendario";
@@ -63,13 +63,14 @@ export default async function Home() {
     timeZone: "Europe/Madrid",
   }).format(new Date());
 
-  let ops, reservas, tesoreria, reuniones;
+  let ops, reservas, tesoreria, reuniones, tareas;
   try {
-    [ops, reservas, tesoreria, reuniones] = await Promise.all([
+    [ops, reservas, tesoreria, reuniones, tareas] = await Promise.all([
       getOportunidades(),
       getReservas(),
       getTesoreria(),
       getReuniones(),
+      getTareas(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
@@ -100,7 +101,7 @@ export default async function Home() {
   const fianzas = ops.filter((o) => (o.fianza ?? 0) > 0 && !o.fianza_devuelta);
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
 
-  const avisos = calcularAvisos(ops, HOY_ISO, reservas).slice(0, 10);
+  const avisos = calcularAvisos(ops, HOY_ISO, reservas, tareas).slice(0, 10);
   const eventosCal = construirEventos(ops, reservas, tesoreria, reuniones);
 
   const futuros = ops

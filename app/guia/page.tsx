@@ -43,6 +43,7 @@ function Paso({ n, children }: { n: number; children: React.ReactNode }) {
 const INDICE = [
   ["ciclo", "El ciclo completo de un evento"],
   ["inicio", "Inicio"],
+  ["tareas", "Tareas"],
   ["oportunidades", "Oportunidades"],
   ["calendario", "Calendario"],
   ["facturas", "Facturas"],
@@ -153,6 +154,20 @@ export default function GuiaPage() {
           <li><b>Costes</b> — horas del equipo, desplazamientos y compras, con quién pagó cada cosa. Aquí ves el <b>margen real</b> del evento.</li>
           <li><b>Cobros</b> — movimientos de dinero del evento y la fianza.</li>
         </ul>
+      </Seccion>
+
+      <Seccion id="tareas" titulo="Tareas" emoji="✅">
+        <p>
+          La lista de tareas del equipo: <b>cualquiera asigna a cualquiera</b> (los socios a
+          Cristina, Cristina a los socios…). Cada tarea lleva prioridad, fecha límite, y puede ir
+          vinculada a un evento. Quien la recibe la marca <b>En curso</b>, <b>Hecha</b> o{" "}
+          <b>&quot;No puedo&quot;</b> y puede dejar un comentario de respuesta.
+        </p>
+        <p>
+          Arriba eliges <b>quién eres</b> (se recuerda en tu navegador) y ves tu panel con tus
+          tareas; con los filtros ves las de cualquiera o las de todo el equipo. Si una tarea vence
+          sin hacerse, salta un aviso en Inicio.
+        </p>
       </Seccion>
 
       <Seccion id="calendario" titulo="Calendario" emoji="📅">

@@ -1,6 +1,6 @@
 import { calcularTotales } from "@/lib/calc";
 import { solapan, disponible } from "@/lib/disponibilidad";
-import type { Oportunidad, Reserva } from "@/lib/types";
+import type { Oportunidad, Reserva, Tarea } from "@/lib/types";
 
 export type Aviso = {
   id: string;
@@ -8,7 +8,7 @@ export type Aviso = {
   titulo: string;
   detalle: string;
   severidad: "alta" | "media" | "baja";
-  categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead" | "material";
+  categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead" | "material" | "tarea";
   oportunidadId?: string;
 };
 
@@ -52,6 +52,7 @@ export function calcularAvisos(
   oportunidades: Oportunidad[],
   hoyISO: string,
   reservas: Reserva[] = [],
+  tareas: Tarea[] = [],
 ): Aviso[] {
   const avisos: Aviso[] = [];
   const en7 = (f: string) => f >= hoyISO && diasEntre(hoyISO, f) <= 7;
@@ -178,6 +179,20 @@ export function calcularAvisos(
         oportunidadId: o.id,
       });
     }
+  }
+
+  // 7b) Tareas del equipo con fecha límite pasada y sin hacer.
+  for (const t of tareas) {
+    if (t.estado === "hecha" || !t.fecha_limite || t.fecha_limite >= hoyISO) continue;
+    const dias = diasEntre(t.fecha_limite, hoyISO);
+    avisos.push({
+      id: `tarea-${t.id}`,
+      href: "/tareas",
+      titulo: `Tarea vencida · ${t.titulo}`,
+      detalle: `De ${t.asignada_a} · vencía el ${fES(t.fecha_limite)} (hace ${dias} día${dias === 1 ? "" : "s"})`,
+      severidad: t.prioridad === "urgente" || dias >= 7 ? "alta" : "media",
+      categoria: "tarea",
+    });
   }
 
   // 7) Dobles reservas de material: solapes que superan el stock disponible.
