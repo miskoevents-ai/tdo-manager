@@ -41,6 +41,10 @@ export function OportunidadDialog({
   const [evento, setEvento] = React.useState(oportunidad?.fecha_evento ?? "");
   const [montaje, setMontaje] = React.useState(oportunidad?.fecha_montaje ?? "");
   const [recogida, setRecogida] = React.useState(oportunidad?.fecha_recogida ?? "");
+  // La serie cambia las etiquetas de fechas: evento → montaje/recogida de la
+  // decoración; alquiler/encargo → salida/devolución del material.
+  const [serie, setSerie] = React.useState(oportunidad?.serie ?? "evento");
+  const esAlquiler = serie === "alquiler_encargo";
   const [fianzaFecha, setFianzaFecha] = React.useState(oportunidad?.fecha_devolucion_fianza ?? "");
   function onRecogida(v: string) {
     setRecogida(v);
@@ -218,7 +222,7 @@ export function OportunidadDialog({
               </Select>
             </Field>
             <Field label="Serie">
-              <Select name="serie" defaultValue={oportunidad?.serie ?? "evento"}>
+              <Select name="serie" value={serie} onChange={(e) => setSerie(e.target.value as "evento" | "alquiler_encargo")}>
                 <option value="evento">Evento</option>
                 <option value="alquiler_encargo">Alquiler / encargo</option>
               </Select>
@@ -304,10 +308,10 @@ export function OportunidadDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Montaje / salida material">
+            <Field label={esAlquiler ? "Salida del material" : "Montaje"}>
               <Input type="date" name="fecha_montaje" value={montaje} onChange={(e) => setMontaje(e.target.value)} />
             </Field>
-            <Field label="Recogida / devolución material">
+            <Field label={esAlquiler ? "Devolución del material" : "Recogida"}>
               <Input type="date" name="fecha_recogida" value={recogida} onChange={(e) => onRecogida(e.target.value)} />
             </Field>
           </div>
@@ -344,7 +348,7 @@ export function OportunidadDialog({
               />
               {recogida && (
                 <p className="mt-1 text-[10.5px] text-ink-muted">
-                  Sugerido: 3 días tras la recogida ({sumaDias(recogida, 3)}). Puedes cambiarlo.
+                  Sugerido: 3 días tras la recogida ({sumaDias(recogida, 3).split("-").reverse().join("/")}). Puedes cambiarlo.
                 </p>
               )}
             </Field>

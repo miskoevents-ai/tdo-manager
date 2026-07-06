@@ -38,6 +38,9 @@ function sumaDiasISO(fechaISO: string, dias: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Fecha en formato español día/mes/año para los textos de los avisos.
+const fES = (iso: string) => iso.split("-").reverse().join("/");
+
 const eur0 = (n: number) =>
   `${new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0, useGrouping: "always" }).format(Math.round(n))} €`;
 
@@ -63,7 +66,7 @@ export function calcularAvisos(
         id: `fianza-${o.id}`,
         href: `/oportunidades/${o.id}?tab=cobros`,
         titulo: `Devolver fianza · ${o.titulo}`,
-        detalle: `${eur0(o.fianza ?? 0)} · vencía ${o.fecha_devolucion_fianza}`,
+        detalle: `${eur0(o.fianza ?? 0)} · vencía el ${fES(o.fecha_devolucion_fianza)}`,
         severidad: "alta",
         categoria: "fianza",
         oportunidadId: o.id,
@@ -109,7 +112,7 @@ export function calcularAvisos(
           titulo: alarma ? `🚨 Impago +3 semanas · ${o.titulo}` : `Cobro pendiente · ${o.titulo}`,
           detalle: alarma
             ? `${eur0(pendiente)} · venció hace ${dias} días${condicion} y sigue sin cobrar`
-            : `${eur0(pendiente)} · venció el ${vencimiento}${condicion}`,
+            : `${eur0(pendiente)} · venció el ${fES(vencimiento)}${condicion}`,
           severidad: "alta",
           categoria: "cobro",
           oportunidadId: o.id,
@@ -124,7 +127,7 @@ export function calcularAvisos(
         id: `evento-${o.id}`,
         href: `/oportunidades/${o.id}`,
         titulo: `Evento en ${d === 0 ? "hoy" : `${d} día${d === 1 ? "" : "s"}`} · ${o.titulo}`,
-        detalle: `${o.fecha_evento}${o.lugar?.nombre ? ` · ${o.lugar.nombre}` : ""}${pendiente > 0.01 ? ` · pendiente ${eur0(pendiente)}` : ""}`,
+        detalle: `${fES(o.fecha_evento)}${o.lugar?.nombre ? ` · ${o.lugar.nombre}` : ""}${pendiente > 0.01 ? ` · pendiente ${eur0(pendiente)}` : ""}`,
         severidad: "media",
         categoria: "evento",
         oportunidadId: o.id,
