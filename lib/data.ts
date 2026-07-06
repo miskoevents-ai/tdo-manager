@@ -16,6 +16,7 @@ import type {
   ParteHoras,
   Desplazamiento,
   Reunion,
+  Tarea,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -171,6 +172,20 @@ export async function getReunionesDeOportunidad(oportunidadId: string): Promise<
     throw new Error(error.message);
   }
   return (data ?? []) as Reunion[];
+}
+
+export async function getTareas(): Promise<Tarea[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("tareas")
+    .select("*, oportunidad:oportunidades(id, titulo)")
+    .order("created_at", { ascending: false });
+  if (error) {
+    if (tablaNoExiste(error)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as Tarea[];
 }
 
 export async function getKmPrecio(): Promise<number> {

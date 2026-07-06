@@ -12,6 +12,7 @@ import {
   Heart,
   Images,
   BookOpen,
+  ListTodo,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export type NavItem = {
 export const NAV: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, fase: 1 },
   { href: "/oportunidades", label: "Oportunidades", icon: Target, fase: 1 },
+  { href: "/tareas", label: "Tareas", icon: ListTodo, fase: 4 },
   { href: "/calendario", label: "Calendario", icon: Calendar, fase: 3 },
   { href: "/facturas", label: "Facturas", icon: FileText, fase: 1 },
   { href: "/tesoreria", label: "Tesorería", icon: Wallet, fase: 2 },

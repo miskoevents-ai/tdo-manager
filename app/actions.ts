@@ -464,6 +464,69 @@ export async function borrarReunion(id: string, oportunidadId: string) {
   revalidatePath("/calendario");
 }
 
+// ---------------------------- Tareas del equipo ----------------------------
+
+export async function crearTarea(input: {
+  titulo: string;
+  descripcion: string | null;
+  asignadaA: string;
+  creadaPor: string | null;
+  prioridad: string;
+  fechaLimite: string | null;
+  oportunidadId: string | null;
+}) {
+  const sb = createAdminClient();
+  if (!input.asignadaA.trim()) throw new Error("Di para quién es la tarea.");
+  const { error } = await sb.from("tareas").insert({
+    titulo: input.titulo.trim(),
+    descripcion: input.descripcion?.trim() || null,
+    asignada_a: input.asignadaA.trim(),
+    creada_por: input.creadaPor?.trim() || null,
+    prioridad: ["baja", "normal", "alta", "urgente"].includes(input.prioridad) ? input.prioridad : "normal",
+    fecha_limite: input.fechaLimite || null,
+    oportunidad_id: input.oportunidadId || null,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/tareas");
+  revalidatePath("/");
+}
+
+export async function actualizarTarea(
+  id: string,
+  patch: {
+    titulo?: string;
+    descripcion?: string | null;
+    prioridad?: string;
+    fechaLimite?: string | null;
+    estado?: string;
+    comentario?: string | null;
+  },
+) {
+  const sb = createAdminClient();
+  const upd: Record<string, unknown> = {};
+  if (patch.titulo !== undefined) upd.titulo = patch.titulo.trim();
+  if (patch.descripcion !== undefined) upd.descripcion = patch.descripcion?.trim() || null;
+  if (patch.prioridad !== undefined) upd.prioridad = patch.prioridad;
+  if (patch.fechaLimite !== undefined) upd.fecha_limite = patch.fechaLimite || null;
+  if (patch.comentario !== undefined) upd.comentario = patch.comentario?.trim() || null;
+  if (patch.estado !== undefined) {
+    upd.estado = patch.estado;
+    upd.completada_en = patch.estado === "hecha" ? new Date().toISOString() : null;
+  }
+  const { error } = await sb.from("tareas").update(upd).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/tareas");
+  revalidatePath("/");
+}
+
+export async function borrarTarea(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("tareas").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/tareas");
+  revalidatePath("/");
+}
+
 // Desplazamiento: calcula gasolina y crea el gasto en Tesorería (gasto de evento).
 export async function crearDesplazamiento(input: {
   oportunidadId: string;
