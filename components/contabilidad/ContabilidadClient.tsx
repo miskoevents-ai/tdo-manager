@@ -8,7 +8,6 @@ import { eur } from "@/lib/format";
 import { NATURALEZA_LABEL } from "@/lib/estados";
 import type { Tesoreria } from "@/lib/types";
 
-const INICIO = "2026-06"; // La contabilidad arranca en junio 2026 (regla §5.4)
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesLabel = (ym: string) => `${MESES[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
 
@@ -37,7 +36,15 @@ const VISTAS: { key: Vista; label: string; desc: string }[] = [
   { key: "global", label: "Global", desc: "Todo junto: la oficial más lo de amigos." },
 ];
 
-export function ContabilidadClient({ movimientos }: { movimientos: Tesoreria[] }) {
+export function ContabilidadClient({
+  movimientos,
+  inicio,
+}: {
+  movimientos: Tesoreria[];
+  inicio?: string;
+}) {
+  // Mes de arranque de la contabilidad (configurable en ajustes).
+  const INICIO = inicio && /^\d{4}-\d{2}$/.test(inicio) ? inicio : "2026-05";
   // Tres vistas: oficial (computa, §5.4), amigos (naturaleza amigos) y global.
   const [vista, setVista] = React.useState<Vista>("oficial");
   const contables = React.useMemo(
@@ -161,7 +168,7 @@ export function ContabilidadClient({ movimientos }: { movimientos: Tesoreria[] }
 
       {/* Tabla por mes */}
       <Card className="overflow-x-auto">
-        <Overline>Por mes (desde junio 2026)</Overline>
+        <Overline>Por mes (desde {mesLabel(INICIO)})</Overline>
         <table className="mt-3 w-full border-collapse text-[13px]">
           <thead>
             <tr className="text-[10.5px] uppercase tracking-[0.08em] text-ink-secondary">

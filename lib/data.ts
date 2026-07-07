@@ -196,6 +196,20 @@ export async function getKmPrecio(): Promise<number> {
   return isFinite(v) ? v : 0.26;
 }
 
+// Mes de arranque de la contabilidad (YYYY-MM). Configurable en ajustes;
+// por defecto mayo 2026 (primer movimiento real del traspaso).
+export async function getContabilidadInicio(): Promise<string> {
+  if (mock.enabled) return "2026-05";
+  const sb = createAdminClient();
+  const { data } = await sb
+    .from("ajustes")
+    .select("valor")
+    .eq("clave", "contabilidad_inicio")
+    .maybeSingle();
+  const v = (data?.valor as string | undefined)?.trim();
+  return v && /^\d{4}-\d{2}$/.test(v) ? v : "2026-05";
+}
+
 export async function getReservas(): Promise<Reserva[]> {
   if (mock.enabled) return [];
   const sb = createAdminClient();
