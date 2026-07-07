@@ -10,7 +10,10 @@ import { calcularTotales } from "@/lib/calc";
 import { eur, num, normaliza } from "@/lib/format";
 import type { PresupuestoLinea } from "@/lib/types";
 
-type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null };
+type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null };
+
+// Bloques sugeridos (los de los presupuestos reales); se puede escribir otro.
+const BLOQUES_SUGERIDOS = ["Decoración", "Alquiler de material", "Flores", "Transporte y montaje"];
 export type CatalogoItem = {
   id: string;
   articulo: string;
@@ -41,8 +44,9 @@ export function PresupuestoEditor({
           cantidad: Number(l.cantidad),
           precio_unitario: Number(l.precio_unitario),
           articulo_id: l.articulo_id ?? null,
+          bloque: l.bloque ?? null,
         }))
-      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null }],
+      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: null }],
   );
   const [iva, setIva] = React.useState(ivaPct);
   const [ret, setRet] = React.useState(retPct);
@@ -55,7 +59,11 @@ export function PresupuestoEditor({
     setFilas((f) => f.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   }
   function addFila() {
-    setFilas((f) => [...f, { concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null }]);
+    // La línea nueva hereda el bloque de la última (lo normal es seguir en él).
+    setFilas((f) => [
+      ...f,
+      { concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: f[f.length - 1]?.bloque ?? null },
+    ]);
   }
   function delFila(i: number) {
     setFilas((f) => (f.length === 1 ? f : f.filter((_, idx) => idx !== i)));
@@ -67,6 +75,7 @@ export function PresupuestoEditor({
       cantidad: 1,
       precio_unitario: Number(it.precio_alquiler ?? 0),
       articulo_id: it.id,
+      bloque: null,
     };
     setFilas((f) => {
       const soloVacia = f.length === 1 && !f[0].concepto.trim() && !f[0].articulo_id;
@@ -104,6 +113,7 @@ export function PresupuestoEditor({
         <table className="w-full border-collapse">
           <thead>
             <tr className="text-[10.5px] uppercase tracking-[0.08em] text-ink-secondary">
+              <th className="w-[130px] border-b border-border py-2 text-left font-semibold">Bloque</th>
               <th className="border-b border-border py-2 text-left font-semibold">Concepto</th>
               <th className="w-[70px] border-b border-border py-2 text-right font-semibold">Cant.</th>
               <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Precio €</th>
@@ -114,6 +124,15 @@ export function PresupuestoEditor({
           <tbody>
             {filas.map((f, i) => (
               <tr key={i}>
+                <td className="border-b border-[#f0eae1] py-1.5 pr-2">
+                  <Input
+                    value={f.bloque ?? ""}
+                    onChange={(e) => setFila(i, { bloque: e.target.value || null })}
+                    list="bloques-presupuesto"
+                    placeholder="—"
+                    className="py-2 text-[12px]"
+                  />
+                </td>
                 <td className="border-b border-[#f0eae1] py-1.5 pr-2">
                   <div className="flex items-center gap-1.5">
                     {f.articulo_id && (
@@ -164,6 +183,15 @@ export function PresupuestoEditor({
           </tbody>
         </table>
       </div>
+
+      {/* Sugerencias de bloque: los ya usados + los habituales */}
+      <datalist id="bloques-presupuesto">
+        {Array.from(new Set([...filas.map((f) => f.bloque).filter(Boolean) as string[], ...BLOQUES_SUGERIDOS])).map(
+          (b) => (
+            <option key={b} value={b} />
+          ),
+        )}
+      </datalist>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={addFila}>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { SetupNotice } from "@/components/SetupNotice";
@@ -28,6 +29,16 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const cli = op.cliente;
   const esAlquiler = op.serie === "alquiler_encargo";
   const docLabel = op.tipo_operacion === "amigos_prestamo" ? "NOTA (AMIGOS)" : "PRESUPUESTO";
+
+  // Agrupación por bloques (en orden de aparición). Sin bloques → tabla plana.
+  const grupos: { nombre: string | null; lineas: typeof lineas }[] = [];
+  for (const l of lineas) {
+    const nombre = l.bloque ?? null;
+    const g = grupos.find((x) => x.nombre === nombre);
+    if (g) g.lineas.push(l);
+    else grupos.push({ nombre, lineas: [l] });
+  }
+  const hayBloques = grupos.some((g) => g.nombre);
 
   return (
     <div className="mx-auto max-w-[820px] space-y-4">
@@ -121,15 +132,38 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 </td>
               </tr>
             )}
-            {lineas.map((l) => (
-              <tr key={l.id}>
-                <td className="border-b border-[#f0eae1] px-3 py-2">{l.concepto}</td>
-                <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{l.cantidad}</td>
-                <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{eur(l.precio_unitario)}</td>
-                <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
-                  {eur(l.cantidad * l.precio_unitario)}
-                </td>
-              </tr>
+            {grupos.map((g, gi) => (
+              <Fragment key={gi}>
+                {hayBloques && (
+                  <tr>
+                    <td colSpan={4} className="border-b border-[#f0eae1] px-3 pb-1 pt-4">
+                      <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-clay">
+                        {g.nombre ? `Bloque ${gi + 1} · ${g.nombre}` : "Otros conceptos"}
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {g.lineas.map((l) => (
+                  <tr key={l.id}>
+                    <td className="border-b border-[#f0eae1] px-3 py-2">{l.concepto}</td>
+                    <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{l.cantidad}</td>
+                    <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{eur(l.precio_unitario)}</td>
+                    <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
+                      {eur(l.cantidad * l.precio_unitario)}
+                    </td>
+                  </tr>
+                ))}
+                {hayBloques && (
+                  <tr>
+                    <td colSpan={3} className="border-b border-border bg-beige-light px-3 py-1.5 text-right text-[11px] text-ink-muted">
+                      Subtotal {g.nombre ?? "otros conceptos"}
+                    </td>
+                    <td className="border-b border-border bg-beige-light px-3 py-1.5 text-right tabular text-[12px] font-semibold">
+                      {eur(g.lineas.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0))}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
