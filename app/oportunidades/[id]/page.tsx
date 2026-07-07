@@ -131,12 +131,21 @@ export default async function Page({
             oportunidad={op}
             responsables={equipo.filter((e) => e.activo).map((e) => e.nombre)}
           />
-          <Link
-            href={`/oportunidades/${op.id}/presupuesto`}
-            className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
-          >
-            <FileDown size={15} /> Presupuesto PDF
-          </Link>
+          {op.tipo_operacion === "amigos_prestamo" ? (
+            <Link
+              href={`/oportunidades/${op.id}/prestamo`}
+              className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
+            >
+              <FileDown size={15} /> Nota de préstamo PDF
+            </Link>
+          ) : (
+            <Link
+              href={`/oportunidades/${op.id}/presupuesto`}
+              className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
+            >
+              <FileDown size={15} /> Presupuesto PDF
+            </Link>
+          )}
           <EnviarPresupuestoBtn
             oportunidadId={op.id}
             numero={op.numero}
