@@ -224,7 +224,7 @@ export async function toggleFianzaDevuelta(id: string, devuelta: boolean) {
   revalidatePath("/");
 }
 
-type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null };
+type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null };
 
 // Reemplaza todas las líneas de la oportunidad (borrar + insertar) y guarda IVA/retención.
 export async function guardarLineas(
@@ -259,6 +259,7 @@ export async function guardarLineas(
       precio_unitario: l.precio_unitario || 0,
       orden: i,
       articulo_id: l.articulo_id ?? null,
+      bloque: l.bloque?.trim() || null,
     }));
     const { error } = await sb.from("presupuesto_lineas").insert(rows);
     if (error) throw new Error(error.message);

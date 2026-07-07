@@ -110,6 +110,7 @@ export type PresupuestoLinea = {
   precio_unitario: number;
   orden: number;
   articulo_id?: string | null;
+  bloque?: string | null; // agrupación opcional ("Decoración", "Alquiler de material"…)
 };
 
 export type FacturaEstado = "emitida" | "cobrada" | "vencida" | "anulada";
