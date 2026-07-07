@@ -29,11 +29,27 @@ function statsDe(movs: Tesoreria[]) {
   };
 }
 
+type Vista = "oficial" | "amigos" | "global";
+
+const VISTAS: { key: Vista; label: string; desc: string }[] = [
+  { key: "oficial", label: "Oficial", desc: "Solo facturas propias cobradas y gastos fijos (regla §5.4)." },
+  { key: "amigos", label: "Amigos", desc: "Aportaciones y gastos de préstamos a amigos, sin factura." },
+  { key: "global", label: "Global", desc: "Todo junto: la oficial más lo de amigos." },
+];
+
 export function ContabilidadClient({ movimientos }: { movimientos: Tesoreria[] }) {
-  // Solo lo que computa y desde junio 2026
+  // Tres vistas: oficial (computa, §5.4), amigos (naturaleza amigos) y global.
+  const [vista, setVista] = React.useState<Vista>("oficial");
   const contables = React.useMemo(
-    () => movimientos.filter((m) => m.computa_contabilidad && m.fecha.slice(0, 7) >= INICIO),
-    [movimientos],
+    () =>
+      movimientos.filter((m) => {
+        if (m.fecha.slice(0, 7) < INICIO) return false;
+        const esAmigos = m.naturaleza === "amigos";
+        if (vista === "oficial") return m.computa_contabilidad && !esAmigos;
+        if (vista === "amigos") return esAmigos;
+        return m.computa_contabilidad || esAmigos;
+      }),
+    [movimientos, vista],
   );
   const meses = React.useMemo(() => {
     const set = new Set(contables.map((m) => m.fecha.slice(0, 7)));
@@ -79,6 +95,28 @@ export function ContabilidadClient({ movimientos }: { movimientos: Tesoreria[] }
 
   return (
     <div className="space-y-5 print:space-y-3">
+      {/* Vista: oficial / amigos / global */}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-2">
+          {VISTAS.map((v) => (
+            <button
+              key={v.key}
+              onClick={() => setVista(v.key)}
+              className={`rounded-pill border-med px-4 py-1.5 text-[12.5px] font-semibold transition-colors ${
+                vista === v.key
+                  ? v.key === "amigos"
+                    ? "border-transparent bg-clay text-cream"
+                    : "border-transparent bg-sage text-cream"
+                  : "border-border bg-white text-ink-secondary hover:border-sage-300"
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11.5px] text-ink-muted">{VISTAS.find((v) => v.key === vista)?.desc}</p>
+      </div>
+
       {/* Controles */}
       <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
         <div className="flex items-end gap-3">

@@ -222,6 +222,12 @@ export default function GuiaPage() {
           Diferencia clave con Tesorería: <b>Tesorería = caja</b> (cuándo se mueve el dinero);{" "}
           <b>Contabilidad = resultado</b> (cómo va el negocio mes a mes).
         </p>
+        <p>
+          Tiene <b>tres vistas</b>: <b>Oficial</b> (la de siempre, §5.4), <b>Amigos</b> (las
+          aportaciones sin factura de los préstamos a amigos) y <b>Global</b> (todo junto). Los
+          préstamos a amigos se crean como oportunidad con operación &quot;Amigos/préstamo&quot; — así
+          su material queda reservado igual — y su dinerillo entra solo en la vista Amigos.
+        </p>
       </Seccion>
 
       <Seccion id="cuadro" titulo="Cuadro de mando" emoji="📈">
