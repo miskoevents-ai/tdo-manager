@@ -150,8 +150,17 @@ export function OportunidadDialog({
         <form onSubmit={onSubmit} className="space-y-4">
           {oportunidad && <input type="hidden" name="id" value={oportunidad.id} />}
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Número *">
-              <Input name="numero" defaultValue={oportunidad?.numero} required placeholder="26014" />
+            <Field label="Número">
+              <Input
+                name="numero"
+                defaultValue={oportunidad?.numero}
+                placeholder="Automático (0134/2026)"
+              />
+              {!oportunidad && (
+                <p className="mt-1 text-[10.5px] text-ink-muted">
+                  Déjalo vacío y se asigna el siguiente correlativo del año.
+                </p>
+              )}
             </Field>
             <Field label="Título *" className="col-span-2">
               <Input name="titulo" defaultValue={oportunidad?.titulo} required />

@@ -120,8 +120,26 @@ export async function guardarOportunidad(formData: FormData) {
     lugarId = null; // el campo existe y está vacío → sin lugar
   }
 
+  // Numeración correlativa de presupuestos: si al crear se deja el número
+  // vacío, se asigna el siguiente NNNN/AAAA del año en curso (p. ej. 0134/2026).
+  let numero = (formData.get("numero") as string)?.trim();
+  if (!numero && !id) {
+    const year = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" })
+      .format(new Date())
+      .slice(0, 4);
+    const { data: nums } = await sb
+      .from("oportunidades")
+      .select("numero")
+      .like("numero", `%/${year}`);
+    const max = (nums ?? []).reduce((mx, r) => {
+      const m = (r.numero as string | null)?.match(/^(\d+)\/\d{4}$/);
+      return m ? Math.max(mx, Number(m[1])) : mx;
+    }, 0);
+    numero = `${String(max + 1).padStart(4, "0")}/${year}`;
+  }
+
   const payload = {
-    numero: (formData.get("numero") as string)?.trim(),
+    numero,
     titulo: (formData.get("titulo") as string)?.trim(),
     serie: formData.get("serie") as string,
     tipo_evento: formData.get("tipo_evento") as string,
@@ -143,7 +161,8 @@ export async function guardarOportunidad(formData: FormData) {
     pago_a_dias: numToNull(formData.get("pago_a_dias")) ?? 0,
     notas: (formData.get("notas") as string)?.trim() || null,
   };
-  if (!payload.numero || !payload.titulo) throw new Error("Número y título son obligatorios.");
+  if (!payload.titulo) throw new Error("El título es obligatorio.");
+  if (!payload.numero) throw new Error("No se pudo asignar el número; escríbelo a mano.");
 
   let opId = id;
   if (id) {
