@@ -1156,16 +1156,19 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
   const pendiente = Math.round((t.total - cobrado + Number.EPSILON) * 100) / 100;
 
   if (pendiente > 0.01) {
+    // Préstamos a amigos: la aportación se registra con naturaleza "amigos"
+    // (contabilidad de amigos), sin computar en la oficial (§5.4).
+    const esAmigos = op.tipo_operacion === "amigos_prestamo";
     const { error: insErr } = await sb.from("tesoreria").insert({
-      concepto: `Cobro final ${op.titulo}`,
+      concepto: esAmigos ? `Aportación amigos · ${op.titulo}` : `Cobro final ${op.titulo}`,
       tipo: "ingreso",
-      naturaleza: "ingreso_factura",
-      categoria: "Cobro alquiler",
+      naturaleza: esAmigos ? "amigos" : "ingreso_factura",
+      categoria: esAmigos ? "Aportación amigos" : "Cobro alquiler",
       importe: pendiente,
       fecha: hoy,
       estado: "cobrado",
       oportunidad_id: oportunidadId,
-      computa_contabilidad: true,
+      computa_contabilidad: !esAmigos,
     });
     if (insErr) throw new Error(insErr.message);
   }
