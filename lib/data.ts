@@ -378,6 +378,19 @@ export async function getCostesEstimados(oportunidadId: string): Promise<CosteEs
   return (data ?? []) as CosteEstimado[];
 }
 
+// Todos los costes estimados (para medir la precisión presupuestando en el
+// cuadro de mando).
+export async function getCostesEstimadosTodos(): Promise<CosteEstimado[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb.from("costes_estimados").select("*");
+  if (error) {
+    if (tablaNoExiste(error)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as CosteEstimado[];
+}
+
 export async function getFacturaDeOportunidad(
   oportunidadId: string,
 ): Promise<Pick<Factura, "id" | "numero" | "estado"> | null> {

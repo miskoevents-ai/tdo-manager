@@ -1085,6 +1085,73 @@ export async function borrarCosteEstimado(id: string, oportunidadId: string) {
   revalidatePath(`/oportunidades/${oportunidadId}`);
 }
 
+// Cuadre pre → post: pasa una línea estimada a los costes reales, tal cual o
+// con el importe real ajustado, y la marca como cuadrada. Según su categoría
+// va a partes de horas, desplazamientos o compras.
+export async function cuadrarEstimado(input: {
+  estimadoId: string;
+  oportunidadId: string;
+  importeReal: number;
+}) {
+  const sb = createAdminClient();
+  const importe = Math.round(Number(input.importeReal) * 100) / 100;
+  if (!(importe > 0)) throw new Error("Falta el importe real.");
+
+  const { data: e, error } = await sb
+    .from("costes_estimados")
+    .select("*")
+    .eq("id", input.estimadoId)
+    .single();
+  if (error) throw new Error(error.message);
+  if (e.cuadrado) throw new Error("Esta línea ya está pasada a reales.");
+
+  const cat = (e.categoria as string | null) ?? "material";
+  if (cat === "personal") {
+    const horas = Number(e.cantidad ?? 1) || 1;
+    await crearParteHoras({
+      oportunidadId: input.oportunidadId,
+      equipoId: null,
+      tarea: e.concepto as string,
+      horas,
+      precioHora: Math.round((importe / horas) * 100) / 100,
+      fecha: null,
+    });
+  } else if (cat === "desplazamiento") {
+    await crearDesplazamiento({
+      oportunidadId: input.oportunidadId,
+      trayecto: e.concepto as string,
+      km: 0,
+      idaVuelta: false,
+      gasolinaManual: importe,
+      peaje: 0,
+      parking: 0,
+      fecha: null,
+      quienLoPaga: null,
+    });
+  } else {
+    await crearCompra({
+      oportunidadId: input.oportunidadId,
+      concepto: e.concepto as string,
+      importe,
+      fecha: null,
+      proveedorId: null,
+      quienLoPaga: null,
+    });
+  }
+
+  const { error: updErr } = await sb
+    .from("costes_estimados")
+    .update({ cuadrado: true })
+    .eq("id", input.estimadoId);
+  if (updErr) {
+    if (/cuadrado/.test(updErr.message)) {
+      throw new Error("Falta ejecutar la migración 023 (cuadre de estimados) en Supabase.");
+    }
+    throw new Error(updErr.message);
+  }
+  revalidatePath(`/oportunidades/${input.oportunidadId}`);
+}
+
 // Parámetros de la estimación: % de contingencia y margen objetivo.
 export async function guardarParamsCostes(
   oportunidadId: string,
