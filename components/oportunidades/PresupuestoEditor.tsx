@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Package, Search, ImagePlus, X } from "lucide-react";
+import { Plus, Trash2, Package, Search, ImagePlus, X, Upload, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { guardarLineas } from "@/app/actions";
+import { guardarLineas, subirFotoPresupuesto } from "@/app/actions";
 import { calcularTotales } from "@/lib/calc";
 import { eur, num, normaliza } from "@/lib/format";
 import type { PresupuestoLinea } from "@/lib/types";
@@ -318,8 +318,8 @@ export function PresupuestoEditor({
 }
 
 // Foto de la línea: A) elegir de la galería (artículos del catálogo con
-// foto), o B) pegar la URL de una imagen nueva (p. ej. creada con IA).
-// Es la base del futuro presupuesto visual con fotos.
+// foto), B) subir una imagen desde el ordenador (se guarda en Storage), o
+// C) pegar un enlace (p. ej. imagen creada con IA). Base del presupuesto visual.
 function FotoPicker({
   catalogo,
   foto,
@@ -332,35 +332,47 @@ function FotoPicker({
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
   const [url, setUrl] = React.useState("");
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
+  const [subiendo, setSubiendo] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const fileRef = React.useRef<HTMLInputElement>(null);
 
   const galeria = React.useMemo(() => {
     const t = normaliza(q.trim());
     return catalogo
       .filter((c) => c.foto_url)
       .filter((c) => !t || normaliza(c.articulo).includes(t))
-      .slice(0, 24);
+      .slice(0, 60);
   }, [q, catalogo]);
 
   function cerrar() {
     setOpen(false);
     setQ("");
     setUrl("");
+    setError(null);
+  }
+
+  async function subirArchivo(f: File) {
+    setSubiendo(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.set("foto", f);
+      const urlSubida = await subirFotoPresupuesto(fd);
+      onPick(urlSubida);
+      cerrar();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSubiendo(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div className="shrink-0">
       <button
-        onClick={() => setOpen((v) => !v)}
-        title={foto ? "Cambiar o quitar la foto de la línea" : "Añadir foto a la línea (galería o URL)"}
+        onClick={() => setOpen(true)}
+        title={foto ? "Cambiar o quitar la foto de la línea" : "Añadir foto a la línea"}
         className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-sm border-med ${
           foto ? "border-border" : "border-dashed border-border-strong text-ink-muted hover:bg-beige-warm"
         }`}
@@ -372,75 +384,130 @@ function FotoPicker({
           <ImagePlus size={14} />
         )}
       </button>
+
       {open && (
-        <div className="absolute left-0 z-20 mt-1 w-[320px] rounded-md border-hair border-border bg-white p-3 shadow-lg">
-          <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-            A · Foto de la galería
-          </div>
-          <div className="flex items-center gap-1.5 rounded-sm border-med border-border px-2 py-1.5">
-            <Search size={13} className="text-ink-muted" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar artículo con foto…"
-              className="w-full text-[12.5px] focus:outline-none"
-            />
-          </div>
-          {galeria.length > 0 ? (
-            <div className="mt-2 grid max-h-[180px] grid-cols-4 gap-1.5 overflow-y-auto">
-              {galeria.map((it) => (
-                <button
-                  key={it.id}
-                  title={it.articulo}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) cerrar();
+          }}
+        >
+          <div className="max-h-[85vh] w-full max-w-[620px] overflow-y-auto rounded-lg border-hair border-border bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-display text-[18px]">Foto de la línea</h3>
+              <button onClick={cerrar} className="rounded-sm p-1.5 text-ink-muted hover:bg-beige-warm">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Foto actual */}
+            {foto && (
+              <div className="mb-4 flex items-center gap-3 rounded-md bg-beige-light p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={foto} alt="" className="h-16 w-16 rounded-sm object-cover" />
+                <div className="flex-1 text-[12px] text-ink-muted">Foto actual de la línea</div>
+                <Button
+                  size="sm"
+                  variant="ghost"
                   onClick={() => {
-                    onPick(it.foto_url!);
+                    onPick(null);
                     cerrar();
                   }}
-                  className="aspect-square overflow-hidden rounded-sm border-med border-border hover:border-sage"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={it.foto_url!} alt={it.articulo} className="h-full w-full object-cover" />
-                </button>
-              ))}
+                  <X size={13} /> Quitar
+                </Button>
+              </div>
+            )}
+
+            {/* A · Galería */}
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-sage">
+              A · De la galería del catálogo
             </div>
-          ) : (
-            <p className="mt-2 text-[11.5px] text-ink-muted">
-              Sin fotos en el catálogo (todavía): se irán añadiendo desde Inventario.
-            </p>
-          )}
-          <div className="mb-1.5 mt-3 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-            B · Imagen nueva (URL, p. ej. creada con IA)
-          </div>
-          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 rounded-sm border-med border-border px-3 py-2">
+              <Search size={15} className="text-ink-muted" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar artículo con foto…"
+                className="w-full text-[13px] focus:outline-none"
+                autoFocus
+              />
+            </div>
+            {galeria.length > 0 ? (
+              <div className="mt-3 grid max-h-[300px] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+                {galeria.map((it) => (
+                  <button
+                    key={it.id}
+                    title={it.articulo}
+                    onClick={() => {
+                      onPick(it.foto_url!);
+                      cerrar();
+                    }}
+                    className="group overflow-hidden rounded-md border-med border-border text-left hover:border-sage"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={it.foto_url!} alt={it.articulo} className="aspect-square w-full object-cover" />
+                    <div className="truncate px-1.5 py-1 text-[10.5px] text-ink-secondary group-hover:text-sage">
+                      {it.articulo}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-[12px] text-ink-muted">
+                Sin fotos en el catálogo (todavía): se irán añadiendo desde Inventario.
+              </p>
+            )}
+
+            {/* B · Subir del ordenador */}
+            <div className="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.1em] text-sage">
+              B · Subir una imagen nueva
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button
+                disabled={subiendo}
+                onClick={() => fileRef.current?.click()}
+                className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-border-strong px-4 py-6 text-[12.5px] text-ink-secondary hover:border-sage hover:bg-sage-tint/30"
+              >
+                <Upload size={20} className="text-sage" />
+                {subiendo ? "Subiendo…" : "Desde el ordenador"}
+                <span className="text-[10.5px] text-ink-muted">Se guarda en vuestra galería (máx. 10 MB)</span>
+              </button>
+              <div className="flex flex-col justify-center gap-2 rounded-md border-hair border-border p-4">
+                <div className="flex items-center gap-1.5 text-[12.5px] text-ink-secondary">
+                  <Link2 size={15} className="text-sage" /> Desde un enlace (p. ej. IA)
+                </div>
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="w-full rounded-sm border-med border-border px-2.5 py-2 text-[12.5px] focus:outline-none"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!/^https?:\/\/.+/.test(url.trim())}
+                  onClick={() => {
+                    onPick(url.trim());
+                    cerrar();
+                  }}
+                >
+                  Usar este enlace
+                </Button>
+              </div>
+            </div>
             <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://…"
-              className="w-full rounded-sm border-med border-border px-2 py-1.5 text-[12px] focus:outline-none"
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) subirArchivo(f);
+              }}
             />
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!/^https?:\/\/.+/.test(url.trim())}
-              onClick={() => {
-                onPick(url.trim());
-                cerrar();
-              }}
-            >
-              Usar
-            </Button>
+            {error && <p className="mt-3 text-caption text-error">{error}</p>}
           </div>
-          {foto && (
-            <button
-              onClick={() => {
-                onPick(null);
-                cerrar();
-              }}
-              className="mt-3 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] font-semibold text-error hover:bg-error-tint"
-            >
-              <X size={12} /> Quitar la foto de esta línea
-            </button>
-          )}
         </div>
       )}
     </div>

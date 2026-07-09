@@ -1147,6 +1147,30 @@ export async function cerrarEvento(oportunidadId: string, cerrar: boolean) {
   revalidatePath("/oportunidades");
 }
 
+// Sube una imagen para una línea de presupuesto (desde el ordenador) al
+// bucket del catálogo, en la carpeta presu/, y devuelve su URL pública.
+export async function subirFotoPresupuesto(formData: FormData): Promise<string> {
+  const sb = createAdminClient();
+  const file = formData.get("foto") as File | null;
+  if (!file || file.size === 0) throw new Error("Falta el archivo de la imagen.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("La imagen no puede pesar más de 10 MB.");
+  if (!file.type.startsWith("image/")) throw new Error("El archivo tiene que ser una imagen.");
+
+  const BUCKET = process.env.NEXT_PUBLIC_CATALOGO_BUCKET || "Catalogo fotos 1";
+  const limpio = file.name
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(-60);
+  const ruta = `presu/${Date.now()}-${limpio || "imagen.jpg"}`;
+  const { error: upErr } = await sb.storage
+    .from(BUCKET)
+    .upload(ruta, file, { contentType: file.type || undefined });
+  if (upErr) throw new Error(upErr.message);
+  const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(ruta);
+  return pub.publicUrl;
+}
+
 // ---------------------- Versiones de presupuesto ----------------------
 
 // Guarda el presupuesto actual como una versión (V1, V2…): foto fija de las

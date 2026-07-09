@@ -46,6 +46,6 @@ export function PortadaDoc({ srcs, alt }: { srcs: string[]; alt: string }) {
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img ref={ref} src={src} alt={alt} className="h-auto w-full" onError={fallar} />
+    <img ref={ref} src={src} alt={alt} className="h-[260px] w-full object-cover" onError={fallar} />
   );
 }
