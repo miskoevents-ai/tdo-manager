@@ -7,7 +7,7 @@ import { PrintButton } from "@/components/presupuesto/PrintButton";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getReservas, getInventario } from "@/lib/data";
 import { eur, fecha } from "@/lib/format";
-import { EMPRESA, PORTADA_PRESUPUESTO, PORTADA_RESPALDO } from "@/lib/empresa";
+import { EMPRESA, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
 import { PortadaDoc } from "@/components/PortadaDoc";
 
@@ -108,15 +108,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </div>
 
         {/* Portada: un montaje real de TDO, como en los presupuestos */}
-        {portadaUrl(PORTADA_PRESUPUESTO) && (
-          <div className="mt-6 overflow-hidden rounded-md">
-            <PortadaDoc
-              src={portadaUrl(PORTADA_PRESUPUESTO)!}
-              fallback={PORTADA_RESPALDO}
-              alt={`Montaje de ${EMPRESA.nombre}`}
-            />
-          </div>
-        )}
+        <div className="mt-6 overflow-hidden rounded-md">
+          <PortadaDoc
+            srcs={[
+              ...PORTADA_CANDIDATAS.map((c) => portadaUrl(c)).filter((u): u is string => Boolean(u)),
+              PORTADA_RESPALDO,
+            ]}
+            alt={`Montaje de ${EMPRESA.nombre}`}
+          />
+        </div>
 
         {/* Prestatario + detalle */}
         <div className="mt-6 grid grid-cols-2 gap-6 text-[12.5px]">

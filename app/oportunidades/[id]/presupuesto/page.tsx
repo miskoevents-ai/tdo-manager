@@ -9,7 +9,7 @@ import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
-import { EMPRESA, CONDICIONES_PRESUPUESTO, PORTADA_PRESUPUESTO, PORTADA_RESPALDO } from "@/lib/empresa";
+import { EMPRESA, CONDICIONES_PRESUPUESTO, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
 import { PortadaDoc } from "@/components/PortadaDoc";
 import { TIPO_EVENTO_LABEL, CLIENTE_TIPO_LABEL } from "@/lib/estados";
@@ -137,17 +137,17 @@ export default async function Page({
           </div>
         </div>
 
-        {/* Portada: un montaje real de TDO en todos los presupuestos.
-            Si la foto del bucket no carga aún, cae a la banda local. */}
-        {portadaUrl(PORTADA_PRESUPUESTO) && (
-          <div className="mt-6 overflow-hidden rounded-md">
-            <PortadaDoc
-              src={portadaUrl(PORTADA_PRESUPUESTO)!}
-              fallback={PORTADA_RESPALDO}
-              alt={`Montaje de ${EMPRESA.nombre}`}
-            />
-          </div>
-        )}
+        {/* Portada: un montaje real de TDO en todos los presupuestos. Se
+            prueban varios nombres del bucket y, si ninguno carga, la banda. */}
+        <div className="mt-6 overflow-hidden rounded-md">
+          <PortadaDoc
+            srcs={[
+              ...PORTADA_CANDIDATAS.map((c) => portadaUrl(c)).filter((u): u is string => Boolean(u)),
+              PORTADA_RESPALDO,
+            ]}
+            alt={`Montaje de ${EMPRESA.nombre}`}
+          />
+        </div>
 
         {/* Cliente + evento */}
         <div className="mt-6 grid grid-cols-2 gap-6 text-[12.5px]">
