@@ -1139,10 +1139,18 @@ export async function cuadrarEstimado(input: {
     });
   }
 
-  const { error: updErr } = await sb
+  // Guarda también el importe real: desviación línea a línea para aprender.
+  let { error: updErr } = await sb
     .from("costes_estimados")
-    .update({ cuadrado: true })
+    .update({ cuadrado: true, importe_real: importe })
     .eq("id", input.estimadoId);
+  if (updErr && /importe_real/.test(updErr.message)) {
+    // Migración 024 sin ejecutar: al menos marca el cuadre.
+    ({ error: updErr } = await sb
+      .from("costes_estimados")
+      .update({ cuadrado: true })
+      .eq("id", input.estimadoId));
+  }
   if (updErr) {
     if (/cuadrado/.test(updErr.message)) {
       throw new Error("Falta ejecutar la migración 023 (cuadre de estimados) en Supabase.");

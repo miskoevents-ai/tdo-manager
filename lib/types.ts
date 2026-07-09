@@ -130,6 +130,7 @@ export type CosteEstimado = {
   precio_unitario?: number | null;
   categoria?: string | null; // material | personal | desplazamiento | otro
   cuadrado?: boolean; // ya pasado a costes reales (tal cual o ajustado)
+  importe_real?: number | null; // con qué importe se cuadró (para la desviación)
   created_at: string;
 };
 
