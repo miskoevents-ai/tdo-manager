@@ -215,8 +215,13 @@ export function NuevaFacturaForm({
       <Card>
         <Overline className="!mt-0 mb-3">Datos de la factura</Overline>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Field label="Número">
-            <Input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder={`Auto: ${numeroSugerido}`} />
+          <Field label="Número (automático)">
+            <Input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder={numeroSugerido} />
+            <p className="mt-1 text-[10.5px] text-ink-muted">
+              {numero.trim()
+                ? "Forzarás este número a mano."
+                : `Se asigna solo: será la ${numeroSugerido}. Escribe solo para forzar otro.`}
+            </p>
           </Field>
           <Field label="Fecha de emisión">
             <Input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} />

@@ -59,7 +59,7 @@ export default async function ClientesPage() {
         <table className="w-full border-collapse bg-white">
           <thead>
             <tr>
-              {["Nombre", "Tipo", "Canal", "Estado", "Etapa", "Actividad", ""].map((h) => (
+              {["Nombre", "Tipo", "Contacto", "Canal", "Estado", "Etapa", "Actividad", ""].map((h) => (
                 <th
                   key={h}
                   className="bg-beige-warm px-[15px] py-3 text-left text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-secondary"
@@ -76,12 +76,32 @@ export default async function ClientesPage() {
                   <Link href={`/clientes/${c.id}`} className="hover:text-clay">
                     {c.nombre}
                   </Link>
-                  {c.nif_cif && (
-                    <span className="ml-2 text-[11px] text-ink-muted">{c.nif_cif}</span>
+                  {(c.nif_cif || c.direccion || c.localidad) && (
+                    <div className="mt-0.5 max-w-[320px] truncate text-[11px] font-normal text-ink-muted">
+                      {[c.nif_cif, c.direccion, c.localidad].filter(Boolean).join(" · ")}
+                    </div>
                   )}
                 </td>
                 <td className="border-t border-border px-[15px] py-3 text-[13px] text-ink-secondary">
                   {CLIENTE_TIPO_LABEL[c.tipo] ?? c.tipo}
+                </td>
+                <td className="border-t border-border px-[15px] py-3 text-[12px] text-ink-secondary">
+                  {c.email || c.telefono ? (
+                    <div className="flex flex-col gap-0.5">
+                      {c.email && (
+                        <a href={`mailto:${c.email}`} className="max-w-[200px] truncate hover:text-clay">
+                          {c.email}
+                        </a>
+                      )}
+                      {c.telefono && (
+                        <a href={`tel:${c.telefono}`} className="tabular hover:text-clay">
+                          {c.telefono}
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-ink-muted">—</span>
+                  )}
                 </td>
                 <td className="border-t border-border px-[15px] py-3">
                   {c.canal ? (
@@ -121,8 +141,14 @@ export default async function ClientesPage() {
                 </div>
                 <div className="mt-0.5 text-[12px] text-ink-muted">
                   {CLIENTE_TIPO_LABEL[c.tipo] ?? c.tipo}
+                  {c.nif_cif ? ` · ${c.nif_cif}` : ""}
                   {c.localidad ? ` · ${c.localidad}` : ""}
                 </div>
+                {(c.email || c.telefono) && (
+                  <div className="mt-0.5 truncate text-[12px] text-ink-muted">
+                    {[c.email, c.telefono].filter(Boolean).join(" · ")}
+                  </div>
+                )}
               </Link>
               <ClienteDialog cliente={c} />
             </div>

@@ -53,11 +53,20 @@ export default async function Page({
   );
   const cli = op.cliente;
   const esAlquiler = op.serie === "alquiler_encargo";
-  const docLabel = op.tipo_operacion === "amigos_prestamo" ? "NOTA (AMIGOS)" : "PRESUPUESTO";
+  const esAmigos = op.tipo_operacion === "amigos_prestamo";
+  const docLabel = esAmigos ? "NOTA (AMIGOS)" : "PRESUPUESTO";
+
+  // La parte en efectivo (sin IVA) NUNCA sale en el documento del cliente:
+  // se queda en un panel interno que no se imprime. En las notas de amigos
+  // sí se muestra todo (ese documento ya es el circuito de amigos).
+  const lineasDoc = esAmigos ? lineas : lineas.filter((l) => (l.via ?? "factura") !== "efectivo");
+  const lineasEfectivo = esAmigos ? [] : lineas.filter((l) => (l.via ?? "factura") === "efectivo");
+  const totalEfectivo = lineasEfectivo.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0);
+  const totalDoc = esAmigos ? t.total : t.totalFactura;
 
   // Agrupación por bloques (en orden de aparición). Sin bloques → tabla plana.
   const grupos: { nombre: string | null; lineas: typeof lineas }[] = [];
-  for (const l of lineas) {
+  for (const l of lineasDoc) {
     const nombre = l.bloque ?? null;
     const g = grupos.find((x) => x.nombre === nombre);
     if (g) g.lineas.push(l);
@@ -160,7 +169,7 @@ export default async function Page({
             </tr>
           </thead>
           <tbody>
-            {lineas.length === 0 && (
+            {lineasDoc.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-3 py-4 text-center text-ink-muted">
                   Sin líneas de presupuesto todavía.
@@ -180,12 +189,7 @@ export default async function Page({
                 )}
                 {g.lineas.map((l) => (
                   <tr key={l.id}>
-                    <td className="border-b border-[#f0eae1] px-3 py-2">
-                      {l.concepto}
-                      {l.via === "efectivo" && (
-                        <span className="ml-1 text-[10.5px] text-ink-muted">(sin IVA)</span>
-                      )}
-                    </td>
+                    <td className="border-b border-[#f0eae1] px-3 py-2">{l.concepto}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{l.cantidad}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{eur(l.precio_unitario)}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
@@ -211,18 +215,12 @@ export default async function Page({
         {/* Totales */}
         <div className="mt-4 flex justify-end">
           <div className="w-full max-w-[280px] space-y-1.5 text-[13px]">
-            <Row label="Base imponible" value={eur(t.baseFactura)} />
+            <Row label="Base imponible" value={eur(esAmigos ? t.base : t.baseFactura)} />
             <Row label={`IVA (${ivaPct}%)`} value={eur(t.iva)} />
             {t.retencion > 0 && <Row label={`Retención IRPF (−${retPct}%)`} value={`−${eur(t.retencion)}`} />}
-            {t.efectivo > 0 && (
-              <>
-                <Row label="Total con factura" value={eur(t.totalFactura)} />
-                <Row label="Conceptos sin IVA" value={eur(t.efectivo)} />
-              </>
-            )}
             <div className="flex justify-between border-t-2 border-sage pt-2 font-display text-[19px] text-sage">
               <span>TOTAL</span>
-              <span className="tabular">{eur(t.total)}</span>
+              <span className="tabular">{eur(totalDoc)}</span>
             </div>
             {(op.fianza ?? 0) > 0 && (
               <div className="flex justify-between pt-1 text-[12px] text-clay">
@@ -253,6 +251,33 @@ export default async function Page({
           </div>
         </div>
       </div>
+
+      {/* Parte interna: no sale en el documento del cliente ni al imprimir */}
+      {lineasEfectivo.length > 0 && (
+        <div className="no-print rounded-lg border-2 border-dashed border-clay/50 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-clay">
+              🔒 Parte en efectivo — no sale en el documento del cliente
+            </div>
+            <span className="tabular text-[15px] font-semibold text-clay">{eur(totalEfectivo)}</span>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {lineasEfectivo.map((l) => (
+              <div key={l.id} className="flex items-center justify-between text-[12.5px]">
+                <span className="text-ink-secondary">
+                  {l.concepto} <span className="text-ink-muted">× {l.cantidad}</span>
+                </span>
+                <span className="tabular">{eur(l.cantidad * l.precio_unitario)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[11.5px] text-ink-muted">
+            Sin IVA, contabilidad de amigos. Al imprimir o guardar el PDF este bloque desaparece.
+            Total real del trato (documento + efectivo):{" "}
+            <b className="tabular">{eur(totalDoc + totalEfectivo)}</b>.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

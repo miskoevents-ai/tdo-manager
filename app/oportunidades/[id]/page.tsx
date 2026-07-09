@@ -159,7 +159,7 @@ export default async function Page({
             titulo={op.titulo}
             clienteEmail={op.cliente?.email ?? null}
             clienteNombre={op.cliente?.nombre ?? null}
-            total={eur(t.total)}
+            total={eur(op.tipo_operacion === "amigos_prestamo" ? t.total : t.totalFactura)}
           />
           {["confirmada", "realizada"].includes(op.estado) &&
             op.tipo_operacion === "normal" && <EmitirFacturaBtn oportunidadId={op.id} />}
