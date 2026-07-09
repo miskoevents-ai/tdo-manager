@@ -69,6 +69,8 @@ export function CostesTab({
   const estimadoConColchon = totalEstimado * (1 + contingenciaPct / 100);
   const desviacion = costes - estimadoConColchon;
 
+  const estimadosVisibles = estimados.length > 0;
+
   // Estimado por categoría, para la comparativa pre vs post.
   const estPorCat = { personal: 0, desplazamiento: 0, material: 0, otro: 0 };
   for (const e of estimados) {
@@ -193,11 +195,19 @@ export function CostesTab({
         )}
       </div>
 
-      {/* Estimación previa al presupuesto (se oculta al cerrar el evento) */}
+      {/* Apunte de costes tipo Excel: la misma rejilla para lo previsto (antes
+          del presu) y lo real (gastos de verdad); el interruptor decide dónde va */}
       {!cerrada && (
+        <Bloque icon={<Zap size={15} />} titulo="Apuntar costes (tipo Excel)" total="">
+          <ApunteRapido oportunidadId={oportunidadId} equipo={equipo} onDone={r} />
+        </Bloque>
+      )}
+
+      {/* El plan previsto: líneas estimadas, cuadre con lo real y parámetros */}
+      {(!cerrada || totalEstimado > 0) && estimadosVisibles && (
         <Bloque
           icon={<Calculator size={15} />}
-          titulo="Estimación previa (para cuadrar el precio)"
+          titulo="Plan de costes previsto (y su cuadre)"
           total={totalEstimado > 0 ? eur(estimadoConColchon) : "—"}
         >
           <EstimacionBlock
@@ -207,15 +217,9 @@ export function CostesTab({
             contingenciaPct={contingenciaPct}
             margenObjetivoPct={margenObjetivoPct}
             base={base}
+            cerrada={cerrada}
             onDone={r}
           />
-        </Bloque>
-      )}
-
-      {/* Apunte rápido tipo Excel: varias filas de golpe, cada una a su sitio */}
-      {!cerrada && (
-        <Bloque icon={<Zap size={15} />} titulo="Apunte rápido (tipo Excel)" total="">
-          <ApunteRapido oportunidadId={oportunidadId} equipo={equipo} onDone={r} />
         </Bloque>
       )}
 
@@ -327,6 +331,8 @@ function ApunteRapido({
   onDone: () => void;
 }) {
   const [filas, setFilas] = React.useState<FilaRapida[]>([{ ...FILA_RAPIDA }]);
+  // Destino de las filas: previstos (plan, antes del presu) o reales (contabilidad).
+  const [modo, setModo] = React.useState<"previsto" | "real">("previsto");
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
 
@@ -349,6 +355,16 @@ function ApunteRapido({
     setMsg(null);
     try {
       for (const f of validas) {
+        if (modo === "previsto") {
+          await crearCosteEstimado({
+            oportunidadId,
+            concepto: f.concepto.trim(),
+            cantidad: f.cantidad,
+            precioUnitario: f.precio,
+            categoria: f.tipo,
+          });
+          continue;
+        }
         if (f.tipo === "personal") {
           await crearParteHoras({
             oportunidadId,
@@ -382,7 +398,11 @@ function ApunteRapido({
         }
       }
       setFilas([{ ...FILA_RAPIDA }]);
-      setMsg(`${validas.length} gasto(s) guardados (${eur(total)}).`);
+      setMsg(
+        modo === "previsto"
+          ? `${validas.length} línea(s) añadidas al plan previsto (${eur(total)}).`
+          : `${validas.length} gasto(s) reales guardados (${eur(total)}).`,
+      );
       onDone();
     } catch (e) {
       setMsg((e as Error).message);
@@ -393,6 +413,32 @@ function ApunteRapido({
 
   return (
     <div className="space-y-2">
+      {/* Interruptor: ¿estas filas son plan previsto o gastos reales? */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            ["previsto", "🧮 Previsto (antes del presu)"],
+            ["real", "✅ Real (gasto de verdad)"],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setModo(k)}
+            className={`rounded-pill border-med px-[14px] py-[7px] text-[12px] transition-colors ${
+              modo === k
+                ? "border-sage bg-sage text-cream"
+                : "border-border bg-white text-ink-secondary hover:border-sage-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="text-[11px] text-ink-muted">
+          {modo === "previsto"
+            ? "Las filas van al plan previsto (no tocan contabilidad)."
+            : "Las filas van a los costes reales (horas, desplazamientos, compras)."}
+        </span>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
@@ -419,7 +465,7 @@ function ApunteRapido({
                   </Select>
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1 pr-1">
-                  {f.tipo === "personal" ? (
+                  {modo === "real" && f.tipo === "personal" ? (
                     <Select
                       value={f.persona}
                       onChange={(e) => {
@@ -455,7 +501,7 @@ function ApunteRapido({
                   {eur(f.cantidad * f.precio)}
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1">
-                  {f.tipo === "personal" ? (
+                  {modo === "previsto" || f.tipo === "personal" ? (
                     <span className="block px-1 text-[11px] text-ink-muted">n/a</span>
                   ) : (
                     <Select value={f.pagador} onChange={(e) => set(i, { pagador: e.target.value })} className="py-1.5 text-[12px]">
@@ -507,6 +553,7 @@ function EstimacionBlock({
   contingenciaPct,
   margenObjetivoPct,
   base,
+  cerrada = false,
   onDone,
 }: {
   oportunidadId: string;
@@ -515,12 +562,9 @@ function EstimacionBlock({
   contingenciaPct: number;
   margenObjetivoPct: number;
   base: number;
+  cerrada?: boolean;
   onDone: () => void;
 }) {
-  const [concepto, setConcepto] = React.useState("");
-  const [categoria, setCategoria] = React.useState("material");
-  const [cantidad, setCantidad] = React.useState(1);
-  const [precioUd, setPrecioUd] = React.useState(0);
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
   // Importe real tecleado por línea, para el cuadre pre → post.
@@ -547,22 +591,6 @@ function EstimacionBlock({
   const margenPrevistoPct = base > 0 ? (margenPrevisto / base) * 100 : 0;
   const paramsCambiados = cont !== contingenciaPct || margenObj !== margenObjetivoPct;
 
-  async function add() {
-    setBusy(true);
-    setError(null);
-    try {
-      await crearCosteEstimado({ oportunidadId, concepto, cantidad, precioUnitario: precioUd, categoria });
-      setConcepto("");
-      setCantidad(1);
-      setPrecioUd(0);
-      onDone();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const CATS: Record<string, string> = {
     material: "Material",
     personal: "Personal",
@@ -573,39 +601,11 @@ function EstimacionBlock({
   return (
     <div className="space-y-3">
       <p className="text-[11.5px] text-ink-muted">
-        Apunta aquí los gastos que prevés <b>antes de hacer el presupuesto</b>. Con la contingencia
-        y el margen objetivo te sugiere el precio mínimo al cliente. No entra en contabilidad: los
-        reales son los de abajo.
+        El plan de gastos hecho <b>antes del presupuesto</b> (se añade desde la rejilla de arriba,
+        en modo 🧮 Previsto). Con la contingencia y el margen objetivo te sugiere el precio mínimo
+        al cliente. No entra en contabilidad; cuando sepas el coste real, <b>cuadra</b> cada línea
+        con la flecha.
       </p>
-
-      {/* Añadir estimado: tipo + concepto + cantidad × precio unitario */}
-      <div className="flex flex-wrap items-end gap-2 rounded-md bg-beige-light p-3">
-        <Field label="Tipo">
-          <Select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-[140px]">
-            <option value="material">Material</option>
-            <option value="personal">Personal</option>
-            <option value="desplazamiento">Desplazamiento</option>
-            <option value="otro">Otro</option>
-          </Select>
-        </Field>
-        <div className="min-w-[170px] flex-1">
-          <Field label="Concepto previsto">
-            <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Ramos de petunias, gasolina, horas de Pepe…" />
-          </Field>
-        </div>
-        <Field label="Cant.">
-          <Input type="number" step="0.5" value={cantidad || ""} onChange={(e) => setCantidad(Number(e.target.value))} className="w-[70px] text-right tabular" />
-        </Field>
-        <Field label="€/ud">
-          <Input type="number" step="0.01" value={precioUd || ""} onChange={(e) => setPrecioUd(Number(e.target.value))} className="w-[90px] text-right tabular" />
-        </Field>
-        <div className="pb-2 text-[12.5px] text-ink-secondary">
-          = <b className="tabular">{eur((cantidad || 0) * (precioUd || 0))}</b>
-        </div>
-        <Button size="sm" onClick={add} disabled={busy || !concepto.trim() || !((cantidad || 0) * (precioUd || 0) > 0)}>
-          <Plus size={14} /> Añadir
-        </Button>
-      </div>
 
       {estimados.length > 0 && (
         <Tabla headers={["Concepto", "Tipo", "Cant.", "€/ud", "Previsto", "Cuadrar → real €", ""]}>
@@ -621,6 +621,8 @@ function EstimacionBlock({
                   <span className="inline-flex items-center gap-1 rounded-pill bg-ok-tint px-2 py-0.5 text-[10.5px] font-semibold text-ok">
                     ✓ En reales
                   </span>
+                ) : cerrada ? (
+                  <span className="text-[11px] text-ink-muted">—</span>
                 ) : (
                   <span className="inline-flex items-center gap-1">
                     <Input
@@ -649,12 +651,12 @@ function EstimacionBlock({
                   </span>
                 )}
               </Td>
-              <Td right><Del onClick={async () => { await borrarCosteEstimado(e.id, oportunidadId); onDone(); }} /></Td>
+              <Td right>{!cerrada && <Del onClick={async () => { await borrarCosteEstimado(e.id, oportunidadId); onDone(); }} />}</Td>
             </tr>
           ))}
         </Tabla>
       )}
-      {estimados.some((e) => !e.cuadrado) && (
+      {!cerrada && estimados.some((e) => !e.cuadrado) && (
         <p className="text-[11px] text-ink-muted">
           <b>Cuadrar:</b> cuando sepas lo que ha costado de verdad, valida cada línea con la flecha
           (deja el importe si fue tal cual, o cámbialo). Se crea el coste real en su sección y la
