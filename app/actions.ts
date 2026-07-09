@@ -658,22 +658,28 @@ export async function crearCompra(input: {
   }
 
   const quien = input.quienLoPaga?.trim() || null;
-  const { error } = await sb.from("tesoreria").insert({
-    concepto: input.concepto,
-    tipo: "gasto",
-    naturaleza: "gasto_de_evento",
-    categoria: "Material",
-    importe: Math.abs(input.importe),
-    fecha: input.fecha || new Date().toISOString().slice(0, 10),
-    estado: quien ? "previsto" : "pagado",
-    quien_lo_paga: quien,
-    oportunidad_id: input.oportunidadId,
-    proveedor_id: proveedorId,
-    computa_contabilidad: false,
-  });
+  const { data: mov, error } = await sb
+    .from("tesoreria")
+    .insert({
+      concepto: input.concepto,
+      tipo: "gasto",
+      naturaleza: "gasto_de_evento",
+      categoria: "Material",
+      importe: Math.abs(input.importe),
+      fecha: input.fecha || new Date().toISOString().slice(0, 10),
+      estado: quien ? "previsto" : "pagado",
+      quien_lo_paga: quien,
+      oportunidad_id: input.oportunidadId,
+      proveedor_id: proveedorId,
+      computa_contabilidad: false,
+    })
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
   revalidatePath("/proveedores");
   revCostes(input.oportunidadId);
+  // Devuelve el id para poder adjuntar el ticket en el mismo paso.
+  return mov.id as string;
 }
 
 export async function borrarCompra(tesoreriaId: string, oportunidadId: string) {
