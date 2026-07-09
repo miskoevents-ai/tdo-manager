@@ -226,7 +226,7 @@ export async function toggleFianzaDevuelta(id: string, devuelta: boolean) {
   revalidatePath("/");
 }
 
-type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null };
+type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null };
 
 // Reemplaza todas las líneas de la oportunidad (borrar + insertar) y guarda IVA/retención.
 export async function guardarLineas(
@@ -263,9 +263,15 @@ export async function guardarLineas(
       articulo_id: l.articulo_id ?? null,
       bloque: l.bloque?.trim() || null,
       via: l.via === "efectivo" ? "efectivo" : "factura",
+      foto: l.foto?.trim() || null,
     }));
     const { error } = await sb.from("presupuesto_lineas").insert(rows);
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (/foto/.test(error.message) && /column/i.test(error.message)) {
+        throw new Error("Falta ejecutar la migración 022 (foto por línea) en Supabase.");
+      }
+      throw new Error(error.message);
+    }
   }
 
   // Pre-reserva de material "en negociación": sincroniza reservas presupuestado
@@ -1163,6 +1169,7 @@ export async function guardarVersionPresupuesto(oportunidadId: string, notas: st
       precio_unitario: Number(l.precio_unitario),
       bloque: l.bloque ?? null,
       via: l.via === "efectivo" ? "efectivo" : "factura",
+      foto: l.foto ?? null,
     }));
   if (!lineas.length) throw new Error("El presupuesto no tiene líneas que guardar.");
 
@@ -1218,6 +1225,7 @@ export async function restaurarVersionPresupuesto(versionId: string) {
     precio_unitario: number;
     bloque?: string | null;
     via?: string | null;
+    foto?: string | null;
   }[];
   if (lineas.length) {
     const { error: insErr } = await sb.from("presupuesto_lineas").insert(
@@ -1228,6 +1236,7 @@ export async function restaurarVersionPresupuesto(versionId: string) {
         precio_unitario: l.precio_unitario,
         bloque: l.bloque ?? null,
         via: l.via === "efectivo" ? "efectivo" : "factura",
+        foto: l.foto ?? null,
         orden: i,
       })),
     );

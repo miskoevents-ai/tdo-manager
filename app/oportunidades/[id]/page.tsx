@@ -265,6 +265,7 @@ export default async function Page({
                 articulo: i.articulo,
                 precio_alquiler: i.precio_alquiler,
                 fianza_sugerida: i.fianza_sugerida,
+                foto_url: i.foto_url,
               }))}
             />
             <VersionesPresupuesto

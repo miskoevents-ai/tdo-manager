@@ -44,6 +44,7 @@ export default async function Page({
         orden: i,
         bloque: l.bloque ?? null,
         via: l.via ?? "factura",
+        foto: l.foto ?? null,
       }))
     : op.presupuesto_lineas ?? [];
   const ivaPct = version ? Number(version.iva_pct) : op.iva_pct;
@@ -203,7 +204,19 @@ export default async function Page({
                 )}
                 {g.lineas.map((l) => (
                   <tr key={l.id}>
-                    <td className="border-b border-[#f0eae1] px-3 py-2">{l.concepto}</td>
+                    <td className="border-b border-[#f0eae1] px-3 py-2">
+                      <span className="flex items-center gap-2.5">
+                        {portadaUrl(l.foto ?? null) && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={portadaUrl(l.foto ?? null)!}
+                            alt=""
+                            className="h-[42px] w-[42px] shrink-0 rounded-sm object-cover"
+                          />
+                        )}
+                        {l.concepto}
+                      </span>
+                    </td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{l.cantidad}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{eur(l.precio_unitario)}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
