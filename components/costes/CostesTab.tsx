@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
@@ -68,6 +68,13 @@ export function CostesTab({
   const totalEstimado = estimados.reduce((s, e) => s + Number(e.importe), 0);
   const estimadoConColchon = totalEstimado * (1 + contingenciaPct / 100);
   const desviacion = costes - estimadoConColchon;
+
+  // Estimado por categoría, para la comparativa pre vs post.
+  const estPorCat = { personal: 0, desplazamiento: 0, material: 0, otro: 0 };
+  for (const e of estimados) {
+    const c = (e.categoria ?? "material") as keyof typeof estPorCat;
+    estPorCat[c in estPorCat ? c : "otro"] += Number(e.importe);
+  }
 
   // Reembolsos a personas aún pendientes (para la validación del cierre).
   const reembolsosPdtes = compras.filter((m) => m.quien_lo_paga && m.estado !== "pagado").length;
@@ -135,19 +142,53 @@ export function CostesTab({
             <Leg color="bg-ok" t={`Margen ${eur(margen)}`} />
           </div>
         </div>
-        {/* Estimado vs real */}
+        {/* Pre-evento (estimado) vs post-evento (real), partida a partida */}
         {totalEstimado > 0 && (
-          <div className="mt-3 rounded-md bg-beige-light px-3 py-2 text-[12px]">
-            Estimado (con {num(contingenciaPct, 0)}% de contingencia):{" "}
-            <b className="tabular">{eur(estimadoConColchon)}</b>
-            <span className="mx-2 text-ink-muted">·</span>
-            Real: <b className="tabular">{eur(costes)}</b>
-            <span className="mx-2 text-ink-muted">·</span>
-            Desviación:{" "}
-            <b className={`tabular ${desviacion > 0.01 ? "text-error" : "text-ok"}`}>
-              {desviacion > 0 ? "+" : ""}
-              {eur(desviacion)}
-            </b>
+          <div className="mt-4 overflow-x-auto rounded-md bg-beige-light p-3">
+            <table className="w-full border-collapse text-[12.5px]">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-[0.08em] text-ink-muted">
+                  <th className="py-1 text-left font-semibold">Pre vs post</th>
+                  <th className="py-1 text-right font-semibold">Previsto</th>
+                  <th className="py-1 text-right font-semibold">Real</th>
+                  <th className="py-1 text-right font-semibold">Desviación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(
+                  [
+                    ["Personal", estPorCat.personal, cPersonal],
+                    ["Desplazamientos", estPorCat.desplazamiento, cDespl],
+                    ["Material y otros", estPorCat.material + estPorCat.otro, cMaterial],
+                  ] as [string, number, number][]
+                ).map(([nombre, est, real]) => (
+                  <tr key={nombre}>
+                    <td className="border-t border-border/60 py-1.5">{nombre}</td>
+                    <td className="border-t border-border/60 py-1.5 text-right tabular">{eur(est)}</td>
+                    <td className="border-t border-border/60 py-1.5 text-right tabular">{eur(real)}</td>
+                    <td className={`border-t border-border/60 py-1.5 text-right tabular font-semibold ${real - est > 0.01 ? "text-error" : "text-ok"}`}>
+                      {real - est > 0 ? "+" : ""}{eur(real - est)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="font-semibold">
+                  <td className="border-t-2 border-ink/40 py-1.5">Total (+{num(contingenciaPct, 0)}% contingencia)</td>
+                  <td className="border-t-2 border-ink/40 py-1.5 text-right tabular">{eur(estimadoConColchon)}</td>
+                  <td className="border-t-2 border-ink/40 py-1.5 text-right tabular">{eur(costes)}</td>
+                  <td className={`border-t-2 border-ink/40 py-1.5 text-right tabular ${desviacion > 0.01 ? "text-error" : "text-ok"}`}>
+                    {desviacion > 0 ? "+" : ""}{eur(desviacion)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-1.5 text-ink-secondary">Margen (sobre base {eur(base)})</td>
+                  <td className="py-1.5 text-right tabular">{eur(base - estimadoConColchon)}</td>
+                  <td className={`py-1.5 text-right tabular font-semibold ${margen >= 0 ? "text-ok" : "text-error"}`}>{eur(margen)}</td>
+                  <td className={`py-1.5 text-right tabular ${margen - (base - estimadoConColchon) < -0.01 ? "text-error" : "text-ok"}`}>
+                    {margen - (base - estimadoConColchon) > 0 ? "+" : ""}{eur(margen - (base - estimadoConColchon))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -168,6 +209,13 @@ export function CostesTab({
             base={base}
             onDone={r}
           />
+        </Bloque>
+      )}
+
+      {/* Apunte rápido tipo Excel: varias filas de golpe, cada una a su sitio */}
+      {!cerrada && (
+        <Bloque icon={<Zap size={15} />} titulo="Apunte rápido (tipo Excel)" total="">
+          <ApunteRapido oportunidadId={oportunidadId} equipo={equipo} onDone={r} />
         </Bloque>
       )}
 
@@ -257,6 +305,179 @@ export function CostesTab({
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------- Apunte rápido (tipo Excel) ----------
+// Rejilla para meter varios gastos de golpe tecleando, como en una hoja de
+// cálculo: tipo + concepto + cantidad/horas × €/ud con total automático y
+// fila nueva sola. Al guardar, cada fila va a su sitio real: Personal →
+// partes de horas, Desplazamiento → desplazamientos, Material/Otro → compras.
+type FilaRapida = { tipo: string; persona: string; concepto: string; cantidad: number; precio: number };
+const FILA_RAPIDA: FilaRapida = { tipo: "material", persona: "", concepto: "", cantidad: 1, precio: 0 };
+
+function ApunteRapido({
+  oportunidadId,
+  equipo,
+  onDone,
+}: {
+  oportunidadId: string;
+  equipo: Pick<Equipo, "id" | "nombre" | "precio_hora">[];
+  onDone: () => void;
+}) {
+  const [filas, setFilas] = React.useState<FilaRapida[]>([{ ...FILA_RAPIDA }]);
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState<string | null>(null);
+
+  function set(i: number, patch: Partial<FilaRapida>) {
+    setFilas((fs) => {
+      const nuevas = fs.map((f, idx) => (idx === i ? { ...f, ...patch } : f));
+      // Como en Excel: al escribir en la última fila aparece otra vacía debajo.
+      if (i === fs.length - 1 && (patch.concepto ?? "").trim()) {
+        nuevas.push({ ...FILA_RAPIDA, tipo: nuevas[i].tipo });
+      }
+      return nuevas;
+    });
+  }
+
+  const validas = filas.filter((f) => f.concepto.trim() && f.cantidad * f.precio > 0);
+  const total = validas.reduce((s, f) => s + f.cantidad * f.precio, 0);
+
+  async function guardarTodo() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      for (const f of validas) {
+        if (f.tipo === "personal") {
+          await crearParteHoras({
+            oportunidadId,
+            equipoId: f.persona || null,
+            tarea: f.concepto.trim(),
+            horas: f.cantidad,
+            precioHora: f.precio,
+            fecha: null,
+          });
+        } else if (f.tipo === "desplazamiento") {
+          await crearDesplazamiento({
+            oportunidadId,
+            trayecto: f.concepto.trim(),
+            km: 0,
+            idaVuelta: false,
+            gasolinaManual: Math.round(f.cantidad * f.precio * 100) / 100,
+            peaje: 0,
+            parking: 0,
+            fecha: null,
+            quienLoPaga: null,
+          });
+        } else {
+          await crearCompra({
+            oportunidadId,
+            concepto: f.concepto.trim(),
+            importe: Math.round(f.cantidad * f.precio * 100) / 100,
+            fecha: null,
+            proveedorId: null,
+            quienLoPaga: null,
+          });
+        }
+      }
+      setFilas([{ ...FILA_RAPIDA }]);
+      setMsg(`${validas.length} gasto(s) guardados (${eur(total)}).`);
+      onDone();
+    } catch (e) {
+      setMsg((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="text-[10.5px] uppercase tracking-[0.08em] text-ink-secondary">
+              <th className="w-[130px] border-b border-border py-2 text-left font-semibold">Tipo</th>
+              <th className="w-[150px] border-b border-border py-2 pl-2 text-left font-semibold">Persona</th>
+              <th className="border-b border-border py-2 pl-2 text-left font-semibold">Concepto</th>
+              <th className="w-[85px] border-b border-border py-2 text-right font-semibold">Cant./h</th>
+              <th className="w-[95px] border-b border-border py-2 text-right font-semibold">€/ud·h</th>
+              <th className="w-[95px] border-b border-border py-2 text-right font-semibold">Total</th>
+              <th className="w-[36px] border-b border-border py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((f, i) => (
+              <tr key={i}>
+                <td className="border-b border-[#f0eae1] py-1 pr-1">
+                  <Select value={f.tipo} onChange={(e) => set(i, { tipo: e.target.value })} className="py-1.5 text-[12px]">
+                    <option value="material">Material</option>
+                    <option value="personal">Personal</option>
+                    <option value="desplazamiento">Desplaz.</option>
+                    <option value="otro">Otro</option>
+                  </Select>
+                </td>
+                <td className="border-b border-[#f0eae1] py-1 pl-1 pr-1">
+                  {f.tipo === "personal" ? (
+                    <Select
+                      value={f.persona}
+                      onChange={(e) => {
+                        const p = equipo.find((x) => x.id === e.target.value);
+                        set(i, { persona: e.target.value, precio: f.precio || Number(p?.precio_hora ?? 0) });
+                      }}
+                      className="py-1.5 text-[12px]"
+                    >
+                      <option value="">—</option>
+                      {equipo.map((p) => (
+                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <span className="block px-1 text-[12px] text-ink-muted">—</span>
+                  )}
+                </td>
+                <td className="border-b border-[#f0eae1] py-1 pl-1 pr-1">
+                  <Input
+                    value={f.concepto}
+                    onChange={(e) => set(i, { concepto: e.target.value })}
+                    placeholder={f.tipo === "personal" ? "Montaje…" : f.tipo === "desplazamiento" ? "Gasolina finca…" : "Petunias, moqueta…"}
+                    className="py-1.5 text-[12.5px]"
+                  />
+                </td>
+                <td className="border-b border-[#f0eae1] py-1">
+                  <Input type="number" step="0.5" value={f.cantidad || ""} onChange={(e) => set(i, { cantidad: Number(e.target.value) })} className="py-1.5 text-right text-[12.5px] tabular" />
+                </td>
+                <td className="border-b border-[#f0eae1] py-1 pl-1">
+                  <Input type="number" step="0.01" value={f.precio || ""} onChange={(e) => set(i, { precio: Number(e.target.value) })} className="py-1.5 text-right text-[12.5px] tabular" />
+                </td>
+                <td className="border-b border-[#f0eae1] py-1 text-right text-[12.5px] tabular font-semibold">
+                  {eur(f.cantidad * f.precio)}
+                </td>
+                <td className="border-b border-[#f0eae1] py-1 text-center">
+                  {filas.length > 1 && (
+                    <button
+                      onClick={() => setFilas((fs) => fs.filter((_, idx) => idx !== i))}
+                      className="rounded-sm p-1 text-ink-muted hover:bg-error-tint hover:text-error"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-ink-muted">
+          Escribe y aparecen filas nuevas solas. Al guardar, cada fila va a su sección (horas,
+          desplazamientos, compras). Para tickets o &quot;pagado por&quot;, usa los formularios de abajo.
+        </p>
+        <Button size="sm" onClick={guardarTodo} disabled={busy || validas.length === 0}>
+          {busy ? "Guardando…" : `Guardar todo (${validas.length} · ${eur(total)})`}
+        </Button>
+      </div>
+      {msg && <p className="text-caption text-ink-muted">{msg}</p>}
     </div>
   );
 }
@@ -695,18 +916,32 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
   const [proveedorNuevo, setProveedorNuevo] = React.useState("");
   const [quien, setQuien] = React.useState("");
   const [otro, setOtro] = React.useState("");
+  const [ticket, setTicket] = React.useState<File | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const ticketRef = React.useRef<HTMLInputElement>(null);
   const quienFinal = quien === "__otro__" ? otro.trim() : quien;
   async function add() {
     setBusy(true);
     try {
-      await crearCompra({
+      const movId = await crearCompra({
         oportunidadId, concepto, importe, fecha: null,
         proveedorId: proveedorId && proveedorId !== "__nuevo__" ? proveedorId : null,
         proveedorNuevo: proveedorId === "__nuevo__" ? proveedorNuevo.trim() || null : null,
         quienLoPaga: quienFinal || null,
       });
-      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); setProveedorNuevo(""); setQuien(""); setOtro(""); onDone();
+      // Ticket en el mismo paso: se adjunta al gasto recién creado.
+      if (ticket && movId) {
+        const fd = new FormData();
+        fd.set("tesoreriaId", movId);
+        fd.set("oportunidadId", oportunidadId);
+        fd.set("ticket", ticket);
+        try {
+          await adjuntarTicket(fd);
+        } catch (e) {
+          alert(`El gasto se guardó, pero el ticket no se pudo subir: ${(e as Error).message}`);
+        }
+      }
+      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); setProveedorNuevo(""); setQuien(""); setOtro(""); setTicket(null); onDone();
     } finally { setBusy(false); }
   }
   if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus size={14} /> Añadir compra</Button>;
@@ -728,6 +963,23 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
           </Field>
         )}
         <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
+        <Field label="Ticket (foto, opcional)">
+          <button
+            onClick={() => ticketRef.current?.click()}
+            className="flex w-full items-center gap-1.5 rounded-sm border-med border-dashed border-border-strong bg-white px-3 py-2 text-left text-[12px] text-ink-secondary hover:bg-beige-warm"
+          >
+            <Paperclip size={13} className="shrink-0 text-sage" />
+            <span className="truncate">{ticket ? ticket.name : "Hacer foto / elegir archivo"}</span>
+          </button>
+          <input
+            ref={ticketRef}
+            type="file"
+            accept="image/*,.pdf"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => setTicket(e.target.files?.[0] ?? null)}
+          />
+        </Field>
       </div>
       {quienFinal && (
         <p className="text-[11px] text-warn">
