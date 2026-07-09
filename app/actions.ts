@@ -1074,31 +1074,38 @@ export async function emitirFactura(oportunidadId: string) {
   }, 0);
   const numeroFactura = `${yy}${String(maxFac + 1).padStart(3, "0")}`;
 
-  // Foto fija de las líneas facturables: el documento queda congelado aunque
-  // después se edite el presupuesto.
+  // Foto fija de TODAS las líneas (con su vía): el documento queda congelado
+  // aunque después se edite el presupuesto. Las líneas en efectivo se guardan
+  // como parte interna (no salen en el documento del cliente).
   const lineasSnap = (op.presupuesto_lineas ?? [])
-    .filter((l: LineaInput) => (l.via ?? "factura") !== "efectivo")
+    .slice()
     .sort((a: { orden?: number }, b: { orden?: number }) => (a.orden ?? 0) - (b.orden ?? 0))
     .map((l: LineaInput & { bloque?: string | null }) => ({
       concepto: l.concepto,
       cantidad: Number(l.cantidad),
       precio_unitario: Number(l.precio_unitario),
       bloque: l.bloque ?? null,
+      via: l.via === "efectivo" ? "efectivo" : "factura",
     }));
 
-  const { error: insErr } = await sb.from("facturas").insert({
-    numero: numeroFactura,
-    oportunidad_id: op.id,
-    cliente_id: op.cliente_id,
-    base_imponible: t.baseFactura,
-    iva: t.iva,
-    retencion: t.retencion,
-    total: t.totalFactura,
-    estado: "emitida",
-    fecha_vencimiento: fechaVencimiento,
-    lineas: lineasSnap,
-  });
+  const { data: facNueva, error: insErr } = await sb
+    .from("facturas")
+    .insert({
+      numero: numeroFactura,
+      oportunidad_id: op.id,
+      cliente_id: op.cliente_id,
+      base_imponible: t.baseFactura,
+      iva: t.iva,
+      retencion: t.retencion,
+      total: t.totalFactura,
+      estado: "emitida",
+      fecha_vencimiento: fechaVencimiento,
+      lineas: lineasSnap,
+    })
+    .select("id")
+    .single();
   if (insErr) throw new Error(insErr.message);
+  const facturaId = facNueva.id as string;
 
   // Círculo completo: la factura deja su cobro previsto en tesorería con
   // fecha del vencimiento (sale en Tesorería, Calendario y ficha → Cobros).
@@ -1120,6 +1127,7 @@ export async function emitirFactura(oportunidadId: string) {
       fecha: fechaVencimiento,
       estado: "previsto",
       oportunidad_id: op.id,
+      factura_id: facturaId,
       computa_contabilidad: true,
     });
     if (tesErr) throw new Error(tesErr.message);
@@ -1146,6 +1154,7 @@ export async function emitirFactura(oportunidadId: string) {
         fecha: op.fecha_evento ?? fechaVencimiento,
         estado: "previsto",
         oportunidad_id: op.id,
+        factura_id: facturaId,
         computa_contabilidad: false,
       });
     }
@@ -1171,29 +1180,180 @@ export async function marcarFacturaCobrada(id: string, cobrada: boolean) {
 
   // Sincroniza el cobro previsto de tesorería: al cobrar pasa a "cobrado" con
   // fecha de hoy (y entra en contabilidad); al reabrir vuelve a "previsto"
-  // con la fecha del vencimiento.
+  // con la fecha del vencimiento. Busca por factura (facturas nuevas) y por
+  // oportunidad (facturas antiguas sin enlace directo).
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const patch = cobrada
+    ? { estado: "cobrado", fecha: hoy }
+    : { estado: "previsto", fecha: f?.fecha_vencimiento ?? hoy };
+  const estadoPrevio = cobrada ? "previsto" : "cobrado";
+  await sb
+    .from("tesoreria")
+    .update(patch)
+    .eq("factura_id", id)
+    .eq("naturaleza", "ingreso_factura")
+    .eq("estado", estadoPrevio);
   if (f?.oportunidad_id) {
-    const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
-    if (cobrada) {
-      await sb
-        .from("tesoreria")
-        .update({ estado: "cobrado", fecha: hoy })
-        .eq("oportunidad_id", f.oportunidad_id)
-        .eq("naturaleza", "ingreso_factura")
-        .eq("estado", "previsto");
-    } else {
-      await sb
-        .from("tesoreria")
-        .update({ estado: "previsto", fecha: f.fecha_vencimiento ?? hoy })
-        .eq("oportunidad_id", f.oportunidad_id)
-        .eq("naturaleza", "ingreso_factura")
-        .eq("estado", "cobrado");
-    }
+    await sb
+      .from("tesoreria")
+      .update(patch)
+      .eq("oportunidad_id", f.oportunidad_id)
+      .eq("naturaleza", "ingreso_factura")
+      .eq("estado", estadoPrevio);
   }
   revalidatePath("/facturas");
   revalidatePath("/tesoreria");
   revalidatePath("/contabilidad");
   revalidatePath("/");
+}
+
+// Crea una factura a mano, sin pasar por una oportunidad: datos fiscales del
+// cliente, fechas y líneas con su vía. Las líneas 'factura' llevan IVA y son
+// las únicas que ve el cliente en el documento; las líneas 'efectivo' quedan
+// como parte interna y su importe va directo a la contabilidad de amigos.
+export async function crearFactura(input: {
+  clienteId: string | null;
+  nuevoCliente: {
+    nombre: string;
+    tipo: string;
+    nif: string;
+    direccion: string;
+    localidad: string;
+    email: string;
+  } | null;
+  numero: string | null;
+  fechaEmision: string;
+  fechaVencimiento: string | null;
+  ivaPct: number;
+  retPct: number;
+  lineas: { concepto: string; cantidad: number; precio_unitario: number; via?: string | null }[];
+  cobradaFactura: boolean;
+  cobradoEfectivo: boolean;
+  notas: string | null;
+}): Promise<string> {
+  const sb = createAdminClient();
+  if (!input.fechaEmision) throw new Error("Falta la fecha de emisión.");
+
+  const lineas = input.lineas
+    .map((l) => ({
+      concepto: l.concepto.trim(),
+      cantidad: Number(l.cantidad),
+      precio_unitario: Number(l.precio_unitario),
+      bloque: null as string | null,
+      via: l.via === "efectivo" ? "efectivo" : "factura",
+    }))
+    .filter((l) => l.concepto && l.cantidad > 0);
+  if (!lineas.length) throw new Error("Añade al menos una línea.");
+
+  const t = calcularTotales(lineas, input.ivaPct, input.retPct);
+  if (t.baseFactura <= 0) {
+    throw new Error(
+      "Una factura necesita al menos una línea con vía factura. Si todo va en efectivo, apúntalo en Tesorería (naturaleza amigos) o en el plan de pagos de la oportunidad.",
+    );
+  }
+
+  // Cliente: existente o alta nueva con sus datos fiscales.
+  let clienteId = input.clienteId;
+  if (!clienteId && input.nuevoCliente?.nombre?.trim()) {
+    const nc = input.nuevoCliente;
+    const { data: cli, error: cliErr } = await sb
+      .from("clientes")
+      .insert({
+        nombre: nc.nombre.trim(),
+        tipo: nc.tipo === "empresa" ? "empresa" : "particular",
+        nif_cif: nc.nif?.trim() || null,
+        direccion: nc.direccion?.trim() || null,
+        localidad: nc.localidad?.trim() || null,
+        email: nc.email?.trim() || null,
+      })
+      .select("id")
+      .single();
+    if (cliErr) throw new Error(cliErr.message);
+    clienteId = cli.id as string;
+  }
+  if (!clienteId) throw new Error("Elige un cliente o da de alta uno nuevo.");
+
+  // Número: manual (comprobando que no exista) o el siguiente de la serie AANNN.
+  let numero = input.numero?.trim() || "";
+  if (numero) {
+    const { data: dup } = await sb
+      .from("facturas")
+      .select("id")
+      .eq("numero", numero)
+      .limit(1)
+      .maybeSingle();
+    if (dup) throw new Error(`Ya existe una factura con el número ${numero}.`);
+  } else {
+    const yy = input.fechaEmision.slice(2, 4);
+    const { data: numsFac } = await sb.from("facturas").select("numero").like("numero", `${yy}%`);
+    const maxFac = (numsFac ?? []).reduce((mx, r) => {
+      const n = r.numero as string | null;
+      return n && /^\d{5}$/.test(n) && n.startsWith(yy) ? Math.max(mx, Number(n.slice(2))) : mx;
+    }, 0);
+    numero = `${yy}${String(maxFac + 1).padStart(3, "0")}`;
+  }
+
+  const { data: fac, error: insErr } = await sb
+    .from("facturas")
+    .insert({
+      numero,
+      cliente_id: clienteId,
+      fecha_emision: input.fechaEmision,
+      fecha_vencimiento: input.fechaVencimiento || null,
+      base_imponible: t.baseFactura,
+      iva: t.iva,
+      retencion: t.retencion,
+      total: t.totalFactura,
+      estado: input.cobradaFactura ? "cobrada" : "emitida",
+      notas: input.notas?.trim() || null,
+      lineas,
+    })
+    .select("id")
+    .single();
+  if (insErr) throw new Error(insErr.message);
+  const facturaId = fac.id as string;
+
+  // Movimiento de la parte facturada (contabilidad oficial).
+  const fechaCobroFactura = input.cobradaFactura
+    ? input.fechaEmision
+    : input.fechaVencimiento || input.fechaEmision;
+  const { error: tesErr } = await sb.from("tesoreria").insert({
+    concepto: `Cobro factura ${numero}`,
+    tipo: "ingreso",
+    naturaleza: "ingreso_factura",
+    categoria: "Cobro factura",
+    importe: t.totalFactura,
+    fecha: fechaCobroFactura,
+    estado: input.cobradaFactura ? "cobrado" : "previsto",
+    cliente_id: clienteId,
+    factura_id: facturaId,
+    computa_contabilidad: true,
+  });
+  if (tesErr) throw new Error(tesErr.message);
+
+  // Parte en efectivo (interna, sin IVA) → contabilidad de amigos.
+  if (t.efectivo > 0) {
+    const { error: efErr } = await sb.from("tesoreria").insert({
+      concepto: `Parte en efectivo (sin IVA) · Factura ${numero}`,
+      tipo: "ingreso",
+      naturaleza: "amigos",
+      categoria: "Cobro en efectivo",
+      importe: t.efectivo,
+      fecha: input.cobradoEfectivo ? input.fechaEmision : fechaCobroFactura,
+      estado: input.cobradoEfectivo ? "cobrado" : "previsto",
+      cliente_id: clienteId,
+      factura_id: facturaId,
+      computa_contabilidad: false,
+    });
+    if (efErr) throw new Error(efErr.message);
+  }
+
+  revalidatePath("/facturas");
+  revalidatePath("/tesoreria");
+  revalidatePath("/contabilidad");
+  revalidatePath("/calendario");
+  revalidatePath("/");
+  return facturaId;
 }
 
 // Añade un cobro previsto al plan de pagos de la oportunidad. La vía decide

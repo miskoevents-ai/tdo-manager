@@ -30,20 +30,25 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const retPct = base > 0 ? Math.round((ret / base) * 100) : 0;
 
   // Líneas: la foto fija guardada al emitir; si la factura es antigua y no la
-  // tiene, se usan las líneas facturables del presupuesto; y si tampoco hay,
-  // una línea única con la base.
-  let lineas: FacturaLinea[] = Array.isArray(f.lineas) ? f.lineas : [];
-  if (lineas.length === 0 && op?.presupuesto_lineas?.length) {
-    lineas = op.presupuesto_lineas
-      .filter((l) => (l.via ?? "factura") !== "efectivo")
+  // tiene, se usan las líneas del presupuesto; y si tampoco hay, una línea
+  // única con la base. Las líneas con vía 'efectivo' son SOLO internas: no
+  // salen en el documento del cliente.
+  let todas: FacturaLinea[] = Array.isArray(f.lineas) ? f.lineas : [];
+  if (todas.length === 0 && op?.presupuesto_lineas?.length) {
+    todas = op.presupuesto_lineas
+      .slice()
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       .map((l) => ({
         concepto: l.concepto,
         cantidad: Number(l.cantidad),
         precio_unitario: Number(l.precio_unitario),
         bloque: l.bloque ?? null,
+        via: l.via ?? "factura",
       }));
   }
+  let lineas = todas.filter((l) => (l.via ?? "factura") !== "efectivo");
+  const lineasEfectivo = todas.filter((l) => (l.via ?? "factura") === "efectivo");
+  const totalEfectivo = lineasEfectivo.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0);
   if (lineas.length === 0) {
     lineas = [
       {
@@ -213,6 +218,33 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           </div>
         </div>
       </div>
+
+      {/* Parte interna: no sale en el documento ni al imprimir */}
+      {lineasEfectivo.length > 0 && (
+        <div className="no-print rounded-lg border-2 border-dashed border-clay/50 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-clay">
+              🔒 Parte interna — no sale en el documento del cliente
+            </div>
+            <span className="tabular text-[15px] font-semibold text-clay">{eur(totalEfectivo)}</span>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {lineasEfectivo.map((l, i) => (
+              <div key={i} className="flex items-center justify-between text-[12.5px]">
+                <span className="text-ink-secondary">
+                  {l.concepto} <span className="text-ink-muted">× {num(l.cantidad, 0)}</span>
+                </span>
+                <span className="tabular">{eur(l.cantidad * l.precio_unitario)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[11.5px] text-ink-muted">
+            Cobro en efectivo, sin IVA: está en la <b>contabilidad de amigos</b> y en Tesorería,
+            pero no computa en la oficial ni aparece al imprimir o guardar el PDF. El total real a
+            cobrar del cliente es <b className="tabular">{eur(Number(f.total) + totalEfectivo)}</b>.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

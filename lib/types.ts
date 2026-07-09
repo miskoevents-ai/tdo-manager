@@ -117,12 +117,15 @@ export type PresupuestoLinea = {
 export type FacturaEstado = "emitida" | "cobrada" | "vencida" | "anulada";
 
 // Línea congelada dentro de la factura (foto fija al emitirla: aunque luego
-// se toque el presupuesto, el documento no cambia).
+// se toque el presupuesto, el documento no cambia). Las líneas con vía
+// 'efectivo' son internas: no salen en el documento del cliente y su importe
+// va a la contabilidad de amigos.
 export type FacturaLinea = {
   concepto: string;
   cantidad: number;
   precio_unitario: number;
   bloque?: string | null;
+  via?: "factura" | "efectivo" | null;
 };
 
 export type Factura = {
@@ -199,6 +202,7 @@ export type Tesoreria = {
   oportunidad_id: string | null;
   cliente_id?: string | null;
   proveedor_id?: string | null;
+  factura_id?: string | null;
   quien_lo_paga?: string | null;
   notas?: string | null;
   computa_contabilidad: boolean;

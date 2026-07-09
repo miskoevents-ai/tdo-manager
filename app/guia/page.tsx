@@ -213,6 +213,13 @@ export default function GuiaPage() {
           Cuando llega el dinero: botón <b>&quot;Cobrada&quot;</b>. Con eso el cobro pasa a Tesorería como
           cobrado y entra en la Contabilidad del mes — no hay que apuntarlo en ningún otro sitio.
         </p>
+        <p>
+          Con <b>&quot;Nueva factura&quot;</b> se crea una factura a mano, sin pasar por una oportunidad:
+          cliente con sus datos fiscales (o alta nueva), fechas, y líneas con su vía. Las líneas en{" "}
+          <b>efectivo no salen en el documento del cliente</b>: quedan como parte interna 🔒 (se ve
+          debajo del documento, pero no se imprime) y su importe entra solo en la contabilidad de
+          amigos.
+        </p>
       </Seccion>
 
       <Seccion id="tesoreria" titulo="Tesorería" emoji="💶">
