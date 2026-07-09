@@ -131,6 +131,8 @@ export type CosteEstimado = {
   categoria?: string | null; // material | personal | desplazamiento | otro
   cuadrado?: boolean; // ya pasado a costes reales (tal cual o ajustado)
   importe_real?: number | null; // con qué importe se cuadró (para la desviación)
+  equipo_id?: string | null; // persona prevista (horas)
+  pagador?: string | null; // quién pagará (reembolso al cuadrar)
   created_at: string;
 };
 
