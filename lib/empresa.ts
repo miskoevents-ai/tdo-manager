@@ -6,10 +6,10 @@ export const EMPRESA = {
   nombre: "Tu Decoración Original",
   razon_social: "", // p. ej. "Álvaro Sarmiento — TDO" o la SL, si la hay
   nif: "", // NIF/CIF — rellénalo para que salga en el presupuesto
-  direccion: "Madrid",
-  email: "", // email de contacto
-  telefono: "", // teléfono de contacto
-  web: "@tudecoracionoriginal", // Instagram / web
+  direccion: "Av. del Guadarrama 10, Local 7 · Villanueva del Pardillo · 28229 Madrid",
+  email: "info@tudecoracionoriginal.es",
+  telefono: "675 75 87 83",
+  web: "www.tudecoracionoriginal.es",
   // Datos de cobro (para la señal / transferencia)
   iban: "", // IBAN — rellénalo para que aparezca en el documento
   titular_cuenta: "",

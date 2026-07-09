@@ -116,6 +116,7 @@ export type PresupuestoLinea = {
   articulo_id?: string | null;
   bloque?: string | null; // agrupación opcional ("Decoración", "Alquiler de material"…)
   via?: "factura" | "efectivo" | null; // con IVA (oficial) o sin IVA (amigos)
+  foto?: string | null; // foto de la línea: URL o archivo del bucket (galería / IA)
 };
 
 // Coste estimado antes del presupuesto (escandallo previsto): sirve para
@@ -157,6 +158,7 @@ export type FacturaLinea = {
   precio_unitario: number;
   bloque?: string | null;
   via?: "factura" | "efectivo" | null;
+  foto?: string | null; // en versiones de presupuesto; las facturas la ignoran
 };
 
 export type Factura = {

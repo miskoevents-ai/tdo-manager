@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Package, Search } from "lucide-react";
+import { Plus, Trash2, Package, Search, ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { guardarLineas } from "@/app/actions";
@@ -10,7 +10,7 @@ import { calcularTotales } from "@/lib/calc";
 import { eur, num, normaliza } from "@/lib/format";
 import type { PresupuestoLinea } from "@/lib/types";
 
-type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null };
+type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null };
 
 // Bloques sugeridos (los de los presupuestos reales); se puede escribir otro.
 const BLOQUES_SUGERIDOS = ["Decoración", "Alquiler de material", "Flores", "Transporte y montaje"];
@@ -19,6 +19,7 @@ export type CatalogoItem = {
   articulo: string;
   precio_alquiler: number | null;
   fianza_sugerida: number | null;
+  foto_url?: string | null;
 };
 
 export function PresupuestoEditor({
@@ -46,8 +47,9 @@ export function PresupuestoEditor({
           articulo_id: l.articulo_id ?? null,
           bloque: l.bloque ?? null,
           via: l.via ?? "factura",
+          foto: l.foto ?? null,
         }))
-      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: null, via: "factura" }],
+      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: null, via: "factura", foto: null }],
   );
   const [iva, setIva] = React.useState(ivaPct);
   const [ret, setRet] = React.useState(retPct);
@@ -85,6 +87,7 @@ export function PresupuestoEditor({
       articulo_id: it.id,
       bloque: null,
       via: "factura",
+      foto: it.foto_url ?? null,
     };
     setFilas((f) => {
       const soloVacia = f.length === 1 && !f[0].concepto.trim() && !f[0].articulo_id;
@@ -145,6 +148,11 @@ export function PresupuestoEditor({
                 </td>
                 <td className="border-b border-[#f0eae1] py-1.5 pr-2">
                   <div className="flex items-center gap-1.5">
+                    <FotoPicker
+                      catalogo={catalogo}
+                      foto={f.foto}
+                      onPick={(foto) => setFila(i, { foto })}
+                    />
                     {f.articulo_id && (
                       <span title="Del catálogo de inventario" className="shrink-0 text-sage">
                         <Package size={13} />
@@ -305,6 +313,136 @@ export function PresupuestoEditor({
         </Button>
         {msg && <span className="text-caption text-ink-muted">{msg}</span>}
       </div>
+    </div>
+  );
+}
+
+// Foto de la línea: A) elegir de la galería (artículos del catálogo con
+// foto), o B) pegar la URL de una imagen nueva (p. ej. creada con IA).
+// Es la base del futuro presupuesto visual con fotos.
+function FotoPicker({
+  catalogo,
+  foto,
+  onPick,
+}: {
+  catalogo: CatalogoItem[];
+  foto: string | null | undefined;
+  onPick: (foto: string | null) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState("");
+  const [url, setUrl] = React.useState("");
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const galeria = React.useMemo(() => {
+    const t = normaliza(q.trim());
+    return catalogo
+      .filter((c) => c.foto_url)
+      .filter((c) => !t || normaliza(c.articulo).includes(t))
+      .slice(0, 24);
+  }, [q, catalogo]);
+
+  function cerrar() {
+    setOpen(false);
+    setQ("");
+    setUrl("");
+  }
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title={foto ? "Cambiar o quitar la foto de la línea" : "Añadir foto a la línea (galería o URL)"}
+        className={`flex h-8 w-8 items-center justify-center overflow-hidden rounded-sm border-med ${
+          foto ? "border-border" : "border-dashed border-border-strong text-ink-muted hover:bg-beige-warm"
+        }`}
+      >
+        {foto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={foto} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <ImagePlus size={14} />
+        )}
+      </button>
+      {open && (
+        <div className="absolute left-0 z-20 mt-1 w-[320px] rounded-md border-hair border-border bg-white p-3 shadow-lg">
+          <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+            A · Foto de la galería
+          </div>
+          <div className="flex items-center gap-1.5 rounded-sm border-med border-border px-2 py-1.5">
+            <Search size={13} className="text-ink-muted" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar artículo con foto…"
+              className="w-full text-[12.5px] focus:outline-none"
+            />
+          </div>
+          {galeria.length > 0 ? (
+            <div className="mt-2 grid max-h-[180px] grid-cols-4 gap-1.5 overflow-y-auto">
+              {galeria.map((it) => (
+                <button
+                  key={it.id}
+                  title={it.articulo}
+                  onClick={() => {
+                    onPick(it.foto_url!);
+                    cerrar();
+                  }}
+                  className="aspect-square overflow-hidden rounded-sm border-med border-border hover:border-sage"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={it.foto_url!} alt={it.articulo} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-[11.5px] text-ink-muted">
+              Sin fotos en el catálogo (todavía): se irán añadiendo desde Inventario.
+            </p>
+          )}
+          <div className="mb-1.5 mt-3 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+            B · Imagen nueva (URL, p. ej. creada con IA)
+          </div>
+          <div className="flex items-center gap-1.5">
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://…"
+              className="w-full rounded-sm border-med border-border px-2 py-1.5 text-[12px] focus:outline-none"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!/^https?:\/\/.+/.test(url.trim())}
+              onClick={() => {
+                onPick(url.trim());
+                cerrar();
+              }}
+            >
+              Usar
+            </Button>
+          </div>
+          {foto && (
+            <button
+              onClick={() => {
+                onPick(null);
+                cerrar();
+              }}
+              className="mt-3 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] font-semibold text-error hover:bg-error-tint"
+            >
+              <X size={12} /> Quitar la foto de esta línea
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

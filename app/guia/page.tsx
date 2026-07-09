@@ -155,7 +155,8 @@ export default function GuiaPage() {
             &quot;Efectivo&quot; (sin IVA, va a la vista Amigos). Así un mismo presupuesto puede ser
             mixto. La parte en efectivo <b>nunca sale en los documentos del cliente</b> (ni
             presupuesto ni factura): se ve solo en pantalla, en el panel interno 🔒 que no se
-            imprime. Antes de cambiar precios, botón{" "}
+            imprime. Cada línea puede llevar <b>foto</b> 📷: de la galería del catálogo o pegando
+            la URL de una imagen nueva (p. ej. creada con IA) — sale en el PDF junto al concepto. Antes de cambiar precios, botón{" "}
             <b>&quot;Guardar como V1/V2/V3…&quot;</b>: cada versión queda congelada con su PDF, se
             sabe siempre qué vio el cliente y se puede <b>restaurar</b> si la negociación vuelve
             atrás.
