@@ -1051,6 +1051,8 @@ export async function crearCosteEstimado(input: {
   cantidad?: number;
   precioUnitario?: number;
   categoria?: string | null;
+  equipoId?: string | null; // persona prevista (horas)
+  pagador?: string | null; // quién pagará (reembolso al cuadrar)
   importe?: number; // si no se pasa, cantidad × precio unitario
 }) {
   const sb = createAdminClient();
@@ -1064,11 +1066,16 @@ export async function crearCosteEstimado(input: {
     cantidad,
     precio_unitario: precio > 0 ? precio : importe / cantidad,
     categoria: input.categoria || null,
+    equipo_id: input.equipoId || null,
+    pagador: input.pagador?.trim() || null,
     importe,
   });
   if (error) {
     if (error.code === "42P01" || /does not exist/i.test(error.message)) {
       throw new Error("Falta ejecutar la migración 020 (costes estimados) en Supabase.");
+    }
+    if (/equipo_id|pagador/.test(error.message)) {
+      throw new Error("Falta ejecutar la migración 025 (persona y pagador previstos) en Supabase.");
     }
     if (/cantidad|categoria|precio_unitario/.test(error.message)) {
       throw new Error("Falta ejecutar la migración 021 (detalle de estimados) en Supabase.");
@@ -1105,12 +1112,13 @@ export async function cuadrarEstimado(input: {
   if (error) throw new Error(error.message);
   if (e.cuadrado) throw new Error("Esta línea ya está pasada a reales.");
 
+  // La persona y el pagador previstos en el plan se trasladan al coste real.
   const cat = (e.categoria as string | null) ?? "material";
   if (cat === "personal") {
     const horas = Number(e.cantidad ?? 1) || 1;
     await crearParteHoras({
       oportunidadId: input.oportunidadId,
-      equipoId: null,
+      equipoId: (e.equipo_id as string | null) ?? null,
       tarea: e.concepto as string,
       horas,
       precioHora: Math.round((importe / horas) * 100) / 100,
@@ -1126,7 +1134,7 @@ export async function cuadrarEstimado(input: {
       peaje: 0,
       parking: 0,
       fecha: null,
-      quienLoPaga: null,
+      quienLoPaga: (e.pagador as string | null) ?? null,
     });
   } else {
     await crearCompra({
@@ -1135,7 +1143,7 @@ export async function cuadrarEstimado(input: {
       importe,
       fecha: null,
       proveedorId: null,
-      quienLoPaga: null,
+      quienLoPaga: (e.pagador as string | null) ?? null,
     });
   }
 

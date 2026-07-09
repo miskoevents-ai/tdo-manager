@@ -246,6 +246,7 @@ export function CostesTab({
                 margenObjetivoPct={margenObjetivoPct}
                 base={base}
                 cerrada={cerrada}
+                equipo={equipo}
                 onDone={r}
               />
             ) : (
@@ -405,6 +406,8 @@ function ApunteRapido({
             cantidad: f.cantidad,
             precioUnitario: f.precio,
             categoria: f.tipo,
+            equipoId: f.tipo === "personal" ? f.persona || null : null,
+            pagador: f.tipo !== "personal" ? f.pagador || null : null,
           });
           continue;
         }
@@ -508,7 +511,7 @@ function ApunteRapido({
                   </Select>
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1 pr-1">
-                  {modo === "real" && f.tipo === "personal" ? (
+                  {f.tipo === "personal" ? (
                     <Select
                       value={f.persona}
                       onChange={(e) => {
@@ -544,7 +547,7 @@ function ApunteRapido({
                   {eur(f.cantidad * f.precio)}
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1">
-                  {modo === "previsto" || f.tipo === "personal" ? (
+                  {f.tipo === "personal" ? (
                     <span className="block px-1 text-[11px] text-ink-muted">n/a</span>
                   ) : (
                     <Select value={f.pagador} onChange={(e) => set(i, { pagador: e.target.value })} className="py-1.5 text-[12px]">
@@ -597,6 +600,7 @@ function EstimacionBlock({
   margenObjetivoPct,
   base,
   cerrada = false,
+  equipo = [],
   onDone,
 }: {
   oportunidadId: string;
@@ -606,8 +610,11 @@ function EstimacionBlock({
   margenObjetivoPct: number;
   base: number;
   cerrada?: boolean;
+  equipo?: Pick<Equipo, "id" | "nombre" | "precio_hora">[];
   onDone: () => void;
 }) {
+  const nombreEquipo = (id: string | null | undefined) =>
+    equipo.find((p) => p.id === id)?.nombre ?? null;
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
   // Importe real tecleado por línea, para el cuadre pre → post.
@@ -651,11 +658,16 @@ function EstimacionBlock({
       </p>
 
       {estimados.length > 0 && (
-        <Tabla headers={["Concepto", "Tipo", "Cant.", "€/ud", "Previsto", "Cuadrar → real €", ""]}>
+        <Tabla headers={["Concepto", "Tipo", "Quién", "Cant.", "€/ud", "Previsto", "Cuadrar → real €", ""]}>
           {estimados.map((e) => (
             <tr key={e.id}>
               <Td>{e.concepto}</Td>
               <Td right>{CATS[e.categoria ?? ""] ?? "—"}</Td>
+              <Td right>
+                {e.categoria === "personal"
+                  ? nombreEquipo(e.equipo_id) ?? "—"
+                  : e.pagador ?? "TDO"}
+              </Td>
               <Td right>{num(Number(e.cantidad ?? 1), 1)}</Td>
               <Td right>{e.precio_unitario != null ? eur(Number(e.precio_unitario)) : "—"}</Td>
               <Td right bold>{eur(Number(e.importe))}</Td>
