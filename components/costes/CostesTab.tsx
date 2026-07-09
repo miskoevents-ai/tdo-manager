@@ -283,7 +283,9 @@ function EstimacionBlock({
   onDone: () => void;
 }) {
   const [concepto, setConcepto] = React.useState("");
-  const [importe, setImporte] = React.useState(0);
+  const [categoria, setCategoria] = React.useState("material");
+  const [cantidad, setCantidad] = React.useState(1);
+  const [precioUd, setPrecioUd] = React.useState(0);
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
   const [busy, setBusy] = React.useState(false);
@@ -299,9 +301,10 @@ function EstimacionBlock({
     setBusy(true);
     setError(null);
     try {
-      await crearCosteEstimado({ oportunidadId, concepto, importe });
+      await crearCosteEstimado({ oportunidadId, concepto, cantidad, precioUnitario: precioUd, categoria });
       setConcepto("");
-      setImporte(0);
+      setCantidad(1);
+      setPrecioUd(0);
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -309,6 +312,13 @@ function EstimacionBlock({
       setBusy(false);
     }
   }
+
+  const CATS: Record<string, string> = {
+    material: "Material",
+    personal: "Personal",
+    desplazamiento: "Desplazamiento",
+    otro: "Otro",
+  };
 
   return (
     <div className="space-y-3">
@@ -318,26 +328,43 @@ function EstimacionBlock({
         reales son los de abajo.
       </p>
 
-      {/* Añadir estimado */}
+      {/* Añadir estimado: tipo + concepto + cantidad × precio unitario */}
       <div className="flex flex-wrap items-end gap-2 rounded-md bg-beige-light p-3">
-        <div className="min-w-[180px] flex-1">
+        <Field label="Tipo">
+          <Select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-[140px]">
+            <option value="material">Material</option>
+            <option value="personal">Personal</option>
+            <option value="desplazamiento">Desplazamiento</option>
+            <option value="otro">Otro</option>
+          </Select>
+        </Field>
+        <div className="min-w-[170px] flex-1">
           <Field label="Concepto previsto">
-            <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Flores, furgoneta, extra montaje…" />
+            <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Ramos de petunias, gasolina, horas de Pepe…" />
           </Field>
         </div>
-        <Field label="Importe €">
-          <Input type="number" step="0.01" value={importe || ""} onChange={(e) => setImporte(Number(e.target.value))} className="w-[110px] text-right tabular" />
+        <Field label="Cant.">
+          <Input type="number" step="0.5" value={cantidad || ""} onChange={(e) => setCantidad(Number(e.target.value))} className="w-[70px] text-right tabular" />
         </Field>
-        <Button size="sm" onClick={add} disabled={busy || !concepto.trim() || !(importe > 0)}>
+        <Field label="€/ud">
+          <Input type="number" step="0.01" value={precioUd || ""} onChange={(e) => setPrecioUd(Number(e.target.value))} className="w-[90px] text-right tabular" />
+        </Field>
+        <div className="pb-2 text-[12.5px] text-ink-secondary">
+          = <b className="tabular">{eur((cantidad || 0) * (precioUd || 0))}</b>
+        </div>
+        <Button size="sm" onClick={add} disabled={busy || !concepto.trim() || !((cantidad || 0) * (precioUd || 0) > 0)}>
           <Plus size={14} /> Añadir
         </Button>
       </div>
 
       {estimados.length > 0 && (
-        <Tabla headers={["Concepto", "Importe", ""]}>
+        <Tabla headers={["Concepto", "Tipo", "Cant.", "€/ud", "Total", ""]}>
           {estimados.map((e) => (
             <tr key={e.id}>
               <Td>{e.concepto}</Td>
+              <Td right>{CATS[e.categoria ?? ""] ?? "—"}</Td>
+              <Td right>{num(Number(e.cantidad ?? 1), 1)}</Td>
+              <Td right>{e.precio_unitario != null ? eur(Number(e.precio_unitario)) : "—"}</Td>
               <Td right bold>{eur(Number(e.importe))}</Td>
               <Td right><Del onClick={async () => { await borrarCosteEstimado(e.id, oportunidadId); onDone(); }} /></Td>
             </tr>

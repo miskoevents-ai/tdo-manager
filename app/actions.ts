@@ -1031,22 +1031,35 @@ export async function generarGastosDelMes(
 // ---------------------- Costes estimados y tickets ----------------------
 
 // Coste estimado antes del presupuesto (escandallo previsto). No toca la
-// contabilidad: solo sirve para cuadrar el precio del cliente.
+// contabilidad: solo sirve para cuadrar el precio del cliente. Con detalle:
+// cantidad × precio unitario y tipo de gasto ("4 ramos de petunias a 2 €").
 export async function crearCosteEstimado(input: {
   oportunidadId: string;
   concepto: string;
-  importe: number;
+  cantidad?: number;
+  precioUnitario?: number;
+  categoria?: string | null;
+  importe?: number; // si no se pasa, cantidad × precio unitario
 }) {
   const sb = createAdminClient();
-  if (!input.concepto.trim() || !(input.importe > 0)) throw new Error("Falta concepto o importe.");
+  const cantidad = Number(input.cantidad ?? 1) || 1;
+  const precio = Number(input.precioUnitario ?? 0);
+  const importe = input.importe ?? cantidad * precio;
+  if (!input.concepto.trim() || !(importe > 0)) throw new Error("Falta concepto o importe.");
   const { error } = await sb.from("costes_estimados").insert({
     oportunidad_id: input.oportunidadId,
     concepto: input.concepto.trim(),
-    importe: input.importe,
+    cantidad,
+    precio_unitario: precio > 0 ? precio : importe / cantidad,
+    categoria: input.categoria || null,
+    importe,
   });
   if (error) {
     if (error.code === "42P01" || /does not exist/i.test(error.message)) {
       throw new Error("Falta ejecutar la migración 020 (costes estimados) en Supabase.");
+    }
+    if (/cantidad|categoria|precio_unitario/.test(error.message)) {
+      throw new Error("Falta ejecutar la migración 021 (detalle de estimados) en Supabase.");
     }
     throw new Error(error.message);
   }

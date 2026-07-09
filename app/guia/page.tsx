@@ -163,8 +163,9 @@ export default function GuiaPage() {
           <li><b>Material</b> — qué se reserva del inventario y en qué fechas (controla el stock y avisa si te pasas).</li>
           <li>
             <b>Costes</b> — dos niveles: la <b>estimación previa</b> (los gastos que prevés antes
-            del presu, con % de contingencia y margen objetivo → te sugiere el precio mínimo al
-            cliente) y los <b>costes reales</b> (horas, desplazamientos y compras con su{" "}
+            del presu, con detalle de cantidad × precio — &quot;4 ramos de petunias a 2 €&quot; —,
+            % de contingencia y margen objetivo → te sugiere el precio mínimo al cliente) y los{" "}
+            <b>costes reales</b> (horas, desplazamientos y compras con su{" "}
             <b>foto del ticket</b> 📎), que son los que van a contabilidad. El resumen compara
             estimado vs real y te enseña la desviación y el <b>margen real</b> del evento. Al
             terminar, botón <b>&quot;Cerrar evento&quot;</b>: valida que no queden cobros ni

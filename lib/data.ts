@@ -130,6 +130,18 @@ export async function getPartesHoras(oportunidadId: string): Promise<ParteHoras[
   return (data ?? []) as ParteHoras[];
 }
 
+// Todas las horas imputadas (para el resumen por persona en Equipo).
+export async function getPartesHorasTodas(): Promise<ParteHoras[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("partes_horas")
+    .select("*, equipo:equipo(nombre), oportunidad:oportunidades(numero, titulo)")
+    .order("fecha", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ParteHoras[];
+}
+
 export async function getDesplazamientos(oportunidadId: string): Promise<Desplazamiento[]> {
   if (mock.enabled) return [];
   const sb = createAdminClient();
