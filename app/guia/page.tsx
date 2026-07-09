@@ -153,7 +153,10 @@ export default function GuiaPage() {
             <b>Presupuesto</b> — las líneas con precios; los totales se calculan solos. Cada línea
             tiene su <b>vía</b>: &quot;Factura&quot; (lleva IVA, contabilidad oficial) o
             &quot;Efectivo&quot; (sin IVA, va a la vista Amigos). Así un mismo presupuesto puede ser
-            mixto: una parte con factura y otra en efectivo.
+            mixto: una parte con factura y otra en efectivo. Antes de cambiar precios, botón{" "}
+            <b>&quot;Guardar como V1/V2/V3…&quot;</b>: cada versión queda congelada con su PDF, se
+            sabe siempre qué vio el cliente y se puede <b>restaurar</b> si la negociación vuelve
+            atrás.
           </li>
           <li><b>Material</b> — qué se reserva del inventario y en qué fechas (controla el stock y avisa si te pasas).</li>
           <li><b>Costes</b> — horas del equipo, desplazamientos y compras, con quién pagó cada cosa. Aquí ves el <b>margen real</b> del evento.</li>
@@ -215,7 +218,9 @@ export default function GuiaPage() {
         </p>
         <p>
           Con <b>&quot;Nueva factura&quot;</b> se crea una factura a mano, sin pasar por una oportunidad:
-          cliente con sus datos fiscales (o alta nueva), fechas, y líneas con su vía. Las líneas en{" "}
+          cliente con sus datos fiscales (o alta nueva), fechas, y líneas con su vía. Se puede{" "}
+          <b>partir de un presupuesto enviado</b>: precarga cliente, líneas e impuestos y solo hay
+          que retocar lo que cambie — menos teclear, menos errores. Las líneas en{" "}
           <b>efectivo no salen en el documento del cliente</b>: quedan como parte interna 🔒 (se ve
           debajo del documento, pero no se imprime) y su importe entra solo en la contabilidad de
           amigos.

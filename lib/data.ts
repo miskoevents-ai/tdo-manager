@@ -17,6 +17,7 @@ import type {
   Desplazamiento,
   Reunion,
   Tarea,
+  PresupuestoVersion,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -311,6 +312,40 @@ export async function getFactura(id: string): Promise<Factura | null> {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return (data as Factura) ?? null;
+}
+
+// Versiones guardadas del presupuesto (V1, V2…). Si la tabla aún no existe
+// (migración 019 sin ejecutar) devuelve vacío para no romper la ficha.
+export async function getVersionesPresupuesto(
+  oportunidadId: string,
+): Promise<PresupuestoVersion[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("presupuesto_versiones")
+    .select("*")
+    .eq("oportunidad_id", oportunidadId)
+    .order("version", { ascending: false });
+  if (error) {
+    if (tablaNoExiste(error)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as PresupuestoVersion[];
+}
+
+export async function getVersionPresupuesto(id: string): Promise<PresupuestoVersion | null> {
+  if (mock.enabled) return null;
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("presupuesto_versiones")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    if (tablaNoExiste(error)) return null;
+    throw new Error(error.message);
+  }
+  return (data as PresupuestoVersion) ?? null;
 }
 
 export async function getFacturaDeOportunidad(

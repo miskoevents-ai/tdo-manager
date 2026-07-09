@@ -114,6 +114,20 @@ export type PresupuestoLinea = {
   via?: "factura" | "efectivo" | null; // con IVA (oficial) o sin IVA (amigos)
 };
 
+// Versión guardada del presupuesto (V1, V2…): foto fija de las líneas para
+// conservar lo que se envió al cliente y poder volver atrás.
+export type PresupuestoVersion = {
+  id: string;
+  oportunidad_id: string;
+  version: number;
+  notas: string | null;
+  iva_pct: number;
+  retencion_pct: number;
+  lineas: FacturaLinea[];
+  total: number;
+  created_at: string;
+};
+
 export type FacturaEstado = "emitida" | "cobrada" | "vencida" | "anulada";
 
 // Línea congelada dentro de la factura (foto fija al emitirla: aunque luego
