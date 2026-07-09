@@ -230,7 +230,7 @@ export function NuevaFacturaForm({
                 type="number"
                 step="1"
                 min="0"
-                value={iva}
+                value={iva || ""}
                 onChange={(e) => setIva(Math.round(Number(e.target.value) || 0))}
                 className="text-right tabular"
               />
@@ -240,7 +240,7 @@ export function NuevaFacturaForm({
                 type="number"
                 step="1"
                 min="0"
-                value={ret}
+                value={ret || ""}
                 onChange={(e) => setRet(Math.round(Number(e.target.value) || 0))}
                 className="text-right tabular"
               />
@@ -287,7 +287,7 @@ export function NuevaFacturaForm({
                     <Input
                       type="number"
                       step="0.01"
-                      value={l.cantidad}
+                      value={l.cantidad || ""}
                       onChange={(e) => setLinea(i, { cantidad: Number(e.target.value) })}
                       className="py-2 text-right text-[13px] tabular"
                     />
@@ -296,7 +296,7 @@ export function NuevaFacturaForm({
                     <Input
                       type="number"
                       step="0.01"
-                      value={l.precio_unitario}
+                      value={l.precio_unitario || ""}
                       onChange={(e) => setLinea(i, { precio_unitario: Number(e.target.value) })}
                       className="py-2 text-right text-[13px] tabular"
                     />
