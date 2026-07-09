@@ -20,7 +20,7 @@ export const EMPRESA = {
 // Acepta: ruta en /public ("/presupuesto-portada.jpg"), URL completa, o el
 // nombre de un archivo subido al bucket del catálogo en Supabase Storage
 // (p. ej. "portada-presupuesto.jpg"). null para desactivarla.
-export const PORTADA_PRESUPUESTO: string | null = "portada-presupuesto.jpg";
+export const PORTADA_PRESUPUESTO: string | null = "portada-presupuesto";
 
 // Respaldo local si la foto de arriba no carga (banda con la marca).
 export const PORTADA_RESPALDO = "/presupuesto-portada.jpg";
