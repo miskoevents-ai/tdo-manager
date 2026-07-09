@@ -138,7 +138,7 @@ export function MaterialTab({
           </Field>
           <div className="grid grid-cols-3 gap-3">
             <Field label="Cantidad">
-              <Input type="number" min="1" value={cantidad} onChange={(e) => setCantidad(Number(e.target.value))} />
+              <Input type="number" min="1" value={cantidad || ""} onChange={(e) => setCantidad(Number(e.target.value))} />
             </Field>
             <Field label="Salida">
               <Input type="date" value={salida} onChange={(e) => setSalida(e.target.value)} />

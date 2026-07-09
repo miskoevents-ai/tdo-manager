@@ -162,7 +162,7 @@ export function PresupuestoEditor({
                   <Input
                     type="number"
                     step="0.01"
-                    value={f.cantidad}
+                    value={f.cantidad || ""}
                     onChange={(e) => setFila(i, { cantidad: Number(e.target.value) })}
                     className="py-2 text-right text-[13px] tabular"
                   />
@@ -171,7 +171,7 @@ export function PresupuestoEditor({
                   <Input
                     type="number"
                     step="0.01"
-                    value={f.precio_unitario}
+                    value={f.precio_unitario || ""}
                     onChange={(e) => setFila(i, { precio_unitario: Number(e.target.value) })}
                     className="py-2 text-right text-[13px] tabular"
                   />
@@ -240,7 +240,7 @@ export function PresupuestoEditor({
               type="number"
               step="1"
               min="0"
-              value={iva}
+              value={iva || ""}
               onChange={(e) => setIva(Math.round(Number(e.target.value) || 0))}
               className="w-[90px] py-2 text-right text-[13px] tabular"
             />
@@ -253,7 +253,7 @@ export function PresupuestoEditor({
               type="number"
               step="1"
               min="0"
-              value={ret}
+              value={ret || ""}
               onChange={(e) => setRet(Math.round(Number(e.target.value) || 0))}
               className="w-[90px] py-2 text-right text-[13px] tabular"
             />

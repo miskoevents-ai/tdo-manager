@@ -232,8 +232,8 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
     <div className="grid grid-cols-2 gap-2 rounded-md bg-beige-light p-3 sm:grid-cols-5">
       <Field label="Persona"><Select value={equipoId} onChange={(e) => onPersona(e.target.value)}><option value="">—</option>{equipo.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}</Select></Field>
       <Field label="Tarea"><Input value={tarea} onChange={(e) => setTarea(e.target.value)} placeholder="Montaje…" /></Field>
-      <Field label="Horas"><Input type="number" step="0.5" value={horas} onChange={(e) => setHoras(Number(e.target.value))} /></Field>
-      <Field label="€/hora"><Input type="number" step="0.01" value={precio} onChange={(e) => setPrecio(Number(e.target.value))} /></Field>
+      <Field label="Horas"><Input type="number" step="0.5" value={horas || ""} onChange={(e) => setHoras(Number(e.target.value))} /></Field>
+      <Field label="€/hora"><Input type="number" step="0.01" value={precio || ""} onChange={(e) => setPrecio(Number(e.target.value))} /></Field>
       <div className="flex items-end gap-1"><Button size="sm" onClick={add} disabled={busy}>Añadir</Button><Button size="sm" variant="ghost" onClick={() => setOpen(false)}>×</Button></div>
     </div>
   );
@@ -310,9 +310,9 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
     <div className="space-y-2 rounded-md bg-beige-light p-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Field label="Trayecto / lugar"><Input value={trayecto} onChange={(e) => setTrayecto(e.target.value)} /></Field>
-        <Field label="Km (solo ida)"><Input type="number" value={km} onChange={(e) => setKm(Number(e.target.value))} /></Field>
-        <Field label="Peaje €"><Input type="number" step="0.01" value={peaje} onChange={(e) => setPeaje(Number(e.target.value))} /></Field>
-        <Field label="Parking €"><Input type="number" step="0.01" value={parking} onChange={(e) => setParking(Number(e.target.value))} /></Field>
+        <Field label="Km (solo ida)"><Input type="number" value={km || ""} onChange={(e) => setKm(Number(e.target.value))} /></Field>
+        <Field label="Peaje €"><Input type="number" step="0.01" value={peaje || ""} onChange={(e) => setPeaje(Number(e.target.value))} /></Field>
+        <Field label="Parking €"><Input type="number" step="0.01" value={parking || ""} onChange={(e) => setParking(Number(e.target.value))} /></Field>
         <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
       </div>
       {quienFinal && (
@@ -386,7 +386,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
     <div className="space-y-2 rounded-md bg-beige-light p-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Field label="Concepto"><Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Flores, moqueta…" /></Field>
-        <Field label="Importe €"><Input type="number" step="0.01" value={importe} onChange={(e) => setImporte(Number(e.target.value))} /></Field>
+        <Field label="Importe €"><Input type="number" step="0.01" value={importe || ""} onChange={(e) => setImporte(Number(e.target.value))} /></Field>
         <Field label="Proveedor">
           <Select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
             <option value="">—</option>
