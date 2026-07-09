@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { InfoNote } from "@/components/ui/InfoNote";
@@ -98,6 +100,15 @@ export default async function DocumentosPage({
         El archivo de documentos del negocio: todas las facturas y presupuestos con su número, su
         estado y el documento listo para ver o imprimir — sin ir a buscarlos al OneDrive.
       </InfoNote>
+
+      <div className="flex justify-end">
+        <Link
+          href="/facturas/nueva"
+          className="inline-flex items-center gap-2 rounded-sm bg-sage px-4 py-2 text-[13px] font-semibold text-cream hover:opacity-90"
+        >
+          <Plus size={15} /> Nueva factura
+        </Link>
+      </div>
 
       {/* Numeración de las dos series, de un vistazo */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
