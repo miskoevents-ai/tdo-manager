@@ -167,8 +167,11 @@ export default function GuiaPage() {
             del presu, con detalle de cantidad × precio — &quot;4 ramos de petunias a 2 €&quot; —,
             % de contingencia y margen objetivo → te sugiere el precio mínimo al cliente) y los{" "}
             <b>costes reales</b> (horas, desplazamientos y compras con su{" "}
-            <b>foto del ticket</b> 📎), que son los que van a contabilidad. El resumen compara
-            estimado vs real y te enseña la desviación y el <b>margen real</b> del evento. Al
+            <b>foto del ticket</b> 📎), que son los que van a contabilidad. Cada línea estimada se{" "}
+            <b>cuadra</b> con la flecha → cuando sabes el coste real (tal cual o ajustado): se crea
+            el gasto real y queda marcada ✓. El resumen compara previsto vs real partida a partida,
+            y en el <b>Cuadro de mando</b> ves la precisión presupuestando de todos los eventos. El
+            apunte rápido tipo Excel mete varios gastos de golpe (con su &quot;pagado por&quot;). Al
             terminar, botón <b>&quot;Cerrar evento&quot;</b>: valida que no queden cobros ni
             reembolsos sueltos, congela los costes y deja el margen definitivo (se puede reabrir).
           </li>

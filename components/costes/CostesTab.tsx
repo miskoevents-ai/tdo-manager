@@ -12,7 +12,7 @@ import {
   crearCompra, borrarCompra,
   guardarKmPrecio, guardarDistanciaLugar,
   crearCosteEstimado, borrarCosteEstimado, guardarParamsCostes,
-  adjuntarTicket, cerrarEvento,
+  adjuntarTicket, cerrarEvento, cuadrarEstimado,
 } from "@/app/actions";
 import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor, CosteEstimado } from "@/lib/types";
 
@@ -314,8 +314,8 @@ export function CostesTab({
 // cálculo: tipo + concepto + cantidad/horas × €/ud con total automático y
 // fila nueva sola. Al guardar, cada fila va a su sitio real: Personal →
 // partes de horas, Desplazamiento → desplazamientos, Material/Otro → compras.
-type FilaRapida = { tipo: string; persona: string; concepto: string; cantidad: number; precio: number };
-const FILA_RAPIDA: FilaRapida = { tipo: "material", persona: "", concepto: "", cantidad: 1, precio: 0 };
+type FilaRapida = { tipo: string; persona: string; concepto: string; cantidad: number; precio: number; pagador: string };
+const FILA_RAPIDA: FilaRapida = { tipo: "material", persona: "", concepto: "", cantidad: 1, precio: 0, pagador: "" };
 
 function ApunteRapido({
   oportunidadId,
@@ -368,7 +368,7 @@ function ApunteRapido({
             peaje: 0,
             parking: 0,
             fecha: null,
-            quienLoPaga: null,
+            quienLoPaga: f.pagador || null,
           });
         } else {
           await crearCompra({
@@ -377,7 +377,7 @@ function ApunteRapido({
             importe: Math.round(f.cantidad * f.precio * 100) / 100,
             fecha: null,
             proveedorId: null,
-            quienLoPaga: null,
+            quienLoPaga: f.pagador || null,
           });
         }
       }
@@ -403,6 +403,7 @@ function ApunteRapido({
               <th className="w-[85px] border-b border-border py-2 text-right font-semibold">Cant./h</th>
               <th className="w-[95px] border-b border-border py-2 text-right font-semibold">€/ud·h</th>
               <th className="w-[95px] border-b border-border py-2 text-right font-semibold">Total</th>
+              <th className="w-[130px] border-b border-border py-2 pl-2 text-left font-semibold">Pagado por</th>
               <th className="w-[36px] border-b border-border py-2"></th>
             </tr>
           </thead>
@@ -453,6 +454,18 @@ function ApunteRapido({
                 <td className="border-b border-[#f0eae1] py-1 text-right text-[12.5px] tabular font-semibold">
                   {eur(f.cantidad * f.precio)}
                 </td>
+                <td className="border-b border-[#f0eae1] py-1 pl-1">
+                  {f.tipo === "personal" ? (
+                    <span className="block px-1 text-[11px] text-ink-muted">n/a</span>
+                  ) : (
+                    <Select value={f.pagador} onChange={(e) => set(i, { pagador: e.target.value })} className="py-1.5 text-[12px]">
+                      <option value="">TDO</option>
+                      {equipo.map((p) => (
+                        <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                      ))}
+                    </Select>
+                  )}
+                </td>
                 <td className="border-b border-[#f0eae1] py-1 text-center">
                   {filas.length > 1 && (
                     <button
@@ -471,7 +484,8 @@ function ApunteRapido({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] text-ink-muted">
           Escribe y aparecen filas nuevas solas. Al guardar, cada fila va a su sección (horas,
-          desplazamientos, compras). Para tickets o &quot;pagado por&quot;, usa los formularios de abajo.
+          desplazamientos, compras). Si lo pagó alguien, queda como reembolso pendiente en deudas.
+          Para adjuntar tickets, usa el formulario de compras de abajo.
         </p>
         <Button size="sm" onClick={guardarTodo} disabled={busy || validas.length === 0}>
           {busy ? "Guardando…" : `Guardar todo (${validas.length} · ${eur(total)})`}
@@ -509,8 +523,23 @@ function EstimacionBlock({
   const [precioUd, setPrecioUd] = React.useState(0);
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
+  // Importe real tecleado por línea, para el cuadre pre → post.
+  const [reales, setReales] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  async function run(fn: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const conColchon = totalEstimado * (1 + (cont || 0) / 100);
   const precioSugerido = margenObj < 95 ? conColchon / (1 - (margenObj || 0) / 100) : 0;
@@ -579,7 +608,7 @@ function EstimacionBlock({
       </div>
 
       {estimados.length > 0 && (
-        <Tabla headers={["Concepto", "Tipo", "Cant.", "€/ud", "Total", ""]}>
+        <Tabla headers={["Concepto", "Tipo", "Cant.", "€/ud", "Previsto", "Cuadrar → real €", ""]}>
           {estimados.map((e) => (
             <tr key={e.id}>
               <Td>{e.concepto}</Td>
@@ -587,10 +616,50 @@ function EstimacionBlock({
               <Td right>{num(Number(e.cantidad ?? 1), 1)}</Td>
               <Td right>{e.precio_unitario != null ? eur(Number(e.precio_unitario)) : "—"}</Td>
               <Td right bold>{eur(Number(e.importe))}</Td>
+              <Td right>
+                {e.cuadrado ? (
+                  <span className="inline-flex items-center gap-1 rounded-pill bg-ok-tint px-2 py-0.5 text-[10.5px] font-semibold text-ok">
+                    ✓ En reales
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={reales[e.id] ?? String(Number(e.importe))}
+                      onChange={(ev) => setReales((r) => ({ ...r, [e.id]: ev.target.value }))}
+                      className="w-[85px] py-1.5 text-right text-[12px] tabular"
+                    />
+                    <button
+                      title="Pasar a costes reales con este importe (tal cual o ajustado)"
+                      disabled={busy}
+                      onClick={() =>
+                        run(async () => {
+                          await cuadrarEstimado({
+                            estimadoId: e.id,
+                            oportunidadId,
+                            importeReal: Number(reales[e.id] ?? e.importe),
+                          });
+                        })
+                      }
+                      className="rounded-sm border-med border-sage bg-sage px-2 py-1.5 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-cream hover:opacity-90"
+                    >
+                      →
+                    </button>
+                  </span>
+                )}
+              </Td>
               <Td right><Del onClick={async () => { await borrarCosteEstimado(e.id, oportunidadId); onDone(); }} /></Td>
             </tr>
           ))}
         </Tabla>
+      )}
+      {estimados.some((e) => !e.cuadrado) && (
+        <p className="text-[11px] text-ink-muted">
+          <b>Cuadrar:</b> cuando sepas lo que ha costado de verdad, valida cada línea con la flecha
+          (deja el importe si fue tal cual, o cámbialo). Se crea el coste real en su sección y la
+          línea queda marcada ✓ — así ves qué queda por confirmar.
+        </p>
       )}
 
       {/* Parámetros + precio sugerido */}
