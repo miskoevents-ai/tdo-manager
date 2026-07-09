@@ -9,8 +9,9 @@ import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
-import { EMPRESA, CONDICIONES_PRESUPUESTO, PORTADA_PRESUPUESTO } from "@/lib/empresa";
+import { EMPRESA, CONDICIONES_PRESUPUESTO, PORTADA_PRESUPUESTO, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
+import { PortadaDoc } from "@/components/PortadaDoc";
 import { TIPO_EVENTO_LABEL, CLIENTE_TIPO_LABEL } from "@/lib/estados";
 import type { PresupuestoLinea } from "@/lib/types";
 
@@ -136,14 +137,14 @@ export default async function Page({
           </div>
         </div>
 
-        {/* Portada: un montaje real de TDO en todos los presupuestos */}
+        {/* Portada: un montaje real de TDO en todos los presupuestos.
+            Si la foto del bucket no carga aún, cae a la banda local. */}
         {portadaUrl(PORTADA_PRESUPUESTO) && (
           <div className="mt-6 overflow-hidden rounded-md">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <PortadaDoc
               src={portadaUrl(PORTADA_PRESUPUESTO)!}
+              fallback={PORTADA_RESPALDO}
               alt={`Montaje de ${EMPRESA.nombre}`}
-              className="h-[190px] w-full object-cover"
             />
           </div>
         )}

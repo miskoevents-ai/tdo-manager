@@ -1028,6 +1028,106 @@ export async function generarGastosDelMes(
   return { creados: nuevos.length, existentes: activos.length - nuevos.length };
 }
 
+// ---------------------- Costes estimados y tickets ----------------------
+
+// Coste estimado antes del presupuesto (escandallo previsto). No toca la
+// contabilidad: solo sirve para cuadrar el precio del cliente.
+export async function crearCosteEstimado(input: {
+  oportunidadId: string;
+  concepto: string;
+  importe: number;
+}) {
+  const sb = createAdminClient();
+  if (!input.concepto.trim() || !(input.importe > 0)) throw new Error("Falta concepto o importe.");
+  const { error } = await sb.from("costes_estimados").insert({
+    oportunidad_id: input.oportunidadId,
+    concepto: input.concepto.trim(),
+    importe: input.importe,
+  });
+  if (error) {
+    if (error.code === "42P01" || /does not exist/i.test(error.message)) {
+      throw new Error("Falta ejecutar la migración 020 (costes estimados) en Supabase.");
+    }
+    throw new Error(error.message);
+  }
+  revalidatePath(`/oportunidades/${input.oportunidadId}`);
+}
+
+export async function borrarCosteEstimado(id: string, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("costes_estimados").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Parámetros de la estimación: % de contingencia y margen objetivo.
+export async function guardarParamsCostes(
+  oportunidadId: string,
+  contingenciaPct: number,
+  margenObjetivoPct: number,
+) {
+  const sb = createAdminClient();
+  const { error } = await sb
+    .from("oportunidades")
+    .update({
+      contingencia_pct: Math.max(0, contingenciaPct),
+      margen_objetivo_pct: Math.min(95, Math.max(0, margenObjetivoPct)),
+    })
+    .eq("id", oportunidadId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Adjunta la foto del ticket/justificante a un movimiento de tesorería
+// (bucket público "tickets" en Supabase Storage).
+export async function adjuntarTicket(formData: FormData) {
+  const sb = createAdminClient();
+  const tesoreriaId = String(formData.get("tesoreriaId") ?? "");
+  const oportunidadId = String(formData.get("oportunidadId") ?? "");
+  const file = formData.get("ticket") as File | null;
+  if (!tesoreriaId || !file || file.size === 0) throw new Error("Falta el archivo del ticket.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("El ticket no puede pesar más de 10 MB.");
+
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const ruta = `${tesoreriaId}.${ext || "jpg"}`;
+  const { error: upErr } = await sb.storage
+    .from("tickets")
+    .upload(ruta, file, { upsert: true, contentType: file.type || undefined });
+  if (upErr) {
+    if (/bucket/i.test(upErr.message)) {
+      throw new Error("Falta ejecutar la migración 020 (bucket de tickets) en Supabase.");
+    }
+    throw new Error(upErr.message);
+  }
+  const { data: pub } = sb.storage.from("tickets").getPublicUrl(ruta);
+  const { error } = await sb
+    .from("tesoreria")
+    .update({ ticket_url: pub.publicUrl })
+    .eq("id", tesoreriaId);
+  if (error) throw new Error(error.message);
+  if (oportunidadId) revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/tesoreria");
+}
+
+// Cierra (o reabre) un evento: valida los gastos post-evento y congela la
+// ficha de costes; el margen pasa a ser el definitivo.
+export async function cerrarEvento(oportunidadId: string, cerrar: boolean) {
+  const sb = createAdminClient();
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const { error } = await sb
+    .from("oportunidades")
+    .update({ cerrada: cerrar, cerrada_fecha: cerrar ? hoy : null })
+    .eq("id", oportunidadId);
+  if (error) {
+    if (/cerrada/.test(error.message) && /column/i.test(error.message)) {
+      throw new Error("Falta ejecutar la migración 020 (cierre de eventos) en Supabase.");
+    }
+    throw new Error(error.message);
+  }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/oportunidades");
+}
+
 // ---------------------- Versiones de presupuesto ----------------------
 
 // Guarda el presupuesto actual como una versión (V1, V2…): foto fija de las

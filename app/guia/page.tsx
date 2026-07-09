@@ -161,7 +161,15 @@ export default function GuiaPage() {
             atrás.
           </li>
           <li><b>Material</b> — qué se reserva del inventario y en qué fechas (controla el stock y avisa si te pasas).</li>
-          <li><b>Costes</b> — horas del equipo, desplazamientos y compras, con quién pagó cada cosa. Aquí ves el <b>margen real</b> del evento.</li>
+          <li>
+            <b>Costes</b> — dos niveles: la <b>estimación previa</b> (los gastos que prevés antes
+            del presu, con % de contingencia y margen objetivo → te sugiere el precio mínimo al
+            cliente) y los <b>costes reales</b> (horas, desplazamientos y compras con su{" "}
+            <b>foto del ticket</b> 📎), que son los que van a contabilidad. El resumen compara
+            estimado vs real y te enseña la desviación y el <b>margen real</b> del evento. Al
+            terminar, botón <b>&quot;Cerrar evento&quot;</b>: valida que no queden cobros ni
+            reembolsos sueltos, congela los costes y deja el margen definitivo (se puede reabrir).
+          </li>
           <li>
             <b>Cobros</b> — movimientos de dinero del evento y la fianza. Con el <b>plan de
             pagos</b> apuntas los cobros previstos (fecha + importe + con/sin IVA) y aparecen en el

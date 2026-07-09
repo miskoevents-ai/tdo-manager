@@ -28,6 +28,7 @@ import {
   getKmPrecio,
   getFacturaDeOportunidad,
   getVersionesPresupuesto,
+  getCostesEstimados,
 } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
@@ -59,7 +60,7 @@ export default async function Page({
   const TABS = ["datos", "reuniones", "presupuesto", "material", "costes", "cobros"];
   const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
-  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones] =
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados] =
     await Promise.all([
       getOportunidad(id),
       getClientes(),
@@ -75,6 +76,7 @@ export default async function Page({
       getReunionesDeOportunidad(id),
       getFacturaDeOportunidad(id),
       getVersionesPresupuesto(id),
+      getCostesEstimados(id),
     ]);
   if (!op) notFound();
 
@@ -305,6 +307,12 @@ export default async function Page({
             proveedores={provLite}
             kmPrecio={kmPrecio}
             lugar={lugarInfo}
+            estimados={costesEstimados}
+            contingenciaPct={Number(op.contingencia_pct ?? 5)}
+            margenObjetivoPct={Number(op.margen_objetivo_pct ?? 35)}
+            cerrada={op.cerrada ?? false}
+            cerradaFecha={op.cerrada_fecha ?? null}
+            pendienteCobro={pendiente}
           />
         </TabsContent>
 

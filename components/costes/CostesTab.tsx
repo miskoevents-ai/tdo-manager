@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2 } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
@@ -11,8 +11,10 @@ import {
   crearDesplazamiento, borrarDesplazamiento,
   crearCompra, borrarCompra,
   guardarKmPrecio, guardarDistanciaLugar,
+  crearCosteEstimado, borrarCosteEstimado, guardarParamsCostes,
+  adjuntarTicket, cerrarEvento,
 } from "@/app/actions";
-import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor } from "@/lib/types";
+import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor, CosteEstimado } from "@/lib/types";
 
 type LugarInfo = { id: string; nombre: string; distancia_km: number | null } | null;
 
@@ -26,6 +28,12 @@ export function CostesTab({
   proveedores,
   kmPrecio,
   lugar,
+  estimados = [],
+  contingenciaPct = 5,
+  margenObjetivoPct = 35,
+  cerrada = false,
+  cerradaFecha = null,
+  pendienteCobro = 0,
 }: {
   oportunidadId: string;
   base: number;
@@ -36,6 +44,12 @@ export function CostesTab({
   proveedores: Pick<Proveedor, "id" | "nombre">[];
   kmPrecio: number;
   lugar: LugarInfo;
+  estimados?: CosteEstimado[];
+  contingenciaPct?: number;
+  margenObjetivoPct?: number;
+  cerrada?: boolean;
+  cerradaFecha?: string | null;
+  pendienteCobro?: number;
 }) {
   const router = useRouter();
   const r = () => router.refresh();
@@ -50,8 +64,50 @@ export function CostesTab({
   const margen = base - costes;
   const margenPct = base > 0 ? (margen / base) * 100 : 0;
 
+  // Estimación previa: total + contingencia, para comparar con los reales.
+  const totalEstimado = estimados.reduce((s, e) => s + Number(e.importe), 0);
+  const estimadoConColchon = totalEstimado * (1 + contingenciaPct / 100);
+  const desviacion = costes - estimadoConColchon;
+
+  // Reembolsos a personas aún pendientes (para la validación del cierre).
+  const reembolsosPdtes = compras.filter((m) => m.quien_lo_paga && m.estado !== "pagado").length;
+
+  async function toggleCierre() {
+    if (!cerrada) {
+      const avisos: string[] = [];
+      if (pendienteCobro > 0.01) avisos.push(`· Quedan ${eur(pendienteCobro)} pendientes de cobro`);
+      if (reembolsosPdtes > 0) avisos.push(`· Hay ${reembolsosPdtes} reembolso(s) pendiente(s) a quien adelantó dinero`);
+      const msg =
+        `Cerrar el evento congela los costes y da por definitivo el margen:\n\n` +
+        `Ingreso (base): ${eur(base)}\nCostes reales: ${eur(costes)}\nMargen final: ${eur(margen)} (${num(margenPct, 0)}%)\n` +
+        (avisos.length ? `\n⚠ Antes de cerrar, revisa:\n${avisos.join("\n")}\n` : "") +
+        `\n¿Cerrar el evento?`;
+      if (!confirm(msg)) return;
+    } else if (!confirm("¿Reabrir el evento para seguir apuntando gastos?")) {
+      return;
+    }
+    await cerrarEvento(oportunidadId, !cerrada);
+    r();
+  }
+
   return (
     <div className="space-y-5">
+      {/* Cierre del evento */}
+      {cerrada && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border-hair border-ok bg-ok-tint px-4 py-3 text-[13px]">
+          <span className="inline-flex items-center gap-2 font-semibold text-ok">
+            <Lock size={14} /> Evento cerrado{cerradaFecha ? ` el ${fecha(cerradaFecha)}` : ""} — margen final{" "}
+            {eur(margen)} ({num(margenPct, 0)}%)
+          </span>
+          <button
+            onClick={toggleCierre}
+            className="inline-flex items-center gap-1 rounded-sm border-med border-border-strong bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-secondary hover:bg-beige-warm"
+          >
+            <LockOpen size={12} /> Reabrir
+          </button>
+        </div>
+      )}
+
       {/* Resumen / escandallo */}
       <div className="rounded-lg border-hair border-border bg-white p-5 shadow-sm">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -79,11 +135,45 @@ export function CostesTab({
             <Leg color="bg-ok" t={`Margen ${eur(margen)}`} />
           </div>
         </div>
+        {/* Estimado vs real */}
+        {totalEstimado > 0 && (
+          <div className="mt-3 rounded-md bg-beige-light px-3 py-2 text-[12px]">
+            Estimado (con {num(contingenciaPct, 0)}% de contingencia):{" "}
+            <b className="tabular">{eur(estimadoConColchon)}</b>
+            <span className="mx-2 text-ink-muted">·</span>
+            Real: <b className="tabular">{eur(costes)}</b>
+            <span className="mx-2 text-ink-muted">·</span>
+            Desviación:{" "}
+            <b className={`tabular ${desviacion > 0.01 ? "text-error" : "text-ok"}`}>
+              {desviacion > 0 ? "+" : ""}
+              {eur(desviacion)}
+            </b>
+          </div>
+        )}
       </div>
+
+      {/* Estimación previa al presupuesto (se oculta al cerrar el evento) */}
+      {!cerrada && (
+        <Bloque
+          icon={<Calculator size={15} />}
+          titulo="Estimación previa (para cuadrar el precio)"
+          total={totalEstimado > 0 ? eur(estimadoConColchon) : "—"}
+        >
+          <EstimacionBlock
+            oportunidadId={oportunidadId}
+            estimados={estimados}
+            totalEstimado={totalEstimado}
+            contingenciaPct={contingenciaPct}
+            margenObjetivoPct={margenObjetivoPct}
+            base={base}
+            onDone={r}
+          />
+        </Bloque>
+      )}
 
       {/* A) Personal */}
       <Bloque icon={<Users size={15} />} titulo="Personal (horas)" total={eur(cPersonal)}>
-        <PersonalForm oportunidadId={oportunidadId} equipo={equipo} onDone={r} />
+        {!cerrada && <PersonalForm oportunidadId={oportunidadId} equipo={equipo} onDone={r} />}
         {partes.length > 0 && (
           <Tabla headers={["Persona", "Tarea", "Horas", "€/h", "Coste", ""]}>
             {partes.map((p) => (
@@ -93,7 +183,7 @@ export function CostesTab({
                 <Td right>{num(p.horas, 1)}</Td>
                 <Td right>{eur(p.precio_hora)}</Td>
                 <Td right bold>{eur(Number(p.horas) * Number(p.precio_hora))}</Td>
-                <Td right><Del onClick={async () => { await borrarParteHoras(p.id, oportunidadId); r(); }} /></Td>
+                <Td right>{!cerrada && <Del onClick={async () => { await borrarParteHoras(p.id, oportunidadId); r(); }} />}</Td>
               </tr>
             ))}
           </Tabla>
@@ -102,13 +192,15 @@ export function CostesTab({
 
       {/* B) Desplazamientos */}
       <Bloque icon={<Truck size={15} />} titulo="Desplazamientos" total={eur(cDespl)}>
-        <DesplForm
-          oportunidadId={oportunidadId}
-          kmPrecio={kmPrecio}
-          lugar={lugar}
-          pagadores={equipo.map((e) => e.nombre)}
-          onDone={r}
-        />
+        {!cerrada && (
+          <DesplForm
+            oportunidadId={oportunidadId}
+            kmPrecio={kmPrecio}
+            lugar={lugar}
+            pagadores={equipo.map((e) => e.nombre)}
+            onDone={r}
+          />
+        )}
         {desplazamientos.length > 0 && (
           <Tabla headers={["Trayecto", "Km", "Gasolina", "Peaje", "Parking", "Total", ""]}>
             {desplazamientos.map((d) => {
@@ -121,7 +213,7 @@ export function CostesTab({
                   <Td right>{eur(Number(d.peaje ?? 0))}</Td>
                   <Td right>{eur(Number(d.parking ?? 0))}</Td>
                   <Td right bold>{eur(tot)}</Td>
-                  <Td right><Del onClick={async () => { await borrarDesplazamiento(d.id, d.tesoreria_id, oportunidadId); r(); }} /></Td>
+                  <Td right>{!cerrada && <Del onClick={async () => { await borrarDesplazamiento(d.id, d.tesoreria_id, oportunidadId); r(); }} />}</Td>
                 </tr>
               );
             })}
@@ -131,9 +223,9 @@ export function CostesTab({
 
       {/* C) Material / compras */}
       <Bloque icon={<Flower2 size={15} />} titulo="Compras / material" total={eur(cMaterial)}>
-        <CompraForm oportunidadId={oportunidadId} proveedores={proveedores} pagadores={equipo.map((e) => e.nombre)} onDone={r} />
+        {!cerrada && <CompraForm oportunidadId={oportunidadId} proveedores={proveedores} pagadores={equipo.map((e) => e.nombre)} onDone={r} />}
         {compras.length > 0 && (
-          <Tabla headers={["Concepto", "Fecha", "Pagado por", "Importe", ""]}>
+          <Tabla headers={["Concepto", "Fecha", "Pagado por", "Ticket", "Importe", ""]}>
             {compras.map((m) => (
               <tr key={m.id}>
                 <Td>{m.concepto}</Td>
@@ -144,14 +236,223 @@ export function CostesTab({
                     <span className="ml-1 text-[10.5px] font-semibold text-warn">· reembolso pdte.</span>
                   )}
                 </Td>
+                <Td right><TicketBtn mov={m} oportunidadId={oportunidadId} onDone={r} /></Td>
                 <Td right bold>{eur(Number(m.importe))}</Td>
-                <Td right><Del onClick={async () => { await borrarCompra(m.id, oportunidadId); r(); }} /></Td>
+                <Td right>{!cerrada && <Del onClick={async () => { await borrarCompra(m.id, oportunidadId); r(); }} />}</Td>
               </tr>
             ))}
           </Tabla>
         )}
       </Bloque>
+
+      {/* Botón de cierre post-evento */}
+      {!cerrada && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border-2 border-dashed border-border-strong bg-white p-4">
+          <div className="text-[12.5px] text-ink-secondary">
+            Cuando el evento haya pasado y estén todos los gastos metidos (con sus tickets),
+            ciérralo: los costes quedan <b>congelados</b> y el margen pasa a ser el definitivo.
+          </div>
+          <Button size="sm" onClick={toggleCierre}>
+            <Lock size={14} /> Cerrar evento
+          </Button>
+        </div>
+      )}
     </div>
+  );
+}
+
+// ---------- Estimación previa ----------
+// Escandallo previsto ANTES del presupuesto: costes aproximados + colchón de
+// contingencia + margen objetivo → precio mínimo sugerido al cliente. No toca
+// la contabilidad; los reales de abajo son los que cuentan.
+function EstimacionBlock({
+  oportunidadId,
+  estimados,
+  totalEstimado,
+  contingenciaPct,
+  margenObjetivoPct,
+  base,
+  onDone,
+}: {
+  oportunidadId: string;
+  estimados: CosteEstimado[];
+  totalEstimado: number;
+  contingenciaPct: number;
+  margenObjetivoPct: number;
+  base: number;
+  onDone: () => void;
+}) {
+  const [concepto, setConcepto] = React.useState("");
+  const [importe, setImporte] = React.useState(0);
+  const [cont, setCont] = React.useState(contingenciaPct);
+  const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const conColchon = totalEstimado * (1 + (cont || 0) / 100);
+  const precioSugerido = margenObj < 95 ? conColchon / (1 - (margenObj || 0) / 100) : 0;
+  const margenPrevisto = base - conColchon;
+  const margenPrevistoPct = base > 0 ? (margenPrevisto / base) * 100 : 0;
+  const paramsCambiados = cont !== contingenciaPct || margenObj !== margenObjetivoPct;
+
+  async function add() {
+    setBusy(true);
+    setError(null);
+    try {
+      await crearCosteEstimado({ oportunidadId, concepto, importe });
+      setConcepto("");
+      setImporte(0);
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[11.5px] text-ink-muted">
+        Apunta aquí los gastos que prevés <b>antes de hacer el presupuesto</b>. Con la contingencia
+        y el margen objetivo te sugiere el precio mínimo al cliente. No entra en contabilidad: los
+        reales son los de abajo.
+      </p>
+
+      {/* Añadir estimado */}
+      <div className="flex flex-wrap items-end gap-2 rounded-md bg-beige-light p-3">
+        <div className="min-w-[180px] flex-1">
+          <Field label="Concepto previsto">
+            <Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Flores, furgoneta, extra montaje…" />
+          </Field>
+        </div>
+        <Field label="Importe €">
+          <Input type="number" step="0.01" value={importe || ""} onChange={(e) => setImporte(Number(e.target.value))} className="w-[110px] text-right tabular" />
+        </Field>
+        <Button size="sm" onClick={add} disabled={busy || !concepto.trim() || !(importe > 0)}>
+          <Plus size={14} /> Añadir
+        </Button>
+      </div>
+
+      {estimados.length > 0 && (
+        <Tabla headers={["Concepto", "Importe", ""]}>
+          {estimados.map((e) => (
+            <tr key={e.id}>
+              <Td>{e.concepto}</Td>
+              <Td right bold>{eur(Number(e.importe))}</Td>
+              <Td right><Del onClick={async () => { await borrarCosteEstimado(e.id, oportunidadId); onDone(); }} /></Td>
+            </tr>
+          ))}
+        </Tabla>
+      )}
+
+      {/* Parámetros + precio sugerido */}
+      <div className="flex flex-col gap-3 rounded-md border-hair border-sage-tint-deep bg-sage-tint/40 p-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-end gap-2">
+          <Field label="Contingencia %">
+            <Input type="number" step="1" min="0" value={cont || ""} onChange={(e) => setCont(Number(e.target.value))} className="w-[80px] text-right tabular" />
+          </Field>
+          <Field label="Margen objetivo %">
+            <Input type="number" step="1" min="0" value={margenObj || ""} onChange={(e) => setMargenObj(Number(e.target.value))} className="w-[80px] text-right tabular" />
+          </Field>
+          {paramsCambiados && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await guardarParamsCostes(oportunidadId, cont || 0, margenObj || 0);
+                  onDone();
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Guardar
+            </Button>
+          )}
+        </div>
+        {totalEstimado > 0 && (
+          <div className="text-[12.5px]">
+            <div>
+              Costes previstos + {num(cont || 0, 0)}%: <b className="tabular">{eur(conColchon)}</b>
+            </div>
+            <div>
+              Precio mínimo sugerido (margen {num(margenObj || 0, 0)}%):{" "}
+              <b className="tabular text-sage">{eur(precioSugerido)}</b>
+            </div>
+            {base > 0 && (
+              <div className={margenPrevistoPct >= (margenObj || 0) ? "text-ok" : "text-error"}>
+                Con el presu actual ({eur(base)}): margen previsto {eur(margenPrevisto)} ({num(margenPrevistoPct, 0)}%)
+                {margenPrevistoPct >= (margenObj || 0) ? " ✓" : " — por debajo del objetivo"}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {error && <p className="text-caption text-error">{error}</p>}
+    </div>
+  );
+}
+
+// Adjuntar/ver la foto del ticket de un gasto.
+function TicketBtn({ mov, oportunidadId, onDone }: { mov: Tesoreria; oportunidadId: string; onDone: () => void }) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  return (
+    <span className="inline-flex items-center gap-1">
+      {mov.ticket_url && (
+        <a
+          href={mov.ticket_url}
+          target="_blank"
+          rel="noreferrer"
+          title="Ver ticket"
+          className="rounded-sm p-1 text-sage hover:bg-beige-warm"
+        >
+          <Paperclip size={13} />
+        </a>
+      )}
+      <button
+        title={mov.ticket_url ? "Sustituir ticket" : "Adjuntar foto del ticket"}
+        disabled={busy}
+        onClick={() => inputRef.current?.click()}
+        className={`rounded-sm px-1.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.04em] ${
+          mov.ticket_url ? "text-ink-muted hover:bg-beige-warm" : "border-med border-border-strong text-ink-secondary hover:bg-beige-warm"
+        }`}
+      >
+        {busy ? "Subiendo…" : mov.ticket_url ? "↺" : "Ticket"}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,.pdf"
+        capture="environment"
+        className="hidden"
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          setBusy(true);
+          setError(null);
+          try {
+            const fd = new FormData();
+            fd.set("tesoreriaId", mov.id);
+            fd.set("oportunidadId", oportunidadId);
+            fd.set("ticket", f);
+            await adjuntarTicket(fd);
+            onDone();
+          } catch (err) {
+            setError((err as Error).message);
+            alert((err as Error).message);
+          } finally {
+            setBusy(false);
+            if (inputRef.current) inputRef.current.value = "";
+          }
+        }}
+      />
+      {error && <span className="sr-only">{error}</span>}
+    </span>
   );
 }
 
