@@ -149,10 +149,19 @@ export default function GuiaPage() {
         <ul className="list-disc space-y-1 pl-5">
           <li><b>Datos</b> — cliente, lugar, fechas, canal, IVA/retención y condiciones de pago (ej. &quot;a 30 días&quot;).</li>
           <li><b>Reuniones</b> — citas con el cliente, con hora, modalidad y botón &quot;Unirse&quot; si es online.</li>
-          <li><b>Presupuesto</b> — las líneas con precios; los totales se calculan solos.</li>
+          <li>
+            <b>Presupuesto</b> — las líneas con precios; los totales se calculan solos. Cada línea
+            tiene su <b>vía</b>: &quot;Factura&quot; (lleva IVA, contabilidad oficial) o
+            &quot;Efectivo&quot; (sin IVA, va a la vista Amigos). Así un mismo presupuesto puede ser
+            mixto: una parte con factura y otra en efectivo.
+          </li>
           <li><b>Material</b> — qué se reserva del inventario y en qué fechas (controla el stock y avisa si te pasas).</li>
           <li><b>Costes</b> — horas del equipo, desplazamientos y compras, con quién pagó cada cosa. Aquí ves el <b>margen real</b> del evento.</li>
-          <li><b>Cobros</b> — movimientos de dinero del evento y la fianza.</li>
+          <li>
+            <b>Cobros</b> — movimientos de dinero del evento y la fianza. Con el <b>plan de
+            pagos</b> apuntas los cobros previstos (fecha + importe + con/sin IVA) y aparecen en el
+            Calendario y en Tesorería.
+          </li>
         </ul>
       </Seccion>
 
