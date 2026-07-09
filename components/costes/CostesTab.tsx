@@ -195,107 +195,150 @@ export function CostesTab({
         )}
       </div>
 
-      {/* Apunte de costes tipo Excel: la misma rejilla para lo previsto (antes
-          del presu) y lo real (gastos de verdad); el interruptor decide dónde va */}
-      {!cerrada && (
-        <Bloque icon={<Zap size={15} />} titulo="Apuntar costes (tipo Excel)" total="">
-          <ApunteRapido oportunidadId={oportunidadId} equipo={equipo} onDone={r} />
-        </Bloque>
-      )}
+      {/* TODOS los costes en un solo cuadro: la rejilla de entrada arriba y,
+          debajo, Previsto y Real visiblemente separados pero juntos, con sus
+          totales actualizándose a la vez. */}
+      <div className="rounded-lg border-hair border-border bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-sage">
+            <Zap size={15} /> Costes del evento
+          </div>
+          <div className="text-[12px] text-ink-secondary">
+            Previsto <b className="tabular">{eur(estimadoConColchon)}</b>
+            <span className="mx-1.5 text-ink-muted">·</span>
+            Real <b className="tabular">{eur(costes)}</b>
+            {totalEstimado > 0 && (
+              <>
+                <span className="mx-1.5 text-ink-muted">·</span>
+                Desviación{" "}
+                <b className={`tabular ${desviacion > 0.01 ? "text-error" : "text-ok"}`}>
+                  {desviacion > 0 ? "+" : ""}
+                  {eur(desviacion)}
+                </b>
+              </>
+            )}
+          </div>
+        </div>
 
-      {/* El plan previsto: líneas estimadas, cuadre con lo real y parámetros */}
-      {(!cerrada || totalEstimado > 0) && estimadosVisibles && (
-        <Bloque
-          icon={<Calculator size={15} />}
-          titulo="Plan de costes previsto (y su cuadre)"
-          total={totalEstimado > 0 ? eur(estimadoConColchon) : "—"}
-        >
-          <EstimacionBlock
-            oportunidadId={oportunidadId}
-            estimados={estimados}
-            totalEstimado={totalEstimado}
-            contingenciaPct={contingenciaPct}
-            margenObjetivoPct={margenObjetivoPct}
-            base={base}
-            cerrada={cerrada}
-            onDone={r}
-          />
-        </Bloque>
-      )}
-
-      {/* A) Personal */}
-      <Bloque icon={<Users size={15} />} titulo="Personal (horas)" total={eur(cPersonal)}>
-        {!cerrada && <PersonalForm oportunidadId={oportunidadId} equipo={equipo} onDone={r} />}
-        {partes.length > 0 && (
-          <Tabla headers={["Persona", "Tarea", "Horas", "€/h", "Coste", ""]}>
-            {partes.map((p) => (
-              <tr key={p.id}>
-                <Td>{p.equipo?.nombre ?? "—"}</Td>
-                <Td>{p.tarea ?? "—"}</Td>
-                <Td right>{num(p.horas, 1)}</Td>
-                <Td right>{eur(p.precio_hora)}</Td>
-                <Td right bold>{eur(Number(p.horas) * Number(p.precio_hora))}</Td>
-                <Td right>{!cerrada && <Del onClick={async () => { await borrarParteHoras(p.id, oportunidadId); r(); }} />}</Td>
-              </tr>
-            ))}
-          </Tabla>
-        )}
-      </Bloque>
-
-      {/* B) Desplazamientos */}
-      <Bloque icon={<Truck size={15} />} titulo="Desplazamientos" total={eur(cDespl)}>
         {!cerrada && (
-          <DesplForm
-            oportunidadId={oportunidadId}
-            kmPrecio={kmPrecio}
-            lugar={lugar}
-            pagadores={equipo.map((e) => e.nombre)}
-            onDone={r}
-          />
+          <div className="mb-5 rounded-md border-hair border-border bg-beige-light/60 p-3">
+            <ApunteRapido oportunidadId={oportunidadId} equipo={equipo} onDone={r} />
+          </div>
         )}
-        {desplazamientos.length > 0 && (
-          <Tabla headers={["Trayecto", "Km", "Gasolina", "Peaje", "Parking", "Total", ""]}>
-            {desplazamientos.map((d) => {
-              const tot = Number(d.coste_gasolina ?? 0) + Number(d.peaje ?? 0) + Number(d.parking ?? 0);
-              return (
-                <tr key={d.id}>
-                  <Td>{d.trayecto ?? "—"}{d.ida_vuelta ? " (ida y vuelta)" : ""}</Td>
-                  <Td right>{d.km ?? "—"}</Td>
-                  <Td right>{eur(Number(d.coste_gasolina ?? 0))}</Td>
-                  <Td right>{eur(Number(d.peaje ?? 0))}</Td>
-                  <Td right>{eur(Number(d.parking ?? 0))}</Td>
-                  <Td right bold>{eur(tot)}</Td>
-                  <Td right>{!cerrada && <Del onClick={async () => { await borrarDesplazamiento(d.id, d.tesoreria_id, oportunidadId); r(); }} />}</Td>
-                </tr>
-              );
-            })}
-          </Tabla>
-        )}
-      </Bloque>
 
-      {/* C) Material / compras */}
-      <Bloque icon={<Flower2 size={15} />} titulo="Compras / material" total={eur(cMaterial)}>
-        {!cerrada && <CompraForm oportunidadId={oportunidadId} proveedores={proveedores} pagadores={equipo.map((e) => e.nombre)} onDone={r} />}
-        {compras.length > 0 && (
-          <Tabla headers={["Concepto", "Fecha", "Pagado por", "Ticket", "Importe", ""]}>
-            {compras.map((m) => (
-              <tr key={m.id}>
-                <Td>{m.concepto}</Td>
-                <Td>{fecha(m.fecha)}</Td>
-                <Td>
-                  {m.quien_lo_paga ?? "TDO"}
-                  {m.quien_lo_paga && m.estado !== "pagado" && (
-                    <span className="ml-1 text-[10.5px] font-semibold text-warn">· reembolso pdte.</span>
-                  )}
-                </Td>
-                <Td right><TicketBtn mov={m} oportunidadId={oportunidadId} onDone={r} /></Td>
-                <Td right bold>{eur(Number(m.importe))}</Td>
-                <Td right>{!cerrada && <Del onClick={async () => { await borrarCompra(m.id, oportunidadId); r(); }} />}</Td>
-              </tr>
-            ))}
-          </Tabla>
-        )}
-      </Bloque>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {/* 🧮 PREVISTO */}
+          <section className="rounded-md border-hair border-sage-tint-deep bg-sage-tint/25 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.1em] text-sage">
+                <Calculator size={14} /> Previsto (plan)
+              </span>
+              <span className="tabular text-[14px] font-semibold text-sage">
+                {totalEstimado > 0 ? eur(estimadoConColchon) : "—"}
+              </span>
+            </div>
+            {estimadosVisibles ? (
+              <EstimacionBlock
+                oportunidadId={oportunidadId}
+                estimados={estimados}
+                totalEstimado={totalEstimado}
+                contingenciaPct={contingenciaPct}
+                margenObjetivoPct={margenObjetivoPct}
+                base={base}
+                cerrada={cerrada}
+                onDone={r}
+              />
+            ) : (
+              <p className="py-2 text-[12px] text-ink-muted">
+                Sin plan todavía. Añade líneas con la rejilla de arriba en modo{" "}
+                <b>🧮 Previsto</b>: verás aquí el plan, el precio mínimo sugerido y el cuadre con lo
+                real.
+              </p>
+            )}
+          </section>
+
+          {/* ✅ REAL */}
+          <section className="rounded-md border-hair border-border p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
+                ✅ Real (contabilidad)
+              </span>
+              <span className="tabular text-[14px] font-semibold">{eur(costes)}</span>
+            </div>
+
+            <SubGrupo icon={<Users size={13} />} titulo="Personal (horas)" total={eur(cPersonal)}>
+              {!cerrada && <PersonalForm oportunidadId={oportunidadId} equipo={equipo} onDone={r} />}
+              {partes.length > 0 && (
+                <Tabla headers={["Persona", "Tarea", "Horas", "€/h", "Coste", ""]}>
+                  {partes.map((p) => (
+                    <tr key={p.id}>
+                      <Td>{p.equipo?.nombre ?? "—"}</Td>
+                      <Td>{p.tarea ?? "—"}</Td>
+                      <Td right>{num(p.horas, 1)}</Td>
+                      <Td right>{eur(p.precio_hora)}</Td>
+                      <Td right bold>{eur(Number(p.horas) * Number(p.precio_hora))}</Td>
+                      <Td right>{!cerrada && <Del onClick={async () => { await borrarParteHoras(p.id, oportunidadId); r(); }} />}</Td>
+                    </tr>
+                  ))}
+                </Tabla>
+              )}
+            </SubGrupo>
+
+            <SubGrupo icon={<Truck size={13} />} titulo="Desplazamientos" total={eur(cDespl)}>
+              {!cerrada && (
+                <DesplForm
+                  oportunidadId={oportunidadId}
+                  kmPrecio={kmPrecio}
+                  lugar={lugar}
+                  pagadores={equipo.map((e) => e.nombre)}
+                  onDone={r}
+                />
+              )}
+              {desplazamientos.length > 0 && (
+                <Tabla headers={["Trayecto", "Km", "Gasolina", "Peaje", "Parking", "Total", ""]}>
+                  {desplazamientos.map((d) => {
+                    const tot = Number(d.coste_gasolina ?? 0) + Number(d.peaje ?? 0) + Number(d.parking ?? 0);
+                    return (
+                      <tr key={d.id}>
+                        <Td>{d.trayecto ?? "—"}{d.ida_vuelta ? " (ida y vuelta)" : ""}</Td>
+                        <Td right>{d.km ?? "—"}</Td>
+                        <Td right>{eur(Number(d.coste_gasolina ?? 0))}</Td>
+                        <Td right>{eur(Number(d.peaje ?? 0))}</Td>
+                        <Td right>{eur(Number(d.parking ?? 0))}</Td>
+                        <Td right bold>{eur(tot)}</Td>
+                        <Td right>{!cerrada && <Del onClick={async () => { await borrarDesplazamiento(d.id, d.tesoreria_id, oportunidadId); r(); }} />}</Td>
+                      </tr>
+                    );
+                  })}
+                </Tabla>
+              )}
+            </SubGrupo>
+
+            <SubGrupo icon={<Flower2 size={13} />} titulo="Compras / material" total={eur(cMaterial)}>
+              {!cerrada && <CompraForm oportunidadId={oportunidadId} proveedores={proveedores} pagadores={equipo.map((e) => e.nombre)} onDone={r} />}
+              {compras.length > 0 && (
+                <Tabla headers={["Concepto", "Fecha", "Pagado por", "Ticket", "Importe", ""]}>
+                  {compras.map((m) => (
+                    <tr key={m.id}>
+                      <Td>{m.concepto}</Td>
+                      <Td>{fecha(m.fecha)}</Td>
+                      <Td>
+                        {m.quien_lo_paga ?? "TDO"}
+                        {m.quien_lo_paga && m.estado !== "pagado" && (
+                          <span className="ml-1 text-[10.5px] font-semibold text-warn">· reembolso pdte.</span>
+                        )}
+                      </Td>
+                      <Td right><TicketBtn mov={m} oportunidadId={oportunidadId} onDone={r} /></Td>
+                      <Td right bold>{eur(Number(m.importe))}</Td>
+                      <Td right>{!cerrada && <Del onClick={async () => { await borrarCompra(m.id, oportunidadId); r(); }} />}</Td>
+                    </tr>
+                  ))}
+                </Tabla>
+              )}
+            </SubGrupo>
+          </section>
+        </div>
+      </div>
 
       {/* Botón de cierre post-evento */}
       {!cerrada && (
@@ -618,8 +661,16 @@ function EstimacionBlock({
               <Td right bold>{eur(Number(e.importe))}</Td>
               <Td right>
                 {e.cuadrado ? (
-                  <span className="inline-flex items-center gap-1 rounded-pill bg-ok-tint px-2 py-0.5 text-[10.5px] font-semibold text-ok">
-                    ✓ En reales
+                  <span className="inline-flex flex-col items-end gap-0.5">
+                    <span className="inline-flex items-center gap-1 rounded-pill bg-ok-tint px-2 py-0.5 text-[10.5px] font-semibold text-ok">
+                      ✓ {eur(Number(e.importe_real ?? e.importe))}
+                    </span>
+                    {e.importe_real != null && Math.abs(Number(e.importe_real) - Number(e.importe)) > 0.01 && (
+                      <span className={`text-[10px] tabular ${Number(e.importe_real) > Number(e.importe) ? "text-error" : "text-ok"}`}>
+                        {Number(e.importe_real) > Number(e.importe) ? "+" : ""}
+                        {eur(Number(e.importe_real) - Number(e.importe))} vs previsto
+                      </span>
+                    )}
                   </span>
                 ) : cerrada ? (
                   <span className="text-[11px] text-ink-muted">—</span>
@@ -787,6 +838,21 @@ function Kpi({ label, v, tone }: { label: string; v: string; tone: string }) {
 function Leg({ color, t }: { color: string; t: string }) {
   return <span className="inline-flex items-center gap-1"><span className={`h-2 w-2 rounded-full ${color}`} />{t}</span>;
 }
+// Subgrupo dentro del panel Real: cabecera fina con icono y subtotal.
+function SubGrupo({ icon, titulo, total, children }: { icon: React.ReactNode; titulo: string; total: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-4 border-t border-border pt-3 first:mt-0 first:border-t-0 first:pt-0">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+          {icon} {titulo}
+        </span>
+        <span className="tabular text-[12.5px] font-semibold">{total}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function Bloque({ icon, titulo, total, children }: { icon: React.ReactNode; titulo: string; total: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border-hair border-border bg-white p-4 shadow-sm">
