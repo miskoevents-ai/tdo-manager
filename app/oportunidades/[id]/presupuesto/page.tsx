@@ -6,25 +6,50 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import { SetupNotice } from "@/components/SetupNotice";
 import { PrintButton } from "@/components/presupuesto/PrintButton";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidad } from "@/lib/data";
+import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
 import { EMPRESA, CONDICIONES_PRESUPUESTO } from "@/lib/empresa";
 import { TIPO_EVENTO_LABEL, CLIENTE_TIPO_LABEL } from "@/lib/estados";
+import type { PresupuestoLinea } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ v?: string }>;
+}) {
   if (!supabaseConfigurado()) return <SetupNotice />;
   const { id } = await params;
+  const { v } = (await searchParams) ?? {};
   const op = await getOportunidad(id);
   if (!op) notFound();
 
-  const lineas = op.presupuesto_lineas ?? [];
+  // ?v=<id> pinta una versión guardada (V1, V2…) en vez del presupuesto vivo.
+  const version = v ? await getVersionPresupuesto(v) : null;
+  if (v && (!version || version.oportunidad_id !== op.id)) notFound();
+
+  const lineas: PresupuestoLinea[] = version
+    ? version.lineas.map((l, i) => ({
+        id: String(i),
+        oportunidad_id: op.id,
+        concepto: l.concepto,
+        cantidad: Number(l.cantidad),
+        precio_unitario: Number(l.precio_unitario),
+        orden: i,
+        bloque: l.bloque ?? null,
+        via: l.via ?? "factura",
+      }))
+    : op.presupuesto_lineas ?? [];
+  const ivaPct = version ? Number(version.iva_pct) : op.iva_pct;
+  const retPct = version ? Number(version.retencion_pct) : op.retencion_pct;
   const t = calcularTotales(
     lineas.map((l) => ({ cantidad: l.cantidad, precio_unitario: l.precio_unitario, via: l.via ?? "factura" })),
-    op.iva_pct,
-    op.retencion_pct,
+    ivaPct,
+    retPct,
   );
   const cli = op.cliente;
   const esAlquiler = op.serie === "alquiler_encargo";
@@ -61,6 +86,13 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </div>
       </div>
 
+      {version && (
+        <div className="no-print rounded-md border-hair border-[#e7d3a6] bg-warn-tint px-[15px] py-[10px] text-[12.5px] text-[#7a5a1a]">
+          Estás viendo la <b>V{version.version}</b> guardada el {fecha(version.created_at)}
+          {version.notas ? ` («${version.notas}»)` : ""}. El presupuesto actual puede ser distinto.
+        </div>
+      )}
+
       {/* Documento */}
       <div className="print-doc rounded-lg border-hair border-border bg-white p-8 shadow-sm md:p-12">
         {/* Cabecera */}
@@ -81,8 +113,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             <div className="font-display text-[26px] leading-none text-sage">{docLabel}</div>
             <div className="mt-2 text-[12px] text-ink-secondary">
               Nº <span className="font-semibold">{op.numero}</span>
+              {version && <span className="font-semibold"> · V{version.version}</span>}
             </div>
-            <div className="text-[12px] text-ink-secondary">Fecha: {fecha(op.fecha_entrada ?? op.created_at)}</div>
+            <div className="text-[12px] text-ink-secondary">
+              Fecha: {fecha(version ? version.created_at : op.fecha_entrada ?? op.created_at)}
+            </div>
             {op.fecha_evento && (
               <div className="text-[12px] text-ink-secondary">
                 {esAlquiler ? "Alquiler" : "Evento"}: {fecha(op.fecha_evento)}
@@ -177,8 +212,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         <div className="mt-4 flex justify-end">
           <div className="w-full max-w-[280px] space-y-1.5 text-[13px]">
             <Row label="Base imponible" value={eur(t.baseFactura)} />
-            <Row label={`IVA (${op.iva_pct}%)`} value={eur(t.iva)} />
-            {t.retencion > 0 && <Row label={`Retención IRPF (−${op.retencion_pct}%)`} value={`−${eur(t.retencion)}`} />}
+            <Row label={`IVA (${ivaPct}%)`} value={eur(t.iva)} />
+            {t.retencion > 0 && <Row label={`Retención IRPF (−${retPct}%)`} value={`−${eur(t.retencion)}`} />}
             {t.efectivo > 0 && (
               <>
                 <Row label="Total con factura" value={eur(t.totalFactura)} />

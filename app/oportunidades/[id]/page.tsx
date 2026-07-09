@@ -9,6 +9,7 @@ import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor"
 import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { PlanPagos, BorrarPrevistoBtn } from "@/components/oportunidades/PlanPagos";
+import { VersionesPresupuesto } from "@/components/oportunidades/VersionesPresupuesto";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -26,6 +27,7 @@ import {
   getProveedores,
   getKmPrecio,
   getFacturaDeOportunidad,
+  getVersionesPresupuesto,
 } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
@@ -57,7 +59,7 @@ export default async function Page({
   const TABS = ["datos", "reuniones", "presupuesto", "material", "costes", "cobros"];
   const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
-  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura] =
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones] =
     await Promise.all([
       getOportunidad(id),
       getClientes(),
@@ -72,6 +74,7 @@ export default async function Page({
       getKmPrecio(),
       getReunionesDeOportunidad(id),
       getFacturaDeOportunidad(id),
+      getVersionesPresupuesto(id),
     ]);
   if (!op) notFound();
 
@@ -260,6 +263,16 @@ export default async function Page({
                 articulo: i.articulo,
                 precio_alquiler: i.precio_alquiler,
                 fianza_sugerida: i.fianza_sugerida,
+              }))}
+            />
+            <VersionesPresupuesto
+              oportunidadId={op.id}
+              versiones={versiones.map((v) => ({
+                id: v.id,
+                version: v.version,
+                notas: v.notas,
+                total: Number(v.total),
+                created_at: v.created_at,
               }))}
             />
           </Card>

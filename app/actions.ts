@@ -1028,6 +1028,117 @@ export async function generarGastosDelMes(
   return { creados: nuevos.length, existentes: activos.length - nuevos.length };
 }
 
+// ---------------------- Versiones de presupuesto ----------------------
+
+// Guarda el presupuesto actual como una versión (V1, V2…): foto fija de las
+// líneas para conservar lo que se envió al cliente y poder volver atrás.
+export async function guardarVersionPresupuesto(oportunidadId: string, notas: string | null) {
+  const sb = createAdminClient();
+  const { data: op, error } = await sb
+    .from("oportunidades")
+    .select("id, iva_pct, retencion_pct, presupuesto_lineas(*)")
+    .eq("id", oportunidadId)
+    .single();
+  if (error) throw new Error(error.message);
+
+  const lineas = (op.presupuesto_lineas ?? [])
+    .slice()
+    .sort((a: { orden?: number }, b: { orden?: number }) => (a.orden ?? 0) - (b.orden ?? 0))
+    .map((l: LineaInput & { bloque?: string | null }) => ({
+      concepto: l.concepto,
+      cantidad: Number(l.cantidad),
+      precio_unitario: Number(l.precio_unitario),
+      bloque: l.bloque ?? null,
+      via: l.via === "efectivo" ? "efectivo" : "factura",
+    }));
+  if (!lineas.length) throw new Error("El presupuesto no tiene líneas que guardar.");
+
+  const t = calcularTotales(lineas, op.iva_pct, op.retencion_pct);
+  const { data: vers } = await sb
+    .from("presupuesto_versiones")
+    .select("version")
+    .eq("oportunidad_id", oportunidadId)
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const version = (vers?.version ?? 0) + 1;
+
+  const { error: insErr } = await sb.from("presupuesto_versiones").insert({
+    oportunidad_id: oportunidadId,
+    version,
+    notas: notas?.trim() || null,
+    iva_pct: op.iva_pct,
+    retencion_pct: op.retencion_pct,
+    lineas,
+    total: t.total,
+  });
+  if (insErr) {
+    if (insErr.code === "42P01" || /does not exist/i.test(insErr.message)) {
+      throw new Error("Falta ejecutar la migración 019 (tabla presupuesto_versiones) en Supabase.");
+    }
+    throw new Error(insErr.message);
+  }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  return version;
+}
+
+// Vuelve a una versión guardada: sustituye las líneas vivas del presupuesto
+// por las de la versión (antes de pisar nada conviene guardar la actual).
+export async function restaurarVersionPresupuesto(versionId: string) {
+  const sb = createAdminClient();
+  const { data: v, error } = await sb
+    .from("presupuesto_versiones")
+    .select("*")
+    .eq("id", versionId)
+    .single();
+  if (error) throw new Error(error.message);
+
+  const { error: delErr } = await sb
+    .from("presupuesto_lineas")
+    .delete()
+    .eq("oportunidad_id", v.oportunidad_id);
+  if (delErr) throw new Error(delErr.message);
+
+  const lineas = (v.lineas ?? []) as {
+    concepto: string;
+    cantidad: number;
+    precio_unitario: number;
+    bloque?: string | null;
+    via?: string | null;
+  }[];
+  if (lineas.length) {
+    const { error: insErr } = await sb.from("presupuesto_lineas").insert(
+      lineas.map((l, i) => ({
+        oportunidad_id: v.oportunidad_id,
+        concepto: l.concepto,
+        cantidad: l.cantidad,
+        precio_unitario: l.precio_unitario,
+        bloque: l.bloque ?? null,
+        via: l.via === "efectivo" ? "efectivo" : "factura",
+        orden: i,
+      })),
+    );
+    if (insErr) throw new Error(insErr.message);
+  }
+  await sb
+    .from("oportunidades")
+    .update({ iva_pct: v.iva_pct, retencion_pct: v.retencion_pct })
+    .eq("id", v.oportunidad_id);
+  revalidatePath(`/oportunidades/${v.oportunidad_id}`);
+}
+
+export async function borrarVersionPresupuesto(versionId: string) {
+  const sb = createAdminClient();
+  const { data: v, error } = await sb
+    .from("presupuesto_versiones")
+    .delete()
+    .eq("id", versionId)
+    .select("oportunidad_id")
+    .single();
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${v.oportunidad_id}`);
+}
+
 // --------------------------- Facturas ---------------------------
 
 // Emite una factura a partir de una oportunidad (congela los importes).
@@ -1221,6 +1332,10 @@ export async function crearFactura(input: {
     localidad: string;
     email: string;
   } | null;
+  // Completa a mano los datos fiscales de un cliente existente que no los tenga.
+  fiscalPatch?: { nif: string; direccion: string; localidad: string } | null;
+  // Presupuesto de origen: la factura queda enlazada a su oportunidad.
+  oportunidadId?: string | null;
   numero: string | null;
   fechaEmision: string;
   fechaVencimiento: string | null;
@@ -1273,6 +1388,19 @@ export async function crearFactura(input: {
   }
   if (!clienteId) throw new Error("Elige un cliente o da de alta uno nuevo.");
 
+  // Datos fiscales completados a mano sobre un cliente existente.
+  if (input.clienteId && input.fiscalPatch) {
+    const fp = input.fiscalPatch;
+    const patch: Record<string, string> = {};
+    if (fp.nif?.trim()) patch.nif_cif = fp.nif.trim();
+    if (fp.direccion?.trim()) patch.direccion = fp.direccion.trim();
+    if (fp.localidad?.trim()) patch.localidad = fp.localidad.trim();
+    if (Object.keys(patch).length) {
+      const { error: fpErr } = await sb.from("clientes").update(patch).eq("id", input.clienteId);
+      if (fpErr) throw new Error(fpErr.message);
+    }
+  }
+
   // Número: manual (comprobando que no exista) o el siguiente de la serie AANNN.
   let numero = input.numero?.trim() || "";
   if (numero) {
@@ -1298,6 +1426,7 @@ export async function crearFactura(input: {
     .insert({
       numero,
       cliente_id: clienteId,
+      oportunidad_id: input.oportunidadId || null,
       fecha_emision: input.fechaEmision,
       fecha_vencimiento: input.fechaVencimiento || null,
       base_imponible: t.baseFactura,
@@ -1326,6 +1455,7 @@ export async function crearFactura(input: {
     fecha: fechaCobroFactura,
     estado: input.cobradaFactura ? "cobrado" : "previsto",
     cliente_id: clienteId,
+    oportunidad_id: input.oportunidadId || null,
     factura_id: facturaId,
     computa_contabilidad: true,
   });
@@ -1342,10 +1472,22 @@ export async function crearFactura(input: {
       fecha: input.cobradoEfectivo ? input.fechaEmision : fechaCobroFactura,
       estado: input.cobradoEfectivo ? "cobrado" : "previsto",
       cliente_id: clienteId,
+      oportunidad_id: input.oportunidadId || null,
       factura_id: facturaId,
       computa_contabilidad: false,
     });
     if (efErr) throw new Error(efErr.message);
+  }
+
+  // Si viene de una oportunidad confirmada/realizada, pasa a "facturada".
+  if (input.oportunidadId) {
+    await sb
+      .from("oportunidades")
+      .update({ estado: "facturada" })
+      .eq("id", input.oportunidadId)
+      .in("estado", ["confirmada", "realizada"]);
+    revalidatePath(`/oportunidades/${input.oportunidadId}`);
+    revalidatePath("/oportunidades");
   }
 
   revalidatePath("/facturas");

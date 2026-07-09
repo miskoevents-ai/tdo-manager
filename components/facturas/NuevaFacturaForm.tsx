@@ -19,6 +19,20 @@ type ClienteLite = {
 
 type Linea = { concepto: string; cantidad: number; precio_unitario: number; via: string };
 
+// Presupuesto de partida: precarga cliente, líneas e impuestos de una
+// oportunidad para facturar sin re-teclear (todo sigue siendo editable).
+export type PresupuestoOrigen = {
+  oportunidadId: string;
+  numero: string | null;
+  titulo: string;
+  clienteId: string | null;
+  clienteNombre: string | null;
+  ivaPct: number;
+  retPct: number;
+  total: number;
+  lineas: Linea[];
+};
+
 const LINEA_VACIA: Linea = { concepto: "", cantidad: 1, precio_unitario: 0, via: "factura" };
 
 // Herramienta para crear una factura a mano, sin pasar por una oportunidad.
@@ -26,14 +40,17 @@ const LINEA_VACIA: Linea = { concepto: "", cantidad: 1, precio_unitario: 0, via:
 // como parte interna y van a la contabilidad de amigos.
 export function NuevaFacturaForm({
   clientes,
+  presupuestos,
   numeroSugerido,
   hoy,
 }: {
   clientes: ClienteLite[];
+  presupuestos: PresupuestoOrigen[];
   numeroSugerido: string;
   hoy: string;
 }) {
   const router = useRouter();
+  const [origenId, setOrigenId] = React.useState("");
   const [clienteId, setClienteId] = React.useState("");
   const nuevoCliente = clienteId === "__nuevo__";
   const [nc, setNc] = React.useState({
@@ -53,6 +70,8 @@ export function NuevaFacturaForm({
   const [cobradaFactura, setCobradaFactura] = React.useState(false);
   const [cobradoEfectivo, setCobradoEfectivo] = React.useState(false);
   const [notas, setNotas] = React.useState("");
+  // Datos fiscales completados a mano para un cliente existente sin NIF.
+  const [fiscal, setFiscal] = React.useState({ nif: "", direccion: "", localidad: "" });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -60,9 +79,21 @@ export function NuevaFacturaForm({
 
   const clienteSel = clientes.find((c) => c.id === clienteId);
   const esEmpresa = nuevoCliente ? nc.tipo === "empresa" : clienteSel?.tipo === "empresa";
+  const faltaNif = Boolean(clienteSel) && !clienteSel?.nif_cif;
 
   function setLinea(i: number, patch: Partial<Linea>) {
     setLineas((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  }
+
+  // Precarga desde un presupuesto: cliente, líneas (con su vía) e impuestos.
+  function cargarPresupuesto(id: string) {
+    setOrigenId(id);
+    const p = presupuestos.find((x) => x.oportunidadId === id);
+    if (!p) return;
+    setClienteId(p.clienteId ?? "");
+    setIva(p.ivaPct);
+    setRet(p.retPct);
+    setLineas(p.lineas.length ? p.lineas.map((l) => ({ ...l })) : [{ ...LINEA_VACIA }]);
   }
 
   async function guardar() {
@@ -72,6 +103,8 @@ export function NuevaFacturaForm({
       const id = await crearFactura({
         clienteId: nuevoCliente ? null : clienteId || null,
         nuevoCliente: nuevoCliente ? nc : null,
+        fiscalPatch: !nuevoCliente && faltaNif ? fiscal : null,
+        oportunidadId: origenId || null,
         numero: numero.trim() || null,
         fechaEmision,
         fechaVencimiento: fechaVencimiento || null,
@@ -91,6 +124,30 @@ export function NuevaFacturaForm({
 
   return (
     <div className="space-y-5">
+      {/* Punto de partida: un presupuesto ya preparado */}
+      {presupuestos.length > 0 && (
+        <Card>
+          <Overline className="!mt-0 mb-3">Partir de un presupuesto</Overline>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Presupuesto de origen (opcional)">
+              <Select value={origenId} onChange={(e) => cargarPresupuesto(e.target.value)}>
+                <option value="">— Empezar de cero —</option>
+                {presupuestos.map((p) => (
+                  <option key={p.oportunidadId} value={p.oportunidadId}>
+                    {p.numero ?? "s/n"} · {p.titulo}
+                    {p.clienteNombre ? ` · ${p.clienteNombre}` : ""} · {eur(p.total)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <p className="self-end pb-2 text-[11.5px] text-ink-muted">
+              Precarga cliente, líneas (con su vía) e impuestos del presupuesto enviado. Luego
+              puedes editar lo que haga falta.
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* Cliente y datos fiscales */}
       <Card>
         <Overline className="!mt-0 mb-3">Cliente</Overline>
@@ -107,12 +164,26 @@ export function NuevaFacturaForm({
               <option value="__nuevo__">➕ Nuevo cliente…</option>
             </Select>
           </Field>
-          {clienteSel && !clienteSel.nif_cif && (
-            <p className="self-end pb-2 text-[11.5px] text-warn">
-              Este cliente no tiene NIF guardado — añádelo en Clientes para que salga en la factura.
-            </p>
-          )}
         </div>
+        {faltaNif && (
+          <div className="mt-3 rounded-md border-hair border-[#e7d3a6] bg-warn-tint p-4">
+            <p className="mb-2 text-[11.5px] font-semibold text-[#7a5a1a]">
+              A este cliente le faltan los datos fiscales — complétalos aquí y se guardan en su
+              ficha:
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="NIF / CIF">
+                <Input value={fiscal.nif} onChange={(e) => setFiscal({ ...fiscal, nif: e.target.value })} placeholder="B12345678" />
+              </Field>
+              <Field label="Dirección">
+                <Input value={fiscal.direccion} onChange={(e) => setFiscal({ ...fiscal, direccion: e.target.value })} />
+              </Field>
+              <Field label="Localidad">
+                <Input value={fiscal.localidad} onChange={(e) => setFiscal({ ...fiscal, localidad: e.target.value })} />
+              </Field>
+            </div>
+          </div>
+        )}
         {nuevoCliente && (
           <div className="mt-3 grid grid-cols-1 gap-3 rounded-md border-hair border-sage-tint-deep bg-sage-tint/40 p-4 sm:grid-cols-3">
             <Field label="Nombre / Razón social">
