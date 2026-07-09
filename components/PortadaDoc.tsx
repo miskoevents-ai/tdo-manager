@@ -19,7 +19,7 @@ export function PortadaDoc({
     <img
       src={actual}
       alt={alt}
-      className="h-[190px] w-full object-cover"
+      className="h-auto w-full"
       onError={() => {
         if (actual !== fallback) setActual(fallback);
       }}
