@@ -211,7 +211,7 @@ export default async function Page({
                           <img
                             src={portadaUrl(l.foto ?? null)!}
                             alt=""
-                            className="h-[42px] w-[42px] shrink-0 rounded-sm object-cover"
+                            className="h-[64px] w-[64px] shrink-0 rounded-md object-cover"
                           />
                         )}
                         {l.concepto}
