@@ -124,7 +124,10 @@ export type CosteEstimado = {
   id: string;
   oportunidad_id: string;
   concepto: string;
-  importe: number;
+  importe: number; // total de la línea (cantidad × precio unitario)
+  cantidad?: number | null;
+  precio_unitario?: number | null;
+  categoria?: string | null; // material | personal | desplazamiento | otro
   created_at: string;
 };
 
@@ -264,6 +267,7 @@ export type ParteHoras = {
   notas: string | null;
   created_at: string;
   equipo?: { nombre: string } | null;
+  oportunidad?: { numero: string | null; titulo: string } | null;
 };
 
 export type Desplazamiento = {
