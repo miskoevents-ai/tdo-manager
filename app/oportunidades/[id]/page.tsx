@@ -8,6 +8,7 @@ import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog"
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
 import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
+import { PlanPagos, BorrarPrevistoBtn } from "@/components/oportunidades/PlanPagos";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -96,6 +97,7 @@ export default async function Page({
     (op.presupuesto_lineas ?? []).map((l) => ({
       cantidad: l.cantidad,
       precio_unitario: l.precio_unitario,
+      via: l.via ?? "factura",
     })),
     op.iva_pct,
     op.retencion_pct,
@@ -302,25 +304,49 @@ export default async function Page({
                 className="flex items-center justify-between border-t border-border py-[10px] text-[13px] first:border-t-0"
               >
                 <div className="flex flex-col gap-0.5">
-                  <span>{c.concepto}</span>
+                  <span>
+                    {c.concepto}
+                    {c.naturaleza === "amigos" && (
+                      <span className="ml-1.5 rounded-sm bg-clay-tint px-1.5 py-0.5 text-[10px] font-semibold text-clay">
+                        sin IVA
+                      </span>
+                    )}
+                  </span>
                   <small className="text-[11.5px] text-ink-muted">
                     {fecha(c.fecha)} · {c.metodo ?? "—"} ·{" "}
                     {c.estado === "cobrado" ? "Cobrado" : c.estado}
                   </small>
                 </div>
-                <span
-                  className={`tabular font-semibold ${
-                    c.tipo === "ingreso" ? "text-ok" : "text-error"
-                  }`}
-                >
-                  {c.tipo === "ingreso" ? "+" : "−"}
-                  {eur(Number(c.importe))}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`tabular font-semibold ${
+                      c.tipo === "ingreso" ? "text-ok" : "text-error"
+                    }`}
+                  >
+                    {c.tipo === "ingreso" ? "+" : "−"}
+                    {eur(Number(c.importe))}
+                  </span>
+                  {c.estado === "previsto" && c.tipo === "ingreso" && (
+                    <BorrarPrevistoBtn id={c.id} oportunidadId={op.id} />
+                  )}
+                </div>
               </div>
             ))}
             <div className="mt-3 flex justify-between border-t-2 border-ink pt-2 text-[14px] font-semibold">
               <span>Pendiente de cobro</span>
               <span className="tabular text-error">{eur(pendiente)}</span>
+            </div>
+            <div className="mt-4 border-t border-border pt-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <Overline className="!mt-0">Plan de pagos</Overline>
+                {t.efectivo > 0 && (
+                  <span className="text-[11.5px] text-ink-muted">
+                    Presupuesto mixto: {eur(t.totalFactura)} con factura + {eur(t.efectivo)} en
+                    efectivo (sin IVA)
+                  </span>
+                )}
+              </div>
+              <PlanPagos oportunidadId={op.id} />
             </div>
           </Card>
         </TabsContent>

@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   const lineas = op.presupuesto_lineas ?? [];
   const t = calcularTotales(
-    lineas.map((l) => ({ cantidad: l.cantidad, precio_unitario: l.precio_unitario })),
+    lineas.map((l) => ({ cantidad: l.cantidad, precio_unitario: l.precio_unitario, via: l.via ?? "factura" })),
     op.iva_pct,
     op.retencion_pct,
   );
@@ -145,7 +145,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 )}
                 {g.lineas.map((l) => (
                   <tr key={l.id}>
-                    <td className="border-b border-[#f0eae1] px-3 py-2">{l.concepto}</td>
+                    <td className="border-b border-[#f0eae1] px-3 py-2">
+                      {l.concepto}
+                      {l.via === "efectivo" && (
+                        <span className="ml-1 text-[10.5px] text-ink-muted">(sin IVA)</span>
+                      )}
+                    </td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{l.cantidad}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{eur(l.precio_unitario)}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
@@ -171,9 +176,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         {/* Totales */}
         <div className="mt-4 flex justify-end">
           <div className="w-full max-w-[280px] space-y-1.5 text-[13px]">
-            <Row label="Base imponible" value={eur(t.base)} />
+            <Row label="Base imponible" value={eur(t.baseFactura)} />
             <Row label={`IVA (${op.iva_pct}%)`} value={eur(t.iva)} />
             {t.retencion > 0 && <Row label={`Retención IRPF (−${op.retencion_pct}%)`} value={`−${eur(t.retencion)}`} />}
+            {t.efectivo > 0 && (
+              <>
+                <Row label="Total con factura" value={eur(t.totalFactura)} />
+                <Row label="Conceptos sin IVA" value={eur(t.efectivo)} />
+              </>
+            )}
             <div className="flex justify-between border-t-2 border-sage pt-2 font-display text-[19px] text-sage">
               <span>TOTAL</span>
               <span className="tabular">{eur(t.total)}</span>

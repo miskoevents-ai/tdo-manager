@@ -17,6 +17,7 @@ function totalOp(o: Oportunidad): number {
     (o.presupuesto_lineas ?? []).map((l) => ({
       cantidad: l.cantidad,
       precio_unitario: l.precio_unitario,
+      via: l.via ?? "factura",
     })),
     o.iva_pct,
     o.retencion_pct,

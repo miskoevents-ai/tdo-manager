@@ -10,7 +10,7 @@ import { calcularTotales } from "@/lib/calc";
 import { eur, num, normaliza } from "@/lib/format";
 import type { PresupuestoLinea } from "@/lib/types";
 
-type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null };
+type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null };
 
 // Bloques sugeridos (los de los presupuestos reales); se puede escribir otro.
 const BLOQUES_SUGERIDOS = ["Decoración", "Alquiler de material", "Flores", "Transporte y montaje"];
@@ -45,8 +45,9 @@ export function PresupuestoEditor({
           precio_unitario: Number(l.precio_unitario),
           articulo_id: l.articulo_id ?? null,
           bloque: l.bloque ?? null,
+          via: l.via ?? "factura",
         }))
-      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: null }],
+      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: null, via: "factura" }],
   );
   const [iva, setIva] = React.useState(ivaPct);
   const [ret, setRet] = React.useState(retPct);
@@ -62,7 +63,14 @@ export function PresupuestoEditor({
     // La línea nueva hereda el bloque de la última (lo normal es seguir en él).
     setFilas((f) => [
       ...f,
-      { concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: f[f.length - 1]?.bloque ?? null },
+      {
+        concepto: "",
+        cantidad: 1,
+        precio_unitario: 0,
+        articulo_id: null,
+        bloque: f[f.length - 1]?.bloque ?? null,
+        via: f[f.length - 1]?.via ?? "factura",
+      },
     ]);
   }
   function delFila(i: number) {
@@ -76,6 +84,7 @@ export function PresupuestoEditor({
       precio_unitario: Number(it.precio_alquiler ?? 0),
       articulo_id: it.id,
       bloque: null,
+      via: "factura",
     };
     setFilas((f) => {
       const soloVacia = f.length === 1 && !f[0].concepto.trim() && !f[0].articulo_id;
@@ -118,6 +127,7 @@ export function PresupuestoEditor({
               <th className="w-[70px] border-b border-border py-2 text-right font-semibold">Cant.</th>
               <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Precio €</th>
               <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Subtotal</th>
+              <th className="w-[96px] border-b border-border py-2 pl-2 text-left font-semibold">Vía</th>
               <th className="w-[36px] border-b border-border py-2"></th>
             </tr>
           </thead>
@@ -168,6 +178,19 @@ export function PresupuestoEditor({
                 </td>
                 <td className="border-b border-[#f0eae1] py-1.5 text-right text-[13px] tabular font-semibold">
                   {eur(f.cantidad * f.precio_unitario)}
+                </td>
+                <td className="border-b border-[#f0eae1] py-1.5 pl-2">
+                  <select
+                    value={f.via ?? "factura"}
+                    onChange={(e) => setFila(i, { via: e.target.value })}
+                    title="Con factura (lleva IVA) o efectivo (sin IVA, contabilidad de amigos)"
+                    className={`w-full rounded-sm border-med border-border bg-white px-1.5 py-2 text-[11.5px] focus:outline-none ${
+                      f.via === "efectivo" ? "font-semibold text-clay" : "text-ink-secondary"
+                    }`}
+                  >
+                    <option value="factura">Factura</option>
+                    <option value="efectivo">Efectivo</option>
+                  </select>
                 </td>
                 <td className="border-b border-[#f0eae1] py-1.5 text-center">
                   <button
@@ -242,8 +265,10 @@ export function PresupuestoEditor({
 
         <div className="w-full md:w-[280px]">
           <div className="flex justify-between border-t border-border py-2 text-[13px]">
-            <span className="text-ink-secondary">Base imponible</span>
-            <span className="tabular font-semibold">{eur(totales.base)}</span>
+            <span className="text-ink-secondary">
+              {totales.efectivo > 0 ? "Base facturable" : "Base imponible"}
+            </span>
+            <span className="tabular font-semibold">{eur(totales.baseFactura)}</span>
           </div>
           <div className="flex justify-between py-1 text-[13px]">
             <span className="text-ink-secondary">IVA ({num(iva, 0)}%)</span>
@@ -254,6 +279,18 @@ export function PresupuestoEditor({
               <span className="text-ink-secondary">Retención (−{num(ret, 0)}%)</span>
               <span className="tabular text-error">−{eur(totales.retencion)}</span>
             </div>
+          )}
+          {totales.efectivo > 0 && (
+            <>
+              <div className="flex justify-between border-t border-border py-1.5 text-[13px]">
+                <span className="text-ink-secondary">Total factura</span>
+                <span className="tabular">{eur(totales.totalFactura)}</span>
+              </div>
+              <div className="flex justify-between py-1 text-[13px]">
+                <span className="text-clay">Efectivo (sin IVA)</span>
+                <span className="tabular font-semibold text-clay">{eur(totales.efectivo)}</span>
+              </div>
+            </>
           )}
           <div className="flex justify-between border-t-2 border-ink pt-2 font-display text-[17px] font-bold">
             <span>Total</span>

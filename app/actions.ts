@@ -224,7 +224,7 @@ export async function toggleFianzaDevuelta(id: string, devuelta: boolean) {
   revalidatePath("/");
 }
 
-type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null };
+type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null };
 
 // Reemplaza todas las líneas de la oportunidad (borrar + insertar) y guarda IVA/retención.
 export async function guardarLineas(
@@ -260,6 +260,7 @@ export async function guardarLineas(
       orden: i,
       articulo_id: l.articulo_id ?? null,
       bloque: l.bloque?.trim() || null,
+      via: l.via === "efectivo" ? "efectivo" : "factura",
     }));
     const { error } = await sb.from("presupuesto_lineas").insert(rows);
     if (error) throw new Error(error.message);
@@ -1041,6 +1042,7 @@ export async function emitirFactura(oportunidadId: string) {
     (op.presupuesto_lineas ?? []).map((l: LineaInput) => ({
       cantidad: l.cantidad,
       precio_unitario: l.precio_unitario,
+      via: l.via ?? "factura",
     })),
     op.iva_pct,
     op.retencion_pct,
@@ -1052,15 +1054,21 @@ export async function emitirFactura(oportunidadId: string) {
   const vence = new Date(hoyMadrid + "T00:00:00Z");
   vence.setUTCDate(vence.getUTCDate() + (plazoPago > 0 ? plazoPago : 0));
 
+  // La factura solo recoge la parte facturable (las líneas por vía efectivo
+  // van a la contabilidad de amigos, sin IVA).
+  if (t.baseFactura <= 0) {
+    throw new Error("Este presupuesto no tiene líneas facturables (todo va por efectivo).");
+  }
+
   const fechaVencimiento = vence.toISOString().slice(0, 10);
   const { error: insErr } = await sb.from("facturas").insert({
     numero: op.numero,
     oportunidad_id: op.id,
     cliente_id: op.cliente_id,
-    base_imponible: t.base,
+    base_imponible: t.baseFactura,
     iva: t.iva,
     retencion: t.retencion,
-    total: t.total,
+    total: t.totalFactura,
     estado: "emitida",
     fecha_vencimiento: fechaVencimiento,
   });
@@ -1082,13 +1090,39 @@ export async function emitirFactura(oportunidadId: string) {
       tipo: "ingreso",
       naturaleza: "ingreso_factura",
       categoria: "Cobro factura",
-      importe: t.total,
+      importe: t.totalFactura,
       fecha: fechaVencimiento,
       estado: "previsto",
       oportunidad_id: op.id,
       computa_contabilidad: true,
     });
     if (tesErr) throw new Error(tesErr.message);
+  }
+
+  // Parte en efectivo (sin IVA): deja su propio cobro previsto en la
+  // contabilidad de amigos, si no existe ya.
+  if (t.efectivo > 0) {
+    const { data: prevAmigos } = await sb
+      .from("tesoreria")
+      .select("id")
+      .eq("oportunidad_id", op.id)
+      .eq("naturaleza", "amigos")
+      .eq("tipo", "ingreso")
+      .limit(1)
+      .maybeSingle();
+    if (!prevAmigos) {
+      await sb.from("tesoreria").insert({
+        concepto: `Parte en efectivo (sin IVA) · ${op.titulo}`,
+        tipo: "ingreso",
+        naturaleza: "amigos",
+        categoria: "Cobro en efectivo",
+        importe: t.efectivo,
+        fecha: op.fecha_evento ?? fechaVencimiento,
+        estado: "previsto",
+        oportunidad_id: op.id,
+        computa_contabilidad: false,
+      });
+    }
   }
 
   await sb.from("oportunidades").update({ estado: "facturada" }).eq("id", op.id);
@@ -1136,6 +1170,39 @@ export async function marcarFacturaCobrada(id: string, cobrada: boolean) {
   revalidatePath("/");
 }
 
+// Añade un cobro previsto al plan de pagos de la oportunidad. La vía decide
+// la contabilidad: 'factura' (oficial, con IVA ya incluido en el importe) o
+// 'efectivo' (vista de amigos, sin IVA). Sale en Tesorería y en el Calendario.
+export async function crearCobroPrevisto(input: {
+  oportunidadId: string;
+  fecha: string;
+  importe: number;
+  via: string;
+  concepto: string | null;
+}) {
+  const sb = createAdminClient();
+  if (!input.fecha || !(input.importe > 0)) throw new Error("Falta fecha o importe.");
+  const esEfectivo = input.via === "efectivo";
+  const { error } = await sb.from("tesoreria").insert({
+    concepto:
+      input.concepto?.trim() ||
+      (esEfectivo ? "Cobro previsto (efectivo, sin IVA)" : "Cobro previsto (con factura)"),
+    tipo: "ingreso",
+    naturaleza: esEfectivo ? "amigos" : "ingreso_factura",
+    categoria: esEfectivo ? "Cobro en efectivo" : "Cobro factura",
+    importe: input.importe,
+    fecha: input.fecha,
+    estado: "previsto",
+    oportunidad_id: input.oportunidadId,
+    computa_contabilidad: !esEfectivo,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${input.oportunidadId}`);
+  revalidatePath("/tesoreria");
+  revalidatePath("/calendario");
+  revalidatePath("/");
+}
+
 // Marca una oportunidad como cobrada al 100%: registra en tesorería el importe
 // pendiente como ingreso cobrado y pone su factura (si existe) como cobrada.
 export async function marcarCobradoOportunidad(oportunidadId: string) {
@@ -1151,6 +1218,7 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
     (op.presupuesto_lineas ?? []).map((l: LineaInput) => ({
       cantidad: l.cantidad,
       precio_unitario: l.precio_unitario,
+      via: l.via ?? "factura",
     })),
     op.iva_pct,
     op.retencion_pct,
@@ -1168,27 +1236,53 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
 
   const { data: cobros } = await sb
     .from("tesoreria")
-    .select("importe")
+    .select("importe, naturaleza")
     .eq("oportunidad_id", oportunidadId)
     .eq("tipo", "ingreso")
     .eq("estado", "cobrado");
-  const cobrado = (cobros ?? []).reduce((s, c) => s + Number(c.importe), 0);
-  const pendiente = Math.round((t.total - cobrado + Number.EPSILON) * 100) / 100;
+  const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const cobradoAmigos = (cobros ?? [])
+    .filter((c) => c.naturaleza === "amigos")
+    .reduce((s, c) => s + Number(c.importe), 0);
+  const cobradoFactura = (cobros ?? [])
+    .filter((c) => c.naturaleza !== "amigos")
+    .reduce((s, c) => s + Number(c.importe), 0);
 
-  if (pendiente > 0.01) {
-    // Préstamos a amigos: la aportación se registra con naturaleza "amigos"
-    // (contabilidad de amigos), sin computar en la oficial (§5.4).
-    const esAmigos = op.tipo_operacion === "amigos_prestamo";
+  // Operación de amigos pura: todo el presupuesto va a la vista amigos.
+  const esAmigos = op.tipo_operacion === "amigos_prestamo";
+  const objFactura = esAmigos ? 0 : t.totalFactura;
+  const objEfectivo = esAmigos ? t.total : t.efectivo;
+
+  const pendFactura = r2(objFactura - cobradoFactura);
+  const pendEfectivo = r2(objEfectivo - cobradoAmigos);
+
+  if (pendFactura > 0.01) {
     const { error: insErr } = await sb.from("tesoreria").insert({
-      concepto: esAmigos ? `Aportación amigos · ${op.titulo}` : `Cobro final ${op.titulo}`,
+      concepto: `Cobro final ${op.titulo}`,
       tipo: "ingreso",
-      naturaleza: esAmigos ? "amigos" : "ingreso_factura",
-      categoria: esAmigos ? "Aportación amigos" : "Cobro alquiler",
-      importe: pendiente,
+      naturaleza: "ingreso_factura",
+      categoria: "Cobro alquiler",
+      importe: pendFactura,
       fecha: hoy,
       estado: "cobrado",
       oportunidad_id: oportunidadId,
-      computa_contabilidad: !esAmigos,
+      computa_contabilidad: true,
+    });
+    if (insErr) throw new Error(insErr.message);
+  }
+  if (pendEfectivo > 0.01) {
+    const { error: insErr } = await sb.from("tesoreria").insert({
+      concepto: esAmigos
+        ? `Aportación amigos · ${op.titulo}`
+        : `Parte en efectivo (sin IVA) · ${op.titulo}`,
+      tipo: "ingreso",
+      naturaleza: "amigos",
+      categoria: esAmigos ? "Aportación amigos" : "Cobro en efectivo",
+      importe: pendEfectivo,
+      fecha: hoy,
+      estado: "cobrado",
+      oportunidad_id: oportunidadId,
+      computa_contabilidad: false,
     });
     if (insErr) throw new Error(insErr.message);
   }

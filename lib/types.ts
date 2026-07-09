@@ -111,6 +111,7 @@ export type PresupuestoLinea = {
   orden: number;
   articulo_id?: string | null;
   bloque?: string | null; // agrupación opcional ("Decoración", "Alquiler de material"…)
+  via?: "factura" | "efectivo" | null; // con IVA (oficial) o sin IVA (amigos)
 };
 
 export type FacturaEstado = "emitida" | "cobrada" | "vencida" | "anulada";
