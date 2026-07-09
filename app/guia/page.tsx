@@ -153,7 +153,9 @@ export default function GuiaPage() {
             <b>Presupuesto</b> — las líneas con precios; los totales se calculan solos. Cada línea
             tiene su <b>vía</b>: &quot;Factura&quot; (lleva IVA, contabilidad oficial) o
             &quot;Efectivo&quot; (sin IVA, va a la vista Amigos). Así un mismo presupuesto puede ser
-            mixto: una parte con factura y otra en efectivo. Antes de cambiar precios, botón{" "}
+            mixto. La parte en efectivo <b>nunca sale en los documentos del cliente</b> (ni
+            presupuesto ni factura): se ve solo en pantalla, en el panel interno 🔒 que no se
+            imprime. Antes de cambiar precios, botón{" "}
             <b>&quot;Guardar como V1/V2/V3…&quot;</b>: cada versión queda congelada con su PDF, se
             sabe siempre qué vio el cliente y se puede <b>restaurar</b> si la negociación vuelve
             atrás.
