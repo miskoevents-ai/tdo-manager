@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Undo2 } from "lucide-react";
+import { Check, Undo2, FileDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { marcarFacturaCobrada } from "@/app/actions";
@@ -184,25 +184,33 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
                     <Badge tone={m.tone}>{m.label}</Badge>
                   </td>
                   <td className="border-t border-border px-[15px] py-3 text-right">
-                    <button
-                      onClick={() => toggle(f)}
-                      disabled={busy === f.id}
-                      className={`inline-flex items-center gap-1 rounded-sm border-med px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${
-                        f.estado === "cobrada"
-                          ? "border-border text-ink-muted hover:bg-beige-warm"
-                          : "border-ok bg-ok text-cream hover:opacity-90"
-                      }`}
-                    >
-                      {f.estado === "cobrada" ? (
-                        <>
-                          <Undo2 size={12} /> Reabrir
-                        </>
-                      ) : (
-                        <>
-                          <Check size={12} /> Cobrada
-                        </>
-                      )}
-                    </button>
+                    <div className="inline-flex items-center gap-1.5">
+                      <Link
+                        href={`/facturas/${f.id}`}
+                        className="inline-flex items-center gap-1 rounded-sm border-med border-border-strong px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-secondary hover:bg-beige-warm"
+                      >
+                        <FileDown size={12} /> PDF
+                      </Link>
+                      <button
+                        onClick={() => toggle(f)}
+                        disabled={busy === f.id}
+                        className={`inline-flex items-center gap-1 rounded-sm border-med px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${
+                          f.estado === "cobrada"
+                            ? "border-border text-ink-muted hover:bg-beige-warm"
+                            : "border-ok bg-ok text-cream hover:opacity-90"
+                        }`}
+                      >
+                        {f.estado === "cobrada" ? (
+                          <>
+                            <Undo2 size={12} /> Reabrir
+                          </>
+                        ) : (
+                          <>
+                            <Check size={12} /> Cobrada
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -246,25 +254,33 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
                 <span className="tabular text-[15px] font-semibold text-sage">
                   {eur(Number(f.total))}
                 </span>
-                <button
-                  onClick={() => toggle(f)}
-                  disabled={busy === f.id}
-                  className={`inline-flex items-center gap-1 rounded-sm border-med px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${
-                    f.estado === "cobrada"
-                      ? "border-border text-ink-muted"
-                      : "border-ok bg-ok text-cream"
-                  }`}
-                >
-                  {f.estado === "cobrada" ? (
-                    <>
-                      <Undo2 size={12} /> Reabrir
-                    </>
-                  ) : (
-                    <>
-                      <Check size={12} /> Marcar cobrada
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <Link
+                    href={`/facturas/${f.id}`}
+                    className="inline-flex items-center gap-1 rounded-sm border-med border-border-strong px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-secondary"
+                  >
+                    <FileDown size={12} /> PDF
+                  </Link>
+                  <button
+                    onClick={() => toggle(f)}
+                    disabled={busy === f.id}
+                    className={`inline-flex items-center gap-1 rounded-sm border-med px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${
+                      f.estado === "cobrada"
+                        ? "border-border text-ink-muted"
+                        : "border-ok bg-ok text-cream"
+                    }`}
+                  >
+                    {f.estado === "cobrada" ? (
+                      <>
+                        <Undo2 size={12} /> Reabrir
+                      </>
+                    ) : (
+                      <>
+                        <Check size={12} /> Cobrada
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </Card>
           );
