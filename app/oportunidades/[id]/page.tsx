@@ -25,6 +25,7 @@ import {
   getEquipo,
   getProveedores,
   getKmPrecio,
+  getFacturaDeOportunidad,
 } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
@@ -56,7 +57,7 @@ export default async function Page({
   const TABS = ["datos", "reuniones", "presupuesto", "material", "costes", "cobros"];
   const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
-  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones] =
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura] =
     await Promise.all([
       getOportunidad(id),
       getClientes(),
@@ -70,6 +71,7 @@ export default async function Page({
       getProveedores(),
       getKmPrecio(),
       getReunionesDeOportunidad(id),
+      getFacturaDeOportunidad(id),
     ]);
   if (!op) notFound();
 
@@ -158,6 +160,14 @@ export default async function Page({
           />
           {["confirmada", "realizada"].includes(op.estado) &&
             op.tipo_operacion === "normal" && <EmitirFacturaBtn oportunidadId={op.id} />}
+          {factura && (
+            <Link
+              href={`/facturas/${factura.id}`}
+              className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
+            >
+              <FileDown size={15} /> Factura {factura.numero}
+            </Link>
+          )}
         </div>
       </div>
 

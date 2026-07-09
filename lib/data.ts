@@ -296,3 +296,36 @@ export async function getFacturas(): Promise<Factura[]> {
   if (error) throw new Error(error.message);
   return (data ?? []) as Factura[];
 }
+
+// Factura con todo lo necesario para pintar el documento: cliente y, como
+// respaldo si no tiene líneas congeladas, las líneas del presupuesto.
+export async function getFactura(id: string): Promise<Factura | null> {
+  if (mock.enabled) return mock.facturas().find((f) => f.id === id) ?? null;
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("facturas")
+    .select(
+      "*, cliente:clientes(*), oportunidad:oportunidades(id, numero, titulo, tipo_evento, fecha_evento, presupuesto_lineas(*))",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as Factura) ?? null;
+}
+
+export async function getFacturaDeOportunidad(
+  oportunidadId: string,
+): Promise<Pick<Factura, "id" | "numero" | "estado"> | null> {
+  if (mock.enabled)
+    return mock.facturas().find((f) => f.oportunidad_id === oportunidadId) ?? null;
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("facturas")
+    .select("id, numero, estado")
+    .eq("oportunidad_id", oportunidadId)
+    .order("fecha_emision", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as Pick<Factura, "id" | "numero" | "estado">) ?? null;
+}

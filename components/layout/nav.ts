@@ -29,7 +29,7 @@ export const NAV: NavItem[] = [
   { href: "/oportunidades", label: "Oportunidades", icon: Target, fase: 1 },
   { href: "/tareas", label: "Tareas", icon: ListTodo, fase: 4 },
   { href: "/calendario", label: "Calendario", icon: Calendar, fase: 3 },
-  { href: "/facturas", label: "Facturas", icon: FileText, fase: 1 },
+  { href: "/facturas", label: "Documentos", icon: FileText, fase: 1 },
   { href: "/tesoreria", label: "Tesorería", icon: Wallet, fase: 2 },
   { href: "/contabilidad", label: "Contabilidad", icon: BarChart3, fase: 2 },
   { href: "/cuadro-mando", label: "Cuadro de mando", icon: LineChart, fase: 4 },

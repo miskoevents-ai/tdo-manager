@@ -131,8 +131,10 @@ export async function guardarOportunidad(formData: FormData) {
       .from("oportunidades")
       .select("numero")
       .like("numero", `%/${year}`);
+    // Solo cuentan los números propios de hasta 4 cifras (los externos tipo
+    // 26101/2026 no arrastran el correlativo).
     const max = (nums ?? []).reduce((mx, r) => {
-      const m = (r.numero as string | null)?.match(/^(\d+)\/\d{4}$/);
+      const m = (r.numero as string | null)?.match(/^(\d{1,4})\/\d{4}$/);
       return m ? Math.max(mx, Number(m[1])) : mx;
     }, 0);
     numero = `${String(max + 1).padStart(4, "0")}/${year}`;
@@ -1061,8 +1063,31 @@ export async function emitirFactura(oportunidadId: string) {
   }
 
   const fechaVencimiento = vence.toISOString().slice(0, 10);
+
+  // Número de factura en su propia serie correlativa AANNN (26016, 26017…),
+  // independiente de la numeración de presupuestos.
+  const yy = hoyMadrid.slice(2, 4);
+  const { data: numsFac } = await sb.from("facturas").select("numero").like("numero", `${yy}%`);
+  const maxFac = (numsFac ?? []).reduce((mx, r) => {
+    const n = r.numero as string | null;
+    return n && /^\d{5}$/.test(n) && n.startsWith(yy) ? Math.max(mx, Number(n.slice(2))) : mx;
+  }, 0);
+  const numeroFactura = `${yy}${String(maxFac + 1).padStart(3, "0")}`;
+
+  // Foto fija de las líneas facturables: el documento queda congelado aunque
+  // después se edite el presupuesto.
+  const lineasSnap = (op.presupuesto_lineas ?? [])
+    .filter((l: LineaInput) => (l.via ?? "factura") !== "efectivo")
+    .sort((a: { orden?: number }, b: { orden?: number }) => (a.orden ?? 0) - (b.orden ?? 0))
+    .map((l: LineaInput & { bloque?: string | null }) => ({
+      concepto: l.concepto,
+      cantidad: Number(l.cantidad),
+      precio_unitario: Number(l.precio_unitario),
+      bloque: l.bloque ?? null,
+    }));
+
   const { error: insErr } = await sb.from("facturas").insert({
-    numero: op.numero,
+    numero: numeroFactura,
     oportunidad_id: op.id,
     cliente_id: op.cliente_id,
     base_imponible: t.baseFactura,
@@ -1071,6 +1096,7 @@ export async function emitirFactura(oportunidadId: string) {
     total: t.totalFactura,
     estado: "emitida",
     fecha_vencimiento: fechaVencimiento,
+    lineas: lineasSnap,
   });
   if (insErr) throw new Error(insErr.message);
 
@@ -1086,7 +1112,7 @@ export async function emitirFactura(oportunidadId: string) {
     .maybeSingle();
   if (!previstoExistente) {
     const { error: tesErr } = await sb.from("tesoreria").insert({
-      concepto: `Cobro factura ${op.numero} · ${op.titulo}`,
+      concepto: `Cobro factura ${numeroFactura} · ${op.titulo}`,
       tipo: "ingreso",
       naturaleza: "ingreso_factura",
       categoria: "Cobro factura",

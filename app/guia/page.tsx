@@ -46,7 +46,7 @@ const INDICE = [
   ["tareas", "Tareas"],
   ["oportunidades", "Oportunidades"],
   ["calendario", "Calendario"],
-  ["facturas", "Facturas"],
+  ["facturas", "Documentos"],
   ["tesoreria", "Tesorería"],
   ["contabilidad", "Contabilidad"],
   ["cuadro", "Cuadro de mando"],
@@ -195,11 +195,19 @@ export default function GuiaPage() {
         </p>
       </Seccion>
 
-      <Seccion id="facturas" titulo="Facturas" emoji="🧾">
+      <Seccion id="facturas" titulo="Documentos" emoji="🧾">
         <p>
-          Las facturas emitidas con su estado. La columna <b>&quot;Vence&quot;</b> marca el límite de pago
-          según las condiciones del cliente (al momento, a 30 días…). Si una pasa de su fecha sin
-          cobrarse, se pone <b className="text-error">roja con ⚠</b> y avisa en Inicio.
+          El <b>archivo del negocio</b>: todas las facturas y todos los presupuestos, cada uno con
+          su número, su estado y su botón <b>PDF</b> para ver o imprimir el documento. Arriba se ve
+          de un vistazo el <b>último número de cada serie y el siguiente</b> — se acabó buscar en
+          el OneDrive cuál toca.
+        </p>
+        <p>
+          Al emitir una factura, el manager le pone <b>su número solo</b> (serie propia: 26016,
+          26017…) y <b>congela sus líneas e importes</b>: aunque luego se toque el presupuesto, la
+          factura no cambia. La columna <b>&quot;Vence&quot;</b> marca el límite de pago según las
+          condiciones del cliente (al momento, a 30 días…). Si una pasa de su fecha sin cobrarse,
+          se pone <b className="text-error">roja con ⚠</b> y avisa en Inicio.
         </p>
         <p>
           Cuando llega el dinero: botón <b>&quot;Cobrada&quot;</b>. Con eso el cobro pasa a Tesorería como

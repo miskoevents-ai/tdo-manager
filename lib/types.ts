@@ -116,6 +116,15 @@ export type PresupuestoLinea = {
 
 export type FacturaEstado = "emitida" | "cobrada" | "vencida" | "anulada";
 
+// Línea congelada dentro de la factura (foto fija al emitirla: aunque luego
+// se toque el presupuesto, el documento no cambia).
+export type FacturaLinea = {
+  concepto: string;
+  cantidad: number;
+  precio_unitario: number;
+  bloque?: string | null;
+};
+
 export type Factura = {
   id: string;
   numero: string;
@@ -129,7 +138,16 @@ export type Factura = {
   total: number;
   estado: FacturaEstado;
   notas: string | null;
+  lineas?: FacturaLinea[] | null;
   cliente?: Cliente | null;
+  oportunidad?: {
+    id: string;
+    numero: string | null;
+    titulo: string;
+    tipo_evento: string;
+    fecha_evento: string | null;
+    presupuesto_lineas?: PresupuestoLinea[];
+  } | null;
 };
 
 export type Equipo = {
