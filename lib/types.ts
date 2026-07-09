@@ -87,6 +87,10 @@ export type Oportunidad = {
   fianza_devuelta: boolean;
   fecha_devolucion_fianza: string | null;
   pago_a_dias?: number; // 0 = al momento; 30 = el cliente paga a 30 días
+  contingencia_pct?: number | null; // % de colchón sobre los costes estimados
+  margen_objetivo_pct?: number | null; // % de margen mínimo para cuadrar el precio
+  cerrada?: boolean; // evento cerrado: costes validados y congelados
+  cerrada_fecha?: string | null;
 
   fecha_confirmacion?: string | null;
   resena_pedida?: boolean;
@@ -112,6 +116,16 @@ export type PresupuestoLinea = {
   articulo_id?: string | null;
   bloque?: string | null; // agrupación opcional ("Decoración", "Alquiler de material"…)
   via?: "factura" | "efectivo" | null; // con IVA (oficial) o sin IVA (amigos)
+};
+
+// Coste estimado antes del presupuesto (escandallo previsto): sirve para
+// cuadrar el precio del cliente. No toca la contabilidad real.
+export type CosteEstimado = {
+  id: string;
+  oportunidad_id: string;
+  concepto: string;
+  importe: number;
+  created_at: string;
 };
 
 // Versión guardada del presupuesto (V1, V2…): foto fija de las líneas para
@@ -217,6 +231,7 @@ export type Tesoreria = {
   cliente_id?: string | null;
   proveedor_id?: string | null;
   factura_id?: string | null;
+  ticket_url?: string | null; // foto del ticket/justificante en Storage
   quien_lo_paga?: string | null;
   notas?: string | null;
   computa_contabilidad: boolean;

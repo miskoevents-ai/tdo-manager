@@ -18,6 +18,7 @@ import type {
   Reunion,
   Tarea,
   PresupuestoVersion,
+  CosteEstimado,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -346,6 +347,23 @@ export async function getVersionPresupuesto(id: string): Promise<PresupuestoVers
     throw new Error(error.message);
   }
   return (data as PresupuestoVersion) ?? null;
+}
+
+// Costes estimados antes del presupuesto. Si la tabla aún no existe
+// (migración 020 sin ejecutar) devuelve vacío para no romper la ficha.
+export async function getCostesEstimados(oportunidadId: string): Promise<CosteEstimado[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("costes_estimados")
+    .select("*")
+    .eq("oportunidad_id", oportunidadId)
+    .order("created_at", { ascending: true });
+  if (error) {
+    if (tablaNoExiste(error)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as CosteEstimado[];
 }
 
 export async function getFacturaDeOportunidad(
