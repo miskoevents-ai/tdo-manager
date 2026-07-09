@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Mail, Phone } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,16 @@ export const dynamic = "force-dynamic";
 
 function etapa(c: Cliente): string {
   return c.origen === "cliente_previo" ? "Etapa Cristina" : "Nueva etapa";
+}
+
+// Línea secundaria bajo el nombre: tipo · dirección · localidad (sin repetir
+// la localidad si la dirección ya la incluye).
+function subLinea(c: Cliente): string {
+  const loc =
+    c.localidad && !(c.direccion ?? "").toLowerCase().includes(c.localidad.toLowerCase())
+      ? c.localidad
+      : null;
+  return [CLIENTE_TIPO_LABEL[c.tipo] ?? c.tipo, c.direccion, loc].filter(Boolean).join(" · ");
 }
 
 // Año · Trimestre del último evento del cliente.
@@ -59,7 +69,7 @@ export default async function ClientesPage() {
         <table className="w-full border-collapse bg-white">
           <thead>
             <tr>
-              {["Nombre", "Tipo", "Contacto", "Canal", "Estado", "Etapa", "Actividad", ""].map((h) => (
+              {["Nombre", "NIF / CIF", "Contacto", "Canal", "Estado", "Etapa", "Actividad", ""].map((h) => (
                 <th
                   key={h}
                   className="bg-beige-warm px-[15px] py-3 text-left text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-secondary"
@@ -76,25 +86,28 @@ export default async function ClientesPage() {
                   <Link href={`/clientes/${c.id}`} className="hover:text-clay">
                     {c.nombre}
                   </Link>
-                  {(c.nif_cif || c.direccion || c.localidad) && (
-                    <div className="mt-0.5 max-w-[320px] truncate text-[11px] font-normal text-ink-muted">
-                      {[c.nif_cif, c.direccion, c.localidad].filter(Boolean).join(" · ")}
-                    </div>
-                  )}
+                  <div className="mt-0.5 max-w-[300px] truncate text-[11px] font-normal text-ink-muted">
+                    {subLinea(c)}
+                  </div>
                 </td>
-                <td className="border-t border-border px-[15px] py-3 text-[13px] text-ink-secondary">
-                  {CLIENTE_TIPO_LABEL[c.tipo] ?? c.tipo}
+                <td className="border-t border-border px-[15px] py-3 text-[12px] tabular text-ink-secondary">
+                  {c.nif_cif ?? <span className="text-ink-muted">—</span>}
                 </td>
                 <td className="border-t border-border px-[15px] py-3 text-[12px] text-ink-secondary">
                   {c.email || c.telefono ? (
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex flex-col gap-1">
                       {c.email && (
-                        <a href={`mailto:${c.email}`} className="max-w-[200px] truncate hover:text-clay">
-                          {c.email}
+                        <a
+                          href={`mailto:${c.email}`}
+                          className="inline-flex max-w-[200px] items-center gap-1.5 hover:text-clay"
+                        >
+                          <Mail size={12} className="shrink-0 text-ink-muted" />
+                          <span className="truncate">{c.email}</span>
                         </a>
                       )}
                       {c.telefono && (
-                        <a href={`tel:${c.telefono}`} className="tabular hover:text-clay">
+                        <a href={`tel:${c.telefono}`} className="inline-flex items-center gap-1.5 tabular hover:text-clay">
+                          <Phone size={12} className="shrink-0 text-ink-muted" />
                           {c.telefono}
                         </a>
                       )}
