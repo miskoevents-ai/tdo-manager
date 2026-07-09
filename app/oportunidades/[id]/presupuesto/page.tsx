@@ -10,6 +10,7 @@ import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha } from "@/lib/format";
 import { EMPRESA, CONDICIONES_PRESUPUESTO, PORTADA_PRESUPUESTO } from "@/lib/empresa";
+import { portadaUrl } from "@/lib/catalogo";
 import { TIPO_EVENTO_LABEL, CLIENTE_TIPO_LABEL } from "@/lib/estados";
 import type { PresupuestoLinea } from "@/lib/types";
 
@@ -136,11 +137,11 @@ export default async function Page({
         </div>
 
         {/* Portada: un montaje real de TDO en todos los presupuestos */}
-        {PORTADA_PRESUPUESTO && (
+        {portadaUrl(PORTADA_PRESUPUESTO) && (
           <div className="mt-6 overflow-hidden rounded-md">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={PORTADA_PRESUPUESTO}
+              src={portadaUrl(PORTADA_PRESUPUESTO)!}
               alt={`Montaje de ${EMPRESA.nombre}`}
               className="h-[190px] w-full object-cover"
             />

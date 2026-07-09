@@ -17,7 +17,9 @@ export const EMPRESA = {
 
 // Foto de portada de los presupuestos (idea de Cristina): una imagen de un
 // montaje real de TDO que se imprime bajo la cabecera de todos los presus.
-// Pon aquí la ruta del archivo dentro de /public, o null para desactivarla.
+// Acepta: ruta en /public ("/presupuesto-portada.jpg"), URL completa, o el
+// nombre de un archivo subido al bucket del catálogo en Supabase Storage
+// (p. ej. "portada-presupuesto.jpg"). null para desactivarla.
 export const PORTADA_PRESUPUESTO: string | null = "/presupuesto-portada.jpg";
 
 // Condiciones por defecto del presupuesto (editables).
