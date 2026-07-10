@@ -429,24 +429,80 @@ export async function crearParteHoras(input: {
   horas: number;
   precioHora: number;
   fecha: string | null;
+  // Ayudante externo (un amigo que echa una mano): se le paga en efectivo,
+  // así que el pago sale también en tesorería. Si lo adelanta un socio
+  // (pagadoPor), queda como reembolso pendiente en las deudas.
+  personaExterna?: string | null;
+  pagadoPor?: string | null;
 }) {
   const sb = createAdminClient();
-  const { error } = await sb.from("partes_horas").insert({
+  const externo = input.personaExterna?.trim() || null;
+  const fila: Record<string, unknown> = {
     oportunidad_id: input.oportunidadId,
-    equipo_id: input.equipoId,
+    equipo_id: externo ? null : input.equipoId,
     tarea: input.tarea || null,
     horas: Math.max(0, input.horas),
     precio_hora: Math.max(0, input.precioHora),
     fecha: input.fecha || null,
-  });
-  if (error) throw new Error(error.message);
+  };
+  if (externo) fila.persona_externa = externo;
+
+  const { data: parte, error } = await sb
+    .from("partes_horas")
+    .insert(fila)
+    .select("id")
+    .single();
+  if (error) {
+    if (/persona_externa/.test(error.message)) {
+      throw new Error("Falta ejecutar la migración 026 (personal externo) en Supabase.");
+    }
+    throw new Error(error.message);
+  }
+
+  // El efectivo del externo sale de caja: movimiento en tesorería enlazado al
+  // parte (y excluido de las compras para no contar el gasto dos veces).
+  if (externo) {
+    const importe = Math.round(Math.max(0, input.horas) * Math.max(0, input.precioHora) * 100) / 100;
+    if (importe > 0) {
+      const quien = input.pagadoPor?.trim() || null;
+      const { data: mov, error: tesErr } = await sb
+        .from("tesoreria")
+        .insert({
+          concepto: `Ayuda externa: ${externo}${input.tarea ? ` · ${input.tarea}` : ""}`,
+          tipo: "gasto",
+          naturaleza: "gasto_de_evento",
+          categoria: "Personal externo",
+          importe,
+          fecha: input.fecha || new Date().toISOString().slice(0, 10),
+          estado: quien ? "previsto" : "pagado",
+          quien_lo_paga: quien,
+          oportunidad_id: input.oportunidadId,
+          computa_contabilidad: false,
+        })
+        .select("id")
+        .single();
+      if (tesErr) throw new Error(tesErr.message);
+      await sb.from("partes_horas").update({ tesoreria_id: mov.id }).eq("id", parte.id);
+    }
+  }
   revalidatePath(`/oportunidades/${input.oportunidadId}`);
+  revalidatePath("/tesoreria");
 }
 
 export async function borrarParteHoras(id: string, oportunidadId: string) {
   const sb = createAdminClient();
+  // Si el parte era de un externo, borra también su pago en tesorería.
+  const { data: parte } = await sb
+    .from("partes_horas")
+    .select("tesoreria_id")
+    .eq("id", id)
+    .maybeSingle();
   const { error } = await sb.from("partes_horas").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  if (parte?.tesoreria_id) {
+    await sb.from("tesoreria").delete().eq("id", parte.tesoreria_id);
+    revalidatePath("/tesoreria");
+  }
   revalidatePath(`/oportunidades/${oportunidadId}`);
 }
 
@@ -1052,6 +1108,7 @@ export async function crearCosteEstimado(input: {
   precioUnitario?: number;
   categoria?: string | null;
   equipoId?: string | null; // persona prevista (horas)
+  personaExterna?: string | null; // ayudante externo previsto
   pagador?: string | null; // quién pagará (reembolso al cuadrar)
   importe?: number; // si no se pasa, cantidad × precio unitario
 }) {
@@ -1067,12 +1124,16 @@ export async function crearCosteEstimado(input: {
     precio_unitario: precio > 0 ? precio : importe / cantidad,
     categoria: input.categoria || null,
     equipo_id: input.equipoId || null,
+    persona_externa: input.personaExterna?.trim() || null,
     pagador: input.pagador?.trim() || null,
     importe,
   });
   if (error) {
     if (error.code === "42P01" || /does not exist/i.test(error.message)) {
       throw new Error("Falta ejecutar la migración 020 (costes estimados) en Supabase.");
+    }
+    if (/persona_externa/.test(error.message)) {
+      throw new Error("Falta ejecutar la migración 026 (personal externo) en Supabase.");
     }
     if (/equipo_id|pagador/.test(error.message)) {
       throw new Error("Falta ejecutar la migración 025 (persona y pagador previstos) en Supabase.");
@@ -1123,6 +1184,8 @@ export async function cuadrarEstimado(input: {
       horas,
       precioHora: Math.round((importe / horas) * 100) / 100,
       fecha: null,
+      personaExterna: (e.persona_externa as string | null) ?? null,
+      pagadoPor: (e.pagador as string | null) ?? null,
     });
   } else if (cat === "desplazamiento") {
     await crearDesplazamiento({

@@ -273,7 +273,19 @@ export function CostesTab({
                 <Tabla headers={["Persona", "Tarea", "Horas", "€/h", "Coste", ""]}>
                   {partes.map((p) => (
                     <tr key={p.id}>
-                      <Td>{p.equipo?.nombre ?? "—"}</Td>
+                      <Td>
+                        {p.equipo?.nombre ??
+                          (p.persona_externa ? (
+                            <>
+                              {p.persona_externa}
+                              <span className="ml-1 rounded-sm bg-clay-tint px-1 py-0.5 text-[9.5px] font-semibold text-clay">
+                                externo · efectivo
+                              </span>
+                            </>
+                          ) : (
+                            "—"
+                          ))}
+                      </Td>
                       <Td>{p.tarea ?? "—"}</Td>
                       <Td right>{num(p.horas, 1)}</Td>
                       <Td right>{eur(p.precio_hora)}</Td>
@@ -362,8 +374,8 @@ export function CostesTab({
 // cálculo: tipo + concepto + cantidad/horas × €/ud con total automático y
 // fila nueva sola. Al guardar, cada fila va a su sitio real: Personal →
 // partes de horas, Desplazamiento → desplazamientos, Material/Otro → compras.
-type FilaRapida = { tipo: string; persona: string; concepto: string; cantidad: number; precio: number; pagador: string };
-const FILA_RAPIDA: FilaRapida = { tipo: "material", persona: "", concepto: "", cantidad: 1, precio: 0, pagador: "" };
+type FilaRapida = { tipo: string; persona: string; personaExt: string; concepto: string; cantidad: number; precio: number; pagador: string };
+const FILA_RAPIDA: FilaRapida = { tipo: "material", persona: "", personaExt: "", concepto: "", cantidad: 1, precio: 0, pagador: "" };
 
 function ApunteRapido({
   oportunidadId,
@@ -399,6 +411,7 @@ function ApunteRapido({
     setMsg(null);
     try {
       for (const f of validas) {
+        const esExterno = f.tipo === "personal" && f.persona === "__ext__";
         if (modo === "previsto") {
           await crearCosteEstimado({
             oportunidadId,
@@ -406,19 +419,22 @@ function ApunteRapido({
             cantidad: f.cantidad,
             precioUnitario: f.precio,
             categoria: f.tipo,
-            equipoId: f.tipo === "personal" ? f.persona || null : null,
-            pagador: f.tipo !== "personal" ? f.pagador || null : null,
+            equipoId: f.tipo === "personal" && !esExterno ? f.persona || null : null,
+            personaExterna: esExterno ? f.personaExt.trim() || null : null,
+            pagador: f.tipo !== "personal" || esExterno ? f.pagador || null : null,
           });
           continue;
         }
         if (f.tipo === "personal") {
           await crearParteHoras({
             oportunidadId,
-            equipoId: f.persona || null,
+            equipoId: esExterno ? null : f.persona || null,
             tarea: f.concepto.trim(),
             horas: f.cantidad,
             precioHora: f.precio,
             fecha: null,
+            personaExterna: esExterno ? f.personaExt.trim() || null : null,
+            pagadoPor: esExterno ? f.pagador || null : null,
           });
         } else if (f.tipo === "desplazamiento") {
           await crearDesplazamiento({
@@ -512,19 +528,30 @@ function ApunteRapido({
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1 pr-1">
                   {f.tipo === "personal" ? (
-                    <Select
-                      value={f.persona}
-                      onChange={(e) => {
-                        const p = equipo.find((x) => x.id === e.target.value);
-                        set(i, { persona: e.target.value, precio: f.precio || Number(p?.precio_hora ?? 0) });
-                      }}
-                      className="py-1.5 text-[12px]"
-                    >
-                      <option value="">—</option>
-                      {equipo.map((p) => (
-                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                      ))}
-                    </Select>
+                    f.persona === "__ext__" ? (
+                      <Input
+                        value={f.personaExt}
+                        onChange={(e) => set(i, { personaExt: e.target.value })}
+                        placeholder="Nombre del amigo…"
+                        autoFocus
+                        className="py-1.5 text-[12px]"
+                      />
+                    ) : (
+                      <Select
+                        value={f.persona}
+                        onChange={(e) => {
+                          const p = equipo.find((x) => x.id === e.target.value);
+                          set(i, { persona: e.target.value, precio: f.precio || Number(p?.precio_hora ?? 0) });
+                        }}
+                        className="py-1.5 text-[12px]"
+                      >
+                        <option value="">—</option>
+                        {equipo.map((p) => (
+                          <option key={p.id} value={p.id}>{p.nombre}</option>
+                        ))}
+                        <option value="__ext__">➕ Externo (amigo)…</option>
+                      </Select>
+                    )
                   ) : (
                     <span className="block px-1 text-[12px] text-ink-muted">—</span>
                   )}
@@ -547,7 +574,7 @@ function ApunteRapido({
                   {eur(f.cantidad * f.precio)}
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1">
-                  {f.tipo === "personal" ? (
+                  {f.tipo === "personal" && f.persona !== "__ext__" ? (
                     <span className="block px-1 text-[11px] text-ink-muted">n/a</span>
                   ) : (
                     <Select value={f.pagador} onChange={(e) => set(i, { pagador: e.target.value })} className="py-1.5 text-[12px]">
@@ -665,7 +692,7 @@ function EstimacionBlock({
               <Td right>{CATS[e.categoria ?? ""] ?? "—"}</Td>
               <Td right>
                 {e.categoria === "personal"
-                  ? nombreEquipo(e.equipo_id) ?? "—"
+                  ? nombreEquipo(e.equipo_id) ?? (e.persona_externa ? `${e.persona_externa} (ext.)` : "—")
                   : e.pagador ?? "TDO"}
               </Td>
               <Td right>{num(Number(e.cantidad ?? 1), 1)}</Td>
@@ -908,31 +935,67 @@ function Del({ onClick }: { onClick: () => void }) {
 function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string; equipo: Pick<Equipo, "id" | "nombre" | "precio_hora">[]; onDone: () => void }) {
   const [open, setOpen] = React.useState(false);
   const [equipoId, setEquipoId] = React.useState("");
+  const [externo, setExterno] = React.useState("");
+  const [pagador, setPagador] = React.useState("");
   const [tarea, setTarea] = React.useState("");
   const [horas, setHoras] = React.useState(0);
   const [precio, setPrecio] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
+  const esExterno = equipoId === "__ext__";
 
   function onPersona(id: string) {
     setEquipoId(id);
     const p = equipo.find((e) => e.id === id);
-    setPrecio(Number(p?.precio_hora ?? 0));
+    if (id !== "__ext__") setPrecio(Number(p?.precio_hora ?? 0));
   }
   async function add() {
     setBusy(true);
     try {
-      await crearParteHoras({ oportunidadId, equipoId: equipoId || null, tarea, horas, precioHora: precio, fecha: null });
-      setOpen(false); setEquipoId(""); setTarea(""); setHoras(0); setPrecio(0); onDone();
+      await crearParteHoras({
+        oportunidadId,
+        equipoId: esExterno ? null : equipoId || null,
+        tarea, horas, precioHora: precio, fecha: null,
+        personaExterna: esExterno ? externo.trim() || null : null,
+        pagadoPor: esExterno ? pagador || null : null,
+      });
+      setOpen(false); setEquipoId(""); setExterno(""); setPagador(""); setTarea(""); setHoras(0); setPrecio(0); onDone();
     } finally { setBusy(false); }
   }
   if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus size={14} /> Añadir horas</Button>;
   return (
-    <div className="grid grid-cols-2 gap-2 rounded-md bg-beige-light p-3 sm:grid-cols-5">
-      <Field label="Persona"><Select value={equipoId} onChange={(e) => onPersona(e.target.value)}><option value="">—</option>{equipo.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}</Select></Field>
-      <Field label="Tarea"><Input value={tarea} onChange={(e) => setTarea(e.target.value)} placeholder="Montaje…" /></Field>
-      <Field label="Horas"><Input type="number" step="0.5" value={horas || ""} onChange={(e) => setHoras(Number(e.target.value))} /></Field>
-      <Field label="€/hora"><Input type="number" step="0.01" value={precio || ""} onChange={(e) => setPrecio(Number(e.target.value))} /></Field>
-      <div className="flex items-end gap-1"><Button size="sm" onClick={add} disabled={busy}>Añadir</Button><Button size="sm" variant="ghost" onClick={() => setOpen(false)}>×</Button></div>
+    <div className="space-y-2 rounded-md bg-beige-light p-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Field label="Persona">
+          <Select value={equipoId} onChange={(e) => onPersona(e.target.value)}>
+            <option value="">—</option>
+            {equipo.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+            <option value="__ext__">➕ Externo (amigo)…</option>
+          </Select>
+        </Field>
+        {esExterno && (
+          <Field label="Nombre del externo">
+            <Input value={externo} onChange={(e) => setExterno(e.target.value)} placeholder="Juanjo…" autoFocus />
+          </Field>
+        )}
+        <Field label="Tarea"><Input value={tarea} onChange={(e) => setTarea(e.target.value)} placeholder="Montaje…" /></Field>
+        <Field label="Horas"><Input type="number" step="0.5" value={horas || ""} onChange={(e) => setHoras(Number(e.target.value))} /></Field>
+        <Field label="€/hora"><Input type="number" step="0.01" value={precio || ""} onChange={(e) => setPrecio(Number(e.target.value))} /></Field>
+        {esExterno && (
+          <Field label="Efectivo pagado por">
+            <Select value={pagador} onChange={(e) => setPagador(e.target.value)}>
+              <option value="">TDO (caja)</option>
+              {equipo.map((e) => <option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+            </Select>
+          </Field>
+        )}
+      </div>
+      {esExterno && (
+        <p className="text-[11px] text-ink-muted">
+          El pago al externo sale en Tesorería como gasto en efectivo del evento
+          {pagador ? ` — y como lo adelanta ${pagador}, queda reembolso pendiente en deudas.` : "."}
+        </p>
+      )}
+      <div className="flex justify-end gap-1"><Button size="sm" onClick={add} disabled={busy || (esExterno && !externo.trim())}>{busy ? "Guardando…" : "Añadir"}</Button><Button size="sm" variant="ghost" onClick={() => setOpen(false)}>×</Button></div>
     </div>
   );
 }

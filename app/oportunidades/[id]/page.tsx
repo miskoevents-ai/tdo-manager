@@ -80,8 +80,10 @@ export default async function Page({
     ]);
   if (!op) notFound();
 
-  // Compras/material = gastos de evento en tesorería que NO vienen de un desplazamiento
+  // Compras/material = gastos de evento en tesorería que NO vienen de un
+  // desplazamiento ni del pago a un ayudante externo (esos viven en su sección)
   const desplTesoIds = new Set(desplazamientos.map((d) => d.tesoreria_id).filter(Boolean));
+  for (const p of partes) if (p.tesoreria_id) desplTesoIds.add(p.tesoreria_id);
   const compras = cobros.filter(
     (m) => m.naturaleza === "gasto_de_evento" && !desplTesoIds.has(m.id),
   );

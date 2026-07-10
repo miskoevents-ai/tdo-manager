@@ -132,6 +132,7 @@ export type CosteEstimado = {
   cuadrado?: boolean; // ya pasado a costes reales (tal cual o ajustado)
   importe_real?: number | null; // con qué importe se cuadró (para la desviación)
   equipo_id?: string | null; // persona prevista (horas)
+  persona_externa?: string | null; // ayudante externo previsto
   pagador?: string | null; // quién pagará (reembolso al cuadrar)
   created_at: string;
 };
@@ -270,6 +271,8 @@ export type ParteHoras = {
   tarea: string | null;
   horas: number;
   precio_hora: number;
+  persona_externa?: string | null; // ayudante de fuera del equipo
+  tesoreria_id?: string | null; // pago en efectivo del externo, en tesorería
   notas: string | null;
   created_at: string;
   equipo?: { nombre: string } | null;
