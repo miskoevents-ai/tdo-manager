@@ -29,7 +29,8 @@ export default async function EquipoPage() {
     { horas: number; coste: number; horasMes: number; costeMes: number; n: number }
   >();
   for (const p of partes) {
-    const nombre = p.equipo?.nombre ?? "Sin asignar";
+    const nombre =
+      p.equipo?.nombre ?? (p.persona_externa ? `${p.persona_externa} (externo)` : "Sin asignar");
     const acc = porPersona.get(nombre) ?? { horas: 0, coste: 0, horasMes: 0, costeMes: 0, n: 0 };
     const h = Number(p.horas);
     const c = h * Number(p.precio_hora);
@@ -152,7 +153,7 @@ export default async function EquipoPage() {
                   className="flex items-center justify-between border-t border-border py-[8px] text-[12.5px] first:border-t-0"
                 >
                   <span className="min-w-0 truncate">
-                    <b>{p.equipo?.nombre ?? "—"}</b>
+                    <b>{p.equipo?.nombre ?? (p.persona_externa ? `${p.persona_externa} (externo)` : "—")}</b>
                     {p.tarea ? ` · ${p.tarea}` : ""}
                     {p.oportunidad ? ` · ${p.oportunidad.titulo}` : ""}
                   </span>

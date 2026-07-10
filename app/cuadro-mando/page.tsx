@@ -54,6 +54,8 @@ export default async function CuadroMandoPage() {
     }
     const horasPorOp = new Map<string, number>();
     for (const p of partesTodas) {
+      // Los externos ya cuentan como gasto en tesorería: no se suman dos veces.
+      if (p.tesoreria_id) continue;
       if (p.oportunidad_id) {
         horasPorOp.set(
           p.oportunidad_id,
