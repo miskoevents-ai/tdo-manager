@@ -389,6 +389,8 @@ function ApunteRapido({
   const [filas, setFilas] = React.useState<FilaRapida[]>([{ ...FILA_RAPIDA }]);
   // Destino de las filas: previstos (plan, antes del presu) o reales (contabilidad).
   const [modo, setModo] = React.useState<"previsto" | "real">("previsto");
+  // Fecha común de los apuntes reales (para cargar datos antiguos); vacía = hoy.
+  const [fechaComun, setFechaComun] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
 
@@ -432,7 +434,7 @@ function ApunteRapido({
             tarea: f.concepto.trim(),
             horas: f.cantidad,
             precioHora: f.precio,
-            fecha: null,
+            fecha: fechaComun || null,
             personaExterna: esExterno ? f.personaExt.trim() || null : null,
             pagadoPor: esExterno ? f.pagador || null : null,
           });
@@ -445,7 +447,7 @@ function ApunteRapido({
             gasolinaManual: Math.round(f.cantidad * f.precio * 100) / 100,
             peaje: 0,
             parking: 0,
-            fecha: null,
+            fecha: fechaComun || null,
             quienLoPaga: f.pagador || null,
           });
         } else {
@@ -453,7 +455,7 @@ function ApunteRapido({
             oportunidadId,
             concepto: f.concepto.trim(),
             importe: Math.round(f.cantidad * f.precio * 100) / 100,
-            fecha: null,
+            fecha: fechaComun || null,
             proveedorId: null,
             quienLoPaga: f.pagador || null,
           });
@@ -500,6 +502,18 @@ function ApunteRapido({
             ? "Las filas van al plan previsto (no tocan contabilidad)."
             : "Las filas van a los costes reales (horas, desplazamientos, compras)."}
         </span>
+        {modo === "real" && (
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-ink-secondary">
+            Fecha de los apuntes
+            <Input
+              type="date"
+              value={fechaComun}
+              onChange={(e) => setFechaComun(e.target.value)}
+              title="Vacía = hoy. Útil para cargar gastos antiguos."
+              className="w-[140px] py-1.5 text-[12px]"
+            />
+          </span>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
@@ -940,6 +954,7 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
   const [tarea, setTarea] = React.useState("");
   const [horas, setHoras] = React.useState(0);
   const [precio, setPrecio] = React.useState(0);
+  const [fechaP, setFechaP] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const esExterno = equipoId === "__ext__";
 
@@ -954,11 +969,11 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
       await crearParteHoras({
         oportunidadId,
         equipoId: esExterno ? null : equipoId || null,
-        tarea, horas, precioHora: precio, fecha: null,
+        tarea, horas, precioHora: precio, fecha: fechaP || null,
         personaExterna: esExterno ? externo.trim() || null : null,
         pagadoPor: esExterno ? pagador || null : null,
       });
-      setOpen(false); setEquipoId(""); setExterno(""); setPagador(""); setTarea(""); setHoras(0); setPrecio(0); onDone();
+      setOpen(false); setEquipoId(""); setExterno(""); setPagador(""); setTarea(""); setHoras(0); setPrecio(0); setFechaP(""); onDone();
     } finally { setBusy(false); }
   }
   if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus size={14} /> Añadir horas</Button>;
@@ -980,6 +995,7 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
         <Field label="Tarea"><Input value={tarea} onChange={(e) => setTarea(e.target.value)} placeholder="Montaje…" /></Field>
         <Field label="Horas"><Input type="number" step="0.5" value={horas || ""} onChange={(e) => setHoras(Number(e.target.value))} /></Field>
         <Field label="€/hora"><Input type="number" step="0.01" value={precio || ""} onChange={(e) => setPrecio(Number(e.target.value))} /></Field>
+        <Field label="Fecha (vacía = hoy)"><Input type="date" value={fechaP} onChange={(e) => setFechaP(e.target.value)} /></Field>
         {esExterno && (
           <Field label="Efectivo pagado por">
             <Select value={pagador} onChange={(e) => setPagador(e.target.value)}>
@@ -1038,6 +1054,7 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
   const [precioKm, setPrecioKm] = React.useState(kmPrecio);
   const [quien, setQuien] = React.useState("");
   const [otro, setOtro] = React.useState("");
+  const [fechaD, setFechaD] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   const kmTotal = (km || 0) * (ida ? 2 : 1);
@@ -1052,7 +1069,7 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
       await crearDesplazamiento({
         oportunidadId, trayecto, km, idaVuelta: ida,
         gasolinaManual: gasManual ? Number(gasManual) : null,
-        peaje, parking, fecha: null,
+        peaje, parking, fecha: fechaD || null,
         quienLoPaga: quienFinal || null,
       });
       setOpen(false); onDone();
@@ -1074,6 +1091,7 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
         <Field label="Km (solo ida)"><Input type="number" value={km || ""} onChange={(e) => setKm(Number(e.target.value))} /></Field>
         <Field label="Peaje €"><Input type="number" step="0.01" value={peaje || ""} onChange={(e) => setPeaje(Number(e.target.value))} /></Field>
         <Field label="Parking €"><Input type="number" step="0.01" value={parking || ""} onChange={(e) => setParking(Number(e.target.value))} /></Field>
+        <Field label="Fecha (vacía = hoy)"><Input type="date" value={fechaD} onChange={(e) => setFechaD(e.target.value)} /></Field>
         <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
       </div>
       {quienFinal && (
@@ -1128,6 +1146,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
   const [proveedorNuevo, setProveedorNuevo] = React.useState("");
   const [quien, setQuien] = React.useState("");
   const [otro, setOtro] = React.useState("");
+  const [fechaC, setFechaC] = React.useState("");
   const [ticket, setTicket] = React.useState<File | null>(null);
   const [busy, setBusy] = React.useState(false);
   const ticketRef = React.useRef<HTMLInputElement>(null);
@@ -1136,7 +1155,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
     setBusy(true);
     try {
       const movId = await crearCompra({
-        oportunidadId, concepto, importe, fecha: null,
+        oportunidadId, concepto, importe, fecha: fechaC || null,
         proveedorId: proveedorId && proveedorId !== "__nuevo__" ? proveedorId : null,
         proveedorNuevo: proveedorId === "__nuevo__" ? proveedorNuevo.trim() || null : null,
         quienLoPaga: quienFinal || null,
@@ -1153,7 +1172,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
           alert(`El gasto se guardó, pero el ticket no se pudo subir: ${(e as Error).message}`);
         }
       }
-      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); setProveedorNuevo(""); setQuien(""); setOtro(""); setTicket(null); onDone();
+      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); setProveedorNuevo(""); setQuien(""); setOtro(""); setFechaC(""); setTicket(null); onDone();
     } finally { setBusy(false); }
   }
   if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus size={14} /> Añadir compra</Button>;
@@ -1175,6 +1194,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
           </Field>
         )}
         <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
+        <Field label="Fecha (vacía = hoy)"><Input type="date" value={fechaC} onChange={(e) => setFechaC(e.target.value)} /></Field>
         <Field label="Ticket (foto, opcional)">
           <button
             onClick={() => ticketRef.current?.click()}
