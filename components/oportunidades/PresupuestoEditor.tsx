@@ -8,7 +8,17 @@ import { Input } from "@/components/ui/input";
 import { guardarLineas, subirFotoPresupuesto } from "@/app/actions";
 import { calcularTotales, importeLinea } from "@/lib/calc";
 import { eur, num, normaliza } from "@/lib/format";
+import { CATALOGO, fotoUrl } from "@/lib/catalogo";
 import type { PresupuestoLinea } from "@/lib/types";
+
+// Referencias del catálogo con precio de tarifario: son la fuente de precios
+// del presupuesto (lo que se enseña a clientes). Cada una lleva su foto.
+type RefCatalogo = { concepto: string; precio: number; foto: string | null };
+const TARIFARIO: RefCatalogo[] = CATALOGO.filter((c) => (c.precio ?? 0) > 0).map((c) => ({
+  concepto: c.nombre?.trim() || c.descripcion,
+  precio: Number(c.precio),
+  foto: c.archivo ?? null,
+}));
 
 type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null; descuento_pct?: number | null };
 
@@ -138,16 +148,17 @@ export function PresupuestoEditor({
   function delFila(i: number) {
     setFilas((f) => (f.length === 1 ? f : f.filter((_, idx) => idx !== i)));
   }
-  // Añade una línea a partir de un artículo del catálogo (precio automático).
-  function addDesdeCatalogo(it: CatalogoItem) {
+  // Añade una línea a partir de una referencia del catálogo (precio de
+  // tarifario y foto automáticos).
+  function addDesdeCatalogo(it: RefCatalogo) {
     const nueva: Fila = {
-      concepto: it.articulo,
+      concepto: it.concepto,
       cantidad: 1,
-      precio_unitario: Number(it.precio_alquiler ?? 0),
-      articulo_id: it.id,
+      precio_unitario: it.precio,
+      articulo_id: null,
       bloque: null,
       via: "factura",
-      foto: it.foto_url ?? null,
+      foto: it.foto,
     };
     setFilas((f) => {
       const soloVacia = f.length === 1 && !f[0].concepto.trim() && !f[0].articulo_id;
@@ -303,7 +314,7 @@ export function PresupuestoEditor({
         <Button variant="outline" size="sm" onClick={addFila}>
           <Plus size={14} /> Añadir línea
         </Button>
-        {catalogo.length > 0 && <CatalogoPicker catalogo={catalogo} onPick={addDesdeCatalogo} />}
+        {TARIFARIO.length > 0 && <CatalogoPicker tarifario={TARIFARIO} onPick={addDesdeCatalogo} />}
         {fianzaSugerida > 0 && (
           <span className="text-[11.5px] text-ink-muted">
             Fianza sugerida del material:{" "}
@@ -643,13 +654,14 @@ function FotoPicker({
   );
 }
 
-// Buscador desplegable del catálogo de inventario para añadir líneas con precio automático.
+// Buscador desplegable del catálogo (tarifario) para añadir líneas con su
+// precio de catálogo y su foto automáticamente.
 function CatalogoPicker({
-  catalogo,
+  tarifario,
   onPick,
 }: {
-  catalogo: CatalogoItem[];
-  onPick: (it: CatalogoItem) => void;
+  tarifario: RefCatalogo[];
+  onPick: (it: RefCatalogo) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
@@ -665,9 +677,9 @@ function CatalogoPicker({
 
   const visibles = React.useMemo(() => {
     const t = normaliza(q.trim());
-    const arr = t ? catalogo.filter((c) => normaliza(c.articulo).includes(t)) : catalogo;
-    return arr.slice(0, 40);
-  }, [q, catalogo]);
+    const arr = t ? tarifario.filter((c) => normaliza(c.concepto).includes(t)) : tarifario;
+    return arr.slice(0, 60);
+  }, [q, tarifario]);
 
   return (
     <div ref={ref} className="relative">
@@ -675,35 +687,41 @@ function CatalogoPicker({
         <Package size={14} /> Añadir del catálogo
       </Button>
       {open && (
-        <div className="absolute z-20 mt-1 w-[300px] rounded-md border-hair border-border bg-white p-2 shadow-lg">
+        <div className="absolute z-20 mt-1 w-[340px] rounded-md border-hair border-border bg-white p-2 shadow-lg">
           <div className="flex items-center gap-1.5 rounded-sm border-med border-border px-2 py-1.5">
             <Search size={14} className="text-ink-muted" />
             <input
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar artículo…"
+              placeholder="Buscar en el catálogo…"
               className="w-full text-[13px] focus:outline-none"
             />
           </div>
-          <div className="mt-1 max-h-[260px] overflow-y-auto">
+          <div className="mt-1 max-h-[300px] overflow-y-auto">
             {visibles.length === 0 && (
               <div className="px-2 py-3 text-center text-[12px] text-ink-muted">Sin resultados.</div>
             )}
-            {visibles.map((it) => (
+            {visibles.map((it, i) => (
               <button
-                key={it.id}
+                key={i}
                 onClick={() => {
                   onPick(it);
                   setOpen(false);
                   setQ("");
                 }}
-                className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-[13px] hover:bg-beige-warm"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[13px] hover:bg-beige-warm"
               >
-                <span className="truncate">{it.articulo}</span>
-                <span className="shrink-0 tabular text-[12px] text-ink-muted">
-                  {it.precio_alquiler != null ? eur(it.precio_alquiler) : "—"}
-                </span>
+                {it.foto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={fotoUrl(it.foto)} alt="" className="h-8 w-8 shrink-0 rounded-sm object-cover" />
+                ) : (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-beige-warm text-ink-muted">
+                    <Package size={13} />
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate">{it.concepto}</span>
+                <span className="shrink-0 tabular text-[12px] text-ink-muted">{eur(it.precio)}</span>
               </button>
             ))}
           </div>

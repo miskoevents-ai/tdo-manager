@@ -720,6 +720,8 @@ export async function crearCompra(input: {
   quienLoPaga?: string | null;
   fecha: string | null;
   caja?: string | null;
+  // Etiqueta del tipo de gasto ("Material", "Alquiler de vehículos", "Dietas"…)
+  categoria?: string | null;
 }) {
   const sb = createAdminClient();
 
@@ -754,7 +756,7 @@ export async function crearCompra(input: {
       concepto: input.concepto,
       tipo: "gasto",
       naturaleza: input.caja === "amigos" ? "amigos" : "gasto_de_evento",
-      categoria: "Material",
+      categoria: input.categoria?.trim() || "Material",
       importe: Math.abs(input.importe),
       fecha: input.fecha || new Date().toISOString().slice(0, 10),
       estado: quien ? "previsto" : "pagado",
@@ -1253,6 +1255,7 @@ export async function cuadrarEstimado(input: {
       proveedorId: null,
       quienLoPaga: (e.pagador as string | null) ?? null,
       caja,
+      categoria: (e.categoria as string | null) ?? null,
     });
   }
 
