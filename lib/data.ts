@@ -142,6 +142,21 @@ export async function getPartesHorasTodas(): Promise<ParteHoras[]> {
   return (data ?? []) as ParteHoras[];
 }
 
+export async function getSueldos(): Promise<import("@/lib/types").Sueldo[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("sueldos")
+    .select("*")
+    .order("desde", { ascending: false });
+  if (error) {
+    // Migración 029 sin ejecutar: sin sueldos, pero la página sigue viva.
+    if (error.code === "42P01" || /does not exist/i.test(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as import("@/lib/types").Sueldo[];
+}
+
 export async function getDesplazamientos(oportunidadId: string): Promise<Desplazamiento[]> {
   if (mock.enabled) return [];
   const sb = createAdminClient();

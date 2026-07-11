@@ -279,10 +279,21 @@ export type ParteHoras = {
   precio_hora: number;
   persona_externa?: string | null; // ayudante de fuera del equipo
   tesoreria_id?: string | null; // pago en efectivo del externo, en tesorería
+  fase?: string | null; // comercial | pre | evento | post
   notas: string | null;
   created_at: string;
   equipo?: { nombre: string } | null;
   oportunidad?: { numero: string | null; titulo: string } | null;
+};
+
+// Sueldo mensual de una persona del equipo, con vigencia desde un mes dado.
+// El vigente en un mes es el de la fecha 'desde' más reciente que no lo supere.
+export type Sueldo = {
+  id: string;
+  equipo_id: string;
+  desde: string; // YYYY-MM-01
+  importe: number;
+  created_at: string;
 };
 
 export type Desplazamiento = {
