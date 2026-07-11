@@ -7,8 +7,8 @@ import { SetupNotice } from "@/components/SetupNotice";
 import { PrintButton } from "@/components/presupuesto/PrintButton";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
-import { calcularTotales } from "@/lib/calc";
-import { eur, fecha } from "@/lib/format";
+import { calcularTotales, importeLinea } from "@/lib/calc";
+import { eur, fecha, num } from "@/lib/format";
 import { EMPRESA, CONDICIONES_PRESUPUESTO, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
 import { PortadaDoc } from "@/components/PortadaDoc";
@@ -45,15 +45,13 @@ export default async function Page({
         bloque: l.bloque ?? null,
         via: l.via ?? "factura",
         foto: l.foto ?? null,
+        descuento_pct: l.descuento_pct ?? null,
       }))
     : op.presupuesto_lineas ?? [];
   const ivaPct = version ? Number(version.iva_pct) : op.iva_pct;
   const retPct = version ? Number(version.retencion_pct) : op.retencion_pct;
-  const t = calcularTotales(
-    lineas.map((l) => ({ cantidad: l.cantidad, precio_unitario: l.precio_unitario, via: l.via ?? "factura" })),
-    ivaPct,
-    retPct,
-  );
+  const dtoPct = version ? Number(version.descuento_pct ?? 0) : op.descuento_pct ?? 0;
+  const t = calcularTotales(lineas, ivaPct, retPct, dtoPct);
   const cli = op.cliente;
   const esAlquiler = op.serie === "alquiler_encargo";
   const esAmigos = op.tipo_operacion === "amigos_prestamo";
@@ -221,9 +219,14 @@ export default async function Page({
                       </span>
                     </td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{l.cantidad}</td>
-                    <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{eur(l.precio_unitario)}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
-                      {eur(l.cantidad * l.precio_unitario)}
+                      {eur(l.precio_unitario)}
+                      {(l.descuento_pct ?? 0) > 0 && (
+                        <span className="ml-1 text-[10.5px] text-clay">−{num(l.descuento_pct ?? 0, 0)}%</span>
+                      )}
+                    </td>
+                    <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
+                      {eur(importeLinea(l))}
                     </td>
                   </tr>
                 ))}
@@ -233,7 +236,7 @@ export default async function Page({
                       Subtotal {g.nombre ?? "otros conceptos"}
                     </td>
                     <td className="border-b border-border bg-beige-light px-3 py-1.5 text-right tabular text-[12px] font-semibold">
-                      {eur(g.lineas.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0))}
+                      {eur(g.lineas.reduce((s, l) => s + importeLinea(l), 0))}
                     </td>
                   </tr>
                 )}
@@ -245,6 +248,12 @@ export default async function Page({
         {/* Totales */}
         <div className="mt-4 flex justify-end">
           <div className="w-full max-w-[280px] space-y-1.5 text-[13px]">
+            {t.descuento > 0 && (
+              <>
+                <Row label="Suma de los conceptos" value={eur(t.bruto)} />
+                <Row label={`Descuento (−${num(dtoPct, 0)}%)`} value={`−${eur(t.descuento)}`} />
+              </>
+            )}
             <Row label="Base imponible" value={eur(esAmigos ? t.base : t.baseFactura)} />
             <Row label={`IVA (${ivaPct}%)`} value={eur(t.iva)} />
             {t.retencion > 0 && <Row label={`Retención IRPF (−${retPct}%)`} value={`−${eur(t.retencion)}`} />}

@@ -33,15 +33,7 @@ export default async function OportunidadesPage() {
   }
 
   const cards: KanbanCard[] = ops.map((o) => {
-    const t = calcularTotales(
-      (o.presupuesto_lineas ?? []).map((l) => ({
-        cantidad: l.cantidad,
-        precio_unitario: l.precio_unitario,
-        via: l.via ?? "factura",
-      })),
-      o.iva_pct,
-      o.retencion_pct,
-    );
+    const t = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0);
     return {
       id: o.id,
       numero: o.numero,

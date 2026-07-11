@@ -100,15 +100,7 @@ export default async function CuadroMandoPage() {
     };
 
     rows = ops.map((o) => {
-      const total = calcularTotales(
-        (o.presupuesto_lineas ?? []).map((l) => ({
-          cantidad: l.cantidad,
-          precio_unitario: l.precio_unitario,
-          via: l.via ?? "factura",
-        })),
-        o.iva_pct,
-        o.retencion_pct,
-      ).total;
+      const total = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).total;
       const cobrado = o.cobrado ?? 0;
       const gastos = gastoPorOp.get(o.id) ?? 0;
       return {

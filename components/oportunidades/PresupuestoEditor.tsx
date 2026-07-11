@@ -6,11 +6,13 @@ import { Plus, Trash2, Package, Search, ImagePlus, X, Upload, Link2 } from "luci
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { guardarLineas, subirFotoPresupuesto } from "@/app/actions";
-import { calcularTotales } from "@/lib/calc";
+import { calcularTotales, importeLinea } from "@/lib/calc";
 import { eur, num, normaliza } from "@/lib/format";
 import type { PresupuestoLinea } from "@/lib/types";
 
-type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null };
+type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null; descuento_pct?: number | null };
+
+const red2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 // Bloques sugeridos (los de los presupuestos reales); se puede escribir otro.
 const BLOQUES_SUGERIDOS = ["Decoración", "Alquiler de material", "Flores", "Transporte y montaje"];
@@ -27,6 +29,7 @@ export function PresupuestoEditor({
   lineasIniciales,
   ivaPct,
   retPct,
+  descuentoPct = 0,
   esEmpresa,
   catalogo = [],
 }: {
@@ -34,6 +37,7 @@ export function PresupuestoEditor({
   lineasIniciales: PresupuestoLinea[];
   ivaPct: number;
   retPct: number;
+  descuentoPct?: number;
   esEmpresa: boolean;
   catalogo?: CatalogoItem[];
 }) {
@@ -48,15 +52,71 @@ export function PresupuestoEditor({
           bloque: l.bloque ?? null,
           via: l.via ?? "factura",
           foto: l.foto ?? null,
+          descuento_pct: l.descuento_pct ?? null,
         }))
-      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: null, via: "factura", foto: null }],
+      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: null, via: "factura", foto: null, descuento_pct: null }],
   );
   const [iva, setIva] = React.useState(ivaPct);
   const [ret, setRet] = React.useState(retPct);
+  const [dto, setDto] = React.useState(descuentoPct || 0);
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [totalObjetivo, setTotalObjetivo] = React.useState("");
 
-  const totales = calcularTotales(filas, iva, ret);
+  const totales = calcularTotales(filas, iva, ret, dto);
+
+  // "Cuadrar al total": escribes el TOTAL final (con IVA y retención) y se
+  // reparte entre las líneas — proporcionalmente si ya tienen precio, a
+  // partes iguales si están a cero. Así se puede cargar un presupuesto
+  // sabiendo solo el total, sin inventarse cada subtotal.
+  function repartirAlTotal() {
+    const target = Number(totalObjetivo.replace(",", "."));
+    if (!isFinite(target) || target <= 0) return;
+    const fDto = 1 - Math.min(100, Math.max(0, dto)) / 100;
+    const factorImp = 1 + iva / 100 - ret / 100;
+    if (fDto <= 0 || factorImp <= 0) return;
+    const conConcepto = (f: Fila) => f.concepto.trim() !== "";
+    const brutoEfectivo = filas
+      .filter((f) => f.via === "efectivo" && conConcepto(f))
+      .reduce((s, f) => s + importeLinea(f), 0);
+    // total = brutoFactura·fDto·factorImp + brutoEfectivo·fDto
+    const targetBruto = (target - brutoEfectivo * fDto) / (factorImp * fDto);
+    if (targetBruto <= 0) {
+      setMsg("El total que has puesto no llega ni para la parte en efectivo.");
+      return;
+    }
+    const idxs = filas.map((_, i) => i).filter((i) => filas[i].via !== "efectivo" && conConcepto(filas[i]));
+    if (!idxs.length) {
+      setMsg("No hay líneas de factura entre las que repartir.");
+      return;
+    }
+    const nuevas = filas.map((f) => ({ ...f }));
+    const actual = idxs.reduce((s, i) => s + importeLinea(nuevas[i]), 0);
+    if (actual > 0.005) {
+      const k = targetBruto / actual;
+      for (const i of idxs) nuevas[i].precio_unitario = red2(nuevas[i].precio_unitario * k);
+    } else {
+      const parte = targetBruto / idxs.length;
+      for (const i of idxs) {
+        const l = nuevas[i];
+        l.cantidad = l.cantidad || 1;
+        const den = l.cantidad * (1 - Math.min(99.99, l.descuento_pct ?? 0) / 100);
+        l.precio_unitario = red2(parte / den);
+      }
+    }
+    // Ajuste de céntimos para clavar el total: se corrige en una línea sin
+    // descuento y con cantidad 1 (si la hay).
+    const logrado = idxs.reduce((s, i) => s + importeLinea(nuevas[i]), 0);
+    const diff = red2(targetBruto - logrado);
+    if (Math.abs(diff) >= 0.01) {
+      const j = idxs.find((i) => (nuevas[i].cantidad || 1) === 1 && !nuevas[i].descuento_pct) ?? idxs[0];
+      const l = nuevas[j];
+      const den = (l.cantidad || 1) * (1 - Math.min(99.99, l.descuento_pct ?? 0) / 100);
+      l.precio_unitario = red2(l.precio_unitario + diff / den);
+    }
+    setFilas(nuevas);
+    setMsg("Repartido. Revisa las líneas y dale a Guardar.");
+  }
 
   function setFila(i: number, patch: Partial<Fila>) {
     setFilas((f) => f.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
@@ -108,7 +168,7 @@ export function PresupuestoEditor({
     setSaving(true);
     setMsg(null);
     try {
-      await guardarLineas(oportunidadId, filas, iva, ret);
+      await guardarLineas(oportunidadId, filas, iva, ret, dto || null);
       setMsg("Presupuesto guardado.");
       router.refresh();
     } catch (e) {
@@ -129,6 +189,7 @@ export function PresupuestoEditor({
               <th className="border-b border-border py-2 text-left font-semibold">Concepto</th>
               <th className="w-[70px] border-b border-border py-2 text-right font-semibold">Cant.</th>
               <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Precio €</th>
+              <th className="w-[64px] border-b border-border py-2 text-right font-semibold">Dto %</th>
               <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Subtotal</th>
               <th className="w-[96px] border-b border-border py-2 pl-2 text-left font-semibold">Vía</th>
               <th className="w-[36px] border-b border-border py-2"></th>
@@ -169,7 +230,8 @@ export function PresupuestoEditor({
                 <td className="border-b border-[#f0eae1] py-1.5">
                   <Input
                     type="number"
-                    step="0.01"
+                    step="1"
+                    min="0"
                     value={f.cantidad || ""}
                     onChange={(e) => setFila(i, { cantidad: Number(e.target.value) })}
                     className="py-2 text-right text-[13px] tabular"
@@ -184,8 +246,21 @@ export function PresupuestoEditor({
                     className="py-2 text-right text-[13px] tabular"
                   />
                 </td>
+                <td className="border-b border-[#f0eae1] py-1.5 pl-2">
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={f.descuento_pct || ""}
+                    onChange={(e) => setFila(i, { descuento_pct: Math.min(100, Number(e.target.value) || 0) || null })}
+                    placeholder="—"
+                    title="Descuento de esta línea (%)"
+                    className="py-2 text-right text-[12px] tabular"
+                  />
+                </td>
                 <td className="border-b border-[#f0eae1] py-1.5 text-right text-[13px] tabular font-semibold">
-                  {eur(f.cantidad * f.precio_unitario)}
+                  {eur(importeLinea(f))}
                 </td>
                 <td className="border-b border-[#f0eae1] py-1.5 pl-2">
                   <select
@@ -237,42 +312,96 @@ export function PresupuestoEditor({
         )}
       </div>
 
-      {/* IVA / Retención + Totales */}
+      {/* IVA / Retención / Descuento + Totales */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex gap-4">
-          <div>
-            <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-              IVA %
-            </label>
-            <Input
-              type="number"
-              step="1"
-              min="0"
-              value={iva || ""}
-              onChange={(e) => setIva(Math.round(Number(e.target.value) || 0))}
-              className="w-[90px] py-2 text-right text-[13px] tabular"
-            />
+        <div className="space-y-3">
+          <div className="flex gap-4">
+            <div>
+              <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                IVA %
+              </label>
+              <Input
+                type="number"
+                step="1"
+                min="0"
+                value={iva || ""}
+                onChange={(e) => setIva(Math.round(Number(e.target.value) || 0))}
+                className="w-[90px] py-2 text-right text-[13px] tabular"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                Retención %
+              </label>
+              <Input
+                type="number"
+                step="1"
+                min="0"
+                value={ret || ""}
+                onChange={(e) => setRet(Math.round(Number(e.target.value) || 0))}
+                className="w-[90px] py-2 text-right text-[13px] tabular"
+              />
+              <p className="mt-1 text-[10.5px] text-ink-muted">
+                {esEmpresa ? "Empresa → −15% sugerido" : "Particular → sin retención"}
+              </p>
+            </div>
+            <div>
+              <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                Descuento %
+              </label>
+              <Input
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={dto || ""}
+                onChange={(e) => setDto(Math.min(100, Number(e.target.value) || 0))}
+                className="w-[90px] py-2 text-right text-[13px] tabular"
+              />
+              <p className="mt-1 text-[10.5px] text-ink-muted">A todo el presupuesto</p>
+            </div>
           </div>
-          <div>
+
+          {/* Cuadrar al total: reparte un total cerrado entre las líneas */}
+          <div className="rounded-md border-hair border-border bg-beige-light p-3">
             <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-              Retención %
+              Cuadrar al total (€)
             </label>
-            <Input
-              type="number"
-              step="1"
-              min="0"
-              value={ret || ""}
-              onChange={(e) => setRet(Math.round(Number(e.target.value) || 0))}
-              className="w-[90px] py-2 text-right text-[13px] tabular"
-            />
-            <p className="mt-1 text-[10.5px] text-ink-muted">
-              {esEmpresa ? "Empresa → −15% sugerido" : "Particular → sin retención"}
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={totalObjetivo}
+                onChange={(e) => setTotalObjetivo(e.target.value)}
+                placeholder="p. ej. 127,20"
+                className="w-[130px] py-2 text-right text-[13px] tabular"
+              />
+              <Button variant="outline" size="sm" onClick={repartirAlTotal} disabled={!totalObjetivo}>
+                Repartir
+              </Button>
+            </div>
+            <p className="mt-1.5 max-w-[300px] text-[10.5px] leading-relaxed text-ink-muted">
+              Escribe el TOTAL final (con IVA y retención) y se reparte entre las líneas: si ya
+              tienen precio, proporcionalmente; si están a 0 €, a partes iguales.
             </p>
           </div>
         </div>
 
         <div className="w-full md:w-[280px]">
-          <div className="flex justify-between border-t border-border py-2 text-[13px]">
+          {totales.descuento > 0 && (
+            <>
+              <div className="flex justify-between border-t border-border py-2 text-[13px]">
+                <span className="text-ink-secondary">Suma de las líneas</span>
+                <span className="tabular">{eur(totales.bruto)}</span>
+              </div>
+              <div className="flex justify-between py-1 text-[13px]">
+                <span className="text-clay">Descuento (−{num(dto, 0)}%)</span>
+                <span className="tabular font-semibold text-clay">−{eur(totales.descuento)}</span>
+              </div>
+            </>
+          )}
+          <div className={`flex justify-between py-2 text-[13px] ${totales.descuento > 0 ? "" : "border-t border-border"}`}>
             <span className="text-ink-secondary">
               {totales.efectivo > 0 ? "Base facturable" : "Base imponible"}
             </span>

@@ -7,7 +7,7 @@ import { Card, Overline } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { crearFactura } from "@/app/actions";
-import { calcularTotales } from "@/lib/calc";
+import { calcularTotales, importeLinea } from "@/lib/calc";
 import { eur, num } from "@/lib/format";
 
 type ClienteLite = {
@@ -17,7 +17,7 @@ type ClienteLite = {
   nif_cif: string | null;
 };
 
-type Linea = { concepto: string; cantidad: number; precio_unitario: number; via: string };
+type Linea = { concepto: string; cantidad: number; precio_unitario: number; via: string; descuento_pct?: number | null };
 
 // Presupuesto de partida: precarga cliente, líneas e impuestos de una
 // oportunidad para facturar sin re-teclear (todo sigue siendo editable).
@@ -29,6 +29,7 @@ export type PresupuestoOrigen = {
   clienteNombre: string | null;
   ivaPct: number;
   retPct: number;
+  descuentoPct: number | null;
   total: number;
   lineas: Linea[];
 };
@@ -66,6 +67,7 @@ export function NuevaFacturaForm({
   const [fechaVencimiento, setFechaVencimiento] = React.useState("");
   const [iva, setIva] = React.useState(21);
   const [ret, setRet] = React.useState(0);
+  const [dto, setDto] = React.useState(0);
   const [lineas, setLineas] = React.useState<Linea[]>([{ ...LINEA_VACIA }]);
   const [cobradaFactura, setCobradaFactura] = React.useState(false);
   const [cobradoEfectivo, setCobradoEfectivo] = React.useState(false);
@@ -75,7 +77,7 @@ export function NuevaFacturaForm({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const t = calcularTotales(lineas, iva, ret);
+  const t = calcularTotales(lineas, iva, ret, dto);
 
   const clienteSel = clientes.find((c) => c.id === clienteId);
   const esEmpresa = nuevoCliente ? nc.tipo === "empresa" : clienteSel?.tipo === "empresa";
@@ -93,6 +95,7 @@ export function NuevaFacturaForm({
     setClienteId(p.clienteId ?? "");
     setIva(p.ivaPct);
     setRet(p.retPct);
+    setDto(p.descuentoPct ?? 0);
     setLineas(p.lineas.length ? p.lineas.map((l) => ({ ...l })) : [{ ...LINEA_VACIA }]);
   }
 
@@ -110,6 +113,7 @@ export function NuevaFacturaForm({
         fechaVencimiento: fechaVencimiento || null,
         ivaPct: iva,
         retPct: ret,
+        descuentoPct: dto || null,
         lineas,
         cobradaFactura,
         cobradoEfectivo,
@@ -229,7 +233,7 @@ export function NuevaFacturaForm({
           <Field label="Vencimiento (cuándo se cobra)">
             <Input type="date" value={fechaVencimiento} onChange={(e) => setFechaVencimiento(e.target.value)} />
           </Field>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <Field label="IVA %">
               <Input
                 type="number"
@@ -247,6 +251,17 @@ export function NuevaFacturaForm({
                 min="0"
                 value={ret || ""}
                 onChange={(e) => setRet(Math.round(Number(e.target.value) || 0))}
+                className="text-right tabular"
+              />
+            </Field>
+            <Field label="Dto. %">
+              <Input
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={dto || ""}
+                onChange={(e) => setDto(Math.min(100, Number(e.target.value) || 0))}
                 className="text-right tabular"
               />
             </Field>
@@ -272,6 +287,7 @@ export function NuevaFacturaForm({
                 <th className="border-b border-border py-2 text-left font-semibold">Concepto</th>
                 <th className="w-[70px] border-b border-border py-2 text-right font-semibold">Cant.</th>
                 <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Precio €</th>
+                <th className="w-[64px] border-b border-border py-2 text-right font-semibold">Dto %</th>
                 <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Subtotal</th>
                 <th className="w-[96px] border-b border-border py-2 pl-2 text-left font-semibold">Vía</th>
                 <th className="w-[36px] border-b border-border py-2"></th>
@@ -291,7 +307,8 @@ export function NuevaFacturaForm({
                   <td className="border-b border-[#f0eae1] py-1.5">
                     <Input
                       type="number"
-                      step="0.01"
+                      step="1"
+                      min="0"
                       value={l.cantidad || ""}
                       onChange={(e) => setLinea(i, { cantidad: Number(e.target.value) })}
                       className="py-2 text-right text-[13px] tabular"
@@ -306,8 +323,20 @@ export function NuevaFacturaForm({
                       className="py-2 text-right text-[13px] tabular"
                     />
                   </td>
+                  <td className="border-b border-[#f0eae1] py-1.5 pl-2">
+                    <Input
+                      type="number"
+                      step="1"
+                      min="0"
+                      max="100"
+                      value={l.descuento_pct || ""}
+                      onChange={(e) => setLinea(i, { descuento_pct: Math.min(100, Number(e.target.value) || 0) || null })}
+                      placeholder="—"
+                      className="py-2 text-right text-[12px] tabular"
+                    />
+                  </td>
                   <td className="border-b border-[#f0eae1] py-1.5 text-right text-[13px] tabular font-semibold">
-                    {eur(l.cantidad * l.precio_unitario)}
+                    {eur(importeLinea(l))}
                   </td>
                   <td className="border-b border-[#f0eae1] py-1.5 pl-2">
                     <select
@@ -341,7 +370,19 @@ export function NuevaFacturaForm({
             <Plus size={14} /> Añadir línea
           </Button>
           <div className="w-full md:w-[300px]">
-            <div className="flex justify-between border-t border-border py-2 text-[13px]">
+            {t.descuento > 0 && (
+              <>
+                <div className="flex justify-between border-t border-border py-2 text-[13px]">
+                  <span className="text-ink-secondary">Suma de las líneas</span>
+                  <span className="tabular">{eur(t.bruto)}</span>
+                </div>
+                <div className="flex justify-between py-1 text-[13px]">
+                  <span className="text-clay">Descuento (−{num(dto, 0)}%)</span>
+                  <span className="tabular font-semibold text-clay">−{eur(t.descuento)}</span>
+                </div>
+              </>
+            )}
+            <div className={`flex justify-between py-2 text-[13px] ${t.descuento > 0 ? "" : "border-t border-border"}`}>
               <span className="text-ink-secondary">{t.efectivo > 0 ? "Base facturable" : "Base imponible"}</span>
               <span className="tabular font-semibold">{eur(t.baseFactura)}</span>
             </div>
