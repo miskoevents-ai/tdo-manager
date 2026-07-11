@@ -669,6 +669,50 @@ export async function borrarTarea(id: string) {
   revalidatePath("/");
 }
 
+// Genera de golpe las tareas típicas de un tipo de evento (plantilla). Si se
+// pasa la fecha del evento, calcula la fecha límite de las que llevan offset.
+export async function crearTareasPlantilla(input: {
+  items: { titulo: string; prioridad?: string; horas?: number; offset?: number | null }[];
+  asignadaA: string;
+  creadaPor: string | null;
+  oportunidadId: string | null;
+  fechaEvento: string | null;
+}) {
+  const sb = createAdminClient();
+  if (!input.asignadaA.trim()) throw new Error("Di para quién son las tareas.");
+  if (!input.items.length) throw new Error("La plantilla no tiene tareas.");
+
+  const fechaLimite = (offset?: number | null) => {
+    if (offset == null || !input.fechaEvento) return null;
+    const d = new Date(input.fechaEvento + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const filas = input.items.map((it, i) => ({
+    titulo: it.titulo,
+    asignada_a: input.asignadaA.trim(),
+    creada_por: input.creadaPor?.trim() || null,
+    prioridad: ["baja", "normal", "alta", "urgente"].includes(it.prioridad ?? "") ? it.prioridad : "normal",
+    fecha_limite: fechaLimite(it.offset),
+    oportunidad_id: input.oportunidadId || null,
+    horas_estimadas: it.horas && it.horas > 0 ? it.horas : null,
+    orden: i,
+  }));
+
+  // Reintenta sin las columnas nuevas (030/031) si aún no están migradas.
+  let { error } = await sb.from("tareas").insert(filas);
+  if (error && /(horas_estimadas|orden)/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb
+      .from("tareas")
+      .insert(filas.map(({ horas_estimadas: _h, orden: _o, ...r }) => r)));
+  }
+  if (error) throw new Error(error.message);
+  revalidatePath("/tareas");
+  revalidatePath("/");
+  return filas.length;
+}
+
 // Reordena (y, si hace falta, cambia de columna) una tarea del tablero: la
 // tarjeta 'id' pasa a 'estado' y toda la columna queda en el orden 'ids'.
 export async function ordenarTareas(estado: string, ids: string[], id: string) {

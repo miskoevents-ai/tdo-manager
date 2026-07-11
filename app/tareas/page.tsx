@@ -22,7 +22,7 @@ export default async function TareasPage() {
   // Para vincular tareas a eventos: solo oportunidades vivas (no cerradas).
   const opsLite = ops
     .filter((o) => !["perdida", "descartada"].includes(o.estado))
-    .map((o) => ({ id: o.id, titulo: o.titulo }));
+    .map((o) => ({ id: o.id, titulo: o.titulo, tipoEvento: o.tipo_evento, fechaEvento: o.fecha_evento }));
 
   // Personas: el equipo activo + cualquier nombre ya usado en tareas.
   const nombres = new Set(equipo.filter((e) => e.activo).map((e) => e.nombre));
