@@ -103,7 +103,7 @@ export function NuevaFacturaForm({
     setBusy(true);
     setError(null);
     try {
-      const id = await crearFactura({
+      const res = await crearFactura({
         clienteId: nuevoCliente ? null : clienteId || null,
         nuevoCliente: nuevoCliente ? nc : null,
         fiscalPatch: !nuevoCliente && faltaNif ? fiscal : null,
@@ -119,7 +119,12 @@ export function NuevaFacturaForm({
         cobradoEfectivo,
         notas: notas || null,
       });
-      router.push(`/facturas/${id}`);
+      if (res.error || !res.id) {
+        setError(res.error || "No se pudo crear la factura.");
+        setBusy(false);
+        return;
+      }
+      router.push(`/facturas/${res.id}`);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);

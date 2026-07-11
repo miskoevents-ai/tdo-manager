@@ -1936,8 +1936,9 @@ export async function crearFactura(input: {
   cobradaFactura: boolean;
   cobradoEfectivo: boolean;
   notas: string | null;
-}): Promise<string> {
+}): Promise<{ id?: string; error?: string }> {
   const sb = createAdminClient();
+  try {
   if (!input.fechaEmision) throw new Error("Falta la fecha de emisión.");
 
   const lineas = input.lineas
@@ -2089,7 +2090,12 @@ export async function crearFactura(input: {
   revalidatePath("/contabilidad");
   revalidatePath("/calendario");
   revalidatePath("/");
-  return facturaId;
+  return { id: facturaId };
+  } catch (e) {
+    // Devolvemos el mensaje (en vez de lanzar) para que se vea de verdad y no
+    // el error genérico de producción.
+    return { error: (e as Error).message || "No se pudo crear la factura." };
+  }
 }
 
 // Anula una factura (o la restaura a emitida). La anulada conserva su número
