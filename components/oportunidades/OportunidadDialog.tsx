@@ -46,6 +46,9 @@ export function OportunidadDialog({
   const [serie, setSerie] = React.useState(oportunidad?.serie ?? "evento");
   const esAlquiler = serie === "alquiler_encargo";
   const [fianzaFecha, setFianzaFecha] = React.useState(oportunidad?.fecha_devolucion_fianza ?? "");
+  // La fecha de devolución solo tiene sentido si hay fianza (> 0).
+  const [fianza, setFianza] = React.useState(String(oportunidad?.fianza ?? ""));
+  const hayFianza = (parseFloat(fianza) || 0) > 0;
   function onRecogida(v: string) {
     setRecogida(v);
     if (v) setFianzaFecha(sumaDias(v, 3));
@@ -343,24 +346,32 @@ export function OportunidadDialog({
               />
             </Field>
             <Field label="Fianza €">
-              <Input type="number" step="0.01" name="fianza" defaultValue={oportunidad?.fianza ?? ""} />
+              <Input
+                type="number"
+                step="0.01"
+                name="fianza"
+                value={fianza}
+                onChange={(e) => setFianza(e.target.value)}
+              />
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Fecha devolución de la fianza">
-              <Input
-                type="date"
-                name="fecha_devolucion_fianza"
-                value={fianzaFecha}
-                onChange={(e) => setFianzaFecha(e.target.value)}
-              />
-              {recogida && (
-                <p className="mt-1 text-[10.5px] text-ink-muted">
-                  Sugerido: 3 días tras la recogida ({sumaDias(recogida, 3).split("-").reverse().join("/")}). Puedes cambiarlo.
-                </p>
-              )}
-            </Field>
+            {hayFianza && (
+              <Field label="Fecha devolución de la fianza">
+                <Input
+                  type="date"
+                  name="fecha_devolucion_fianza"
+                  value={fianzaFecha}
+                  onChange={(e) => setFianzaFecha(e.target.value)}
+                />
+                {recogida && (
+                  <p className="mt-1 text-[10.5px] text-ink-muted">
+                    Sugerido: 3 días tras la recogida ({sumaDias(recogida, 3).split("-").reverse().join("/")}). Puedes cambiarlo.
+                  </p>
+                )}
+              </Field>
+            )}
             <Field label="Condiciones de pago">
               <Select name="pago_a_dias" defaultValue={String(oportunidad?.pago_a_dias ?? 0)}>
                 <option value="0">Al momento</option>
