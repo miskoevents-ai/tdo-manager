@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { Donut, DONUT_COLORS } from "@/components/ui/Donut";
-import { marcarMovimientoPagado, cambiarEstadoMovimiento } from "@/app/actions";
+import { marcarMovimientoPagado, cambiarEstadoMovimiento, marcarMovimientoLiquidado } from "@/app/actions";
 import { eur, fecha } from "@/lib/format";
 import {
   NATURALEZA_LABEL,
@@ -51,6 +51,8 @@ export function TesoreriaClient({
   // Caja: todo · oficial (todo menos amigos) · amigos. Filtra la lista y
   // recalcula los saldos de arriba.
   const [caja, setCaja] = React.useState<"" | "oficial" | "amigos">("");
+  // Persona abierta en el detalle de cuentas con el equipo.
+  const [personaDetalle, setPersonaDetalle] = React.useState<string | null>(null);
   // Panel de deudas: marcar pagado en un clic y ver solo unas pocas por defecto.
   const [pagando, setPagando] = React.useState<string | null>(null);
   const [verTodasDeudas, setVerTodasDeudas] = React.useState(false);
@@ -126,11 +128,13 @@ export function TesoreriaClient({
     const map = new Map<string, { debeTDO: Lado; debenTDO: Lado }>();
     const get = (n: string) =>
       map.get(n) ?? { debeTDO: { oficial: 0, amigos: 0 }, debenTDO: { oficial: 0, amigos: 0 } };
-    // TDO debe a la persona (reembolsos pendientes)
+    // TDO debe a la persona: cualquier gasto que adelantó de su bolsillo y aún
+    // no se le ha reembolsado (liquidado). El estado del gasto (pagado al
+    // proveedor o no) es indiferente para la deuda con la persona.
     for (const m of movimientos) {
       const persona = m.quien_lo_paga?.trim();
       if (!persona) continue;
-      if (m.tipo !== "gasto" || (m.estado !== "previsto" && m.estado !== "vencido")) continue;
+      if (m.tipo !== "gasto" || m.liquidado) continue;
       const acc = get(persona);
       if (m.naturaleza === "amigos") acc.debeTDO.amigos += Number(m.importe);
       else acc.debeTDO.oficial += Number(m.importe);
@@ -298,7 +302,11 @@ export function TesoreriaClient({
               <tbody>
                 {cuentasEquipo.map((c) => (
                   <tr key={c.nombre}>
-                    <td className="border-b border-[#f0eae1] py-2 font-medium">{c.nombre}</td>
+                    <td className="border-b border-[#f0eae1] py-2 font-medium">
+                      <button onClick={() => setPersonaDetalle(c.nombre)} className="text-left text-sage hover:underline">
+                        {c.nombre}
+                      </button>
+                    </td>
                     <td className="border-b border-[#f0eae1] py-2 text-right">
                       {c.debeTotal > 0 ? (
                         <span className="tabular">
@@ -330,12 +338,21 @@ export function TesoreriaClient({
           <p className="mt-2 text-[11px] text-ink-muted">
             <b>TDO le debe</b>: gastos que la persona adelantó de su bolsillo (reembolso pendiente).{" "}
             <b>Le debe a TDO</b>: cobros que recibió en mano y aún no ha entregado a la caja. Cada
-            importe indica su caja (🏦 oficial / 🤝 amigos). Marca el gasto como pagado o el cobro
-            como entregado para saldarlo.
+            importe indica su caja (🏦 oficial / 🤝 amigos). Pincha en una persona para ver su
+            historial y saldar cada movimiento.
           </p>
         </Card>
       )}
       </div>
+
+      {personaDetalle && (
+        <PersonaDetalle
+          persona={personaDetalle}
+          movimientos={movimientos}
+          onClose={() => setPersonaDetalle(null)}
+          onDone={() => router.refresh()}
+        />
+      )}
 
       {/* Caja: los saldos y la lista se recalculan según la caja elegida */}
       <div className="flex flex-wrap items-center gap-2">
@@ -523,6 +540,93 @@ export function TesoreriaClient({
             </Card>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Detalle de una persona: historial de gastos que adelantó (reembolsos) y
+// cobros que tiene en mano, con opción de saldar cada uno.
+function PersonaDetalle({
+  persona,
+  movimientos,
+  onClose,
+  onDone,
+}: {
+  persona: string;
+  movimientos: Tesoreria[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const reembolsos = movimientos.filter((m) => m.tipo === "gasto" && m.quien_lo_paga?.trim() === persona);
+  const cobros = movimientos.filter((m) => m.tipo === "ingreso" && m.cobrado_por?.trim() === persona);
+  const debe = reembolsos.filter((m) => !m.liquidado).reduce((s, m) => s + Number(m.importe), 0);
+  const deben = cobros.filter((m) => !m.liquidado).reduce((s, m) => s + Number(m.importe), 0);
+
+  async function saldar(id: string, liquidado: boolean) {
+    setBusy(id);
+    try {
+      await marcarMovimientoLiquidado(id, liquidado);
+      onDone();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const fila = (m: Tesoreria, tipoLado: "reembolso" | "cobro") => (
+    <div key={m.id} className="flex items-center justify-between gap-2 border-b border-[#f0eae1] py-2 text-[12.5px]">
+      <div className="min-w-0">
+        <div className="truncate font-medium">
+          {m.concepto}
+          {m.naturaleza === "amigos" ? <span className="ml-1.5 text-[10px] font-semibold text-clay">🤝</span> : <span className="ml-1.5 text-[10px] text-ink-muted">🏦</span>}
+        </div>
+        <div className="text-[11px] text-ink-muted">{fecha(m.fecha)}{m.categoria ? ` · ${m.categoria}` : ""}</div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="tabular font-semibold">{eur(Number(m.importe))}</span>
+        {m.liquidado ? (
+          <button onClick={() => saldar(m.id, false)} disabled={busy === m.id} className="rounded-sm bg-ok-tint px-2 py-1 text-[10.5px] font-semibold text-ok">
+            {tipoLado === "reembolso" ? "reembolsado" : "entregado"} ✓
+          </button>
+        ) : (
+          <button onClick={() => saldar(m.id, true)} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-2 py-1 text-[10.5px] font-semibold text-ink-secondary hover:bg-beige-warm">
+            {busy === m.id ? "…" : tipoLado === "reembolso" ? "Marcar reembolsado" : "Marcar entregado"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 p-4 pt-[6vh]" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-[560px] rounded-lg border-hair border-border bg-white p-5 shadow-xl">
+        <div className="mb-3 flex items-start justify-between">
+          <div>
+            <div className="font-display text-[18px]">{persona}</div>
+            <div className="mt-0.5 text-[12px] text-ink-muted">
+              TDO le debe <b className="text-warn">{eur(debe)}</b>
+              {deben > 0 && <> · Le debe a TDO <b className="text-ok">{eur(deben)}</b></>}
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-sm px-2 py-1 text-[16px] leading-none text-ink-muted hover:bg-beige-warm">×</button>
+        </div>
+
+        {reembolsos.length > 0 && (
+          <div className="mb-3">
+            <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Gastos que adelantó (TDO le debe)</div>
+            {reembolsos.map((m) => fila(m, "reembolso"))}
+          </div>
+        )}
+        {cobros.length > 0 && (
+          <div className="mb-3">
+            <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Cobros en mano (le debe a TDO)</div>
+            {cobros.map((m) => fila(m, "cobro"))}
+          </div>
+        )}
+        {reembolsos.length === 0 && cobros.length === 0 && (
+          <p className="py-3 text-center text-[12px] text-ink-muted">Sin movimientos con esta persona.</p>
+        )}
       </div>
     </div>
   );
