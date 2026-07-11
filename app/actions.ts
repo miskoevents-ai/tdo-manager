@@ -411,6 +411,32 @@ export async function marcarMovimientoPagado(id: string) {
   revalidatePath("/");
 }
 
+// Cambia el estado de un movimiento (previsto / cobrado / pagado / vencido).
+// Si una factura está enlazada y el ingreso pasa a cobrado, se marca cobrada.
+export async function cambiarEstadoMovimiento(id: string, estado: string) {
+  const sb = createAdminClient();
+  const validos = ["previsto", "cobrado", "pagado", "vencido"];
+  if (!validos.includes(estado)) throw new Error("Estado no válido.");
+  const { data: mov, error } = await sb
+    .from("tesoreria")
+    .update({ estado })
+    .eq("id", id)
+    .select("factura_id")
+    .single();
+  if (error) throw new Error(error.message);
+  // Un cobro de factura marcado cobrado/previsto sincroniza la factura.
+  if (mov?.factura_id && (estado === "cobrado" || estado === "previsto")) {
+    await sb
+      .from("facturas")
+      .update({ estado: estado === "cobrado" ? "cobrada" : "emitida" })
+      .eq("id", mov.factura_id);
+    revalidatePath("/facturas");
+  }
+  revalidatePath("/tesoreria");
+  revalidatePath("/contabilidad");
+  revalidatePath("/");
+}
+
 // --------------------------- Fidelización -------------------------------
 
 // Marca en una oportunidad si la reseña está pedida o conseguida.
