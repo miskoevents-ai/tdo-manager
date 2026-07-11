@@ -117,23 +117,44 @@ export function TesoreriaClient({
   const aQuien = (m: Tesoreria) =>
     (m.proveedor_id ? provNombre[m.proveedor_id] : null) ?? m.quien_lo_paga ?? m.concepto;
 
-  // Deuda al equipo: reembolsos pendientes a personas (alguien adelantó de su
-  // bolsillo), desglosado por caja de la que saldrá el pago (oficial/amigos).
-  const deudasEquipo = React.useMemo(() => {
-    const map = new Map<string, { oficial: number; amigos: number }>();
-    for (const m of deudas) {
+  // Cuentas con el equipo, en los dos sentidos y por caja:
+  //  · TDO le debe → gastos sin pagar que adelantó de su bolsillo (quien_lo_paga).
+  //  · Le debe a TDO → cobros que recibió en mano y aún no ha entregado
+  //    (cobrado_por, sin liquidar).
+  const cuentasEquipo = React.useMemo(() => {
+    type Lado = { oficial: number; amigos: number };
+    const map = new Map<string, { debeTDO: Lado; debenTDO: Lado }>();
+    const get = (n: string) =>
+      map.get(n) ?? { debeTDO: { oficial: 0, amigos: 0 }, debenTDO: { oficial: 0, amigos: 0 } };
+    // TDO debe a la persona (reembolsos pendientes)
+    for (const m of movimientos) {
       const persona = m.quien_lo_paga?.trim();
       if (!persona) continue;
-      const acc = map.get(persona) ?? { oficial: 0, amigos: 0 };
-      if (m.naturaleza === "amigos") acc.amigos += Number(m.importe);
-      else acc.oficial += Number(m.importe);
+      if (m.tipo !== "gasto" || (m.estado !== "previsto" && m.estado !== "vencido")) continue;
+      const acc = get(persona);
+      if (m.naturaleza === "amigos") acc.debeTDO.amigos += Number(m.importe);
+      else acc.debeTDO.oficial += Number(m.importe);
+      map.set(persona, acc);
+    }
+    // La persona debe a TDO (cobros que tiene sin entregar)
+    for (const m of movimientos) {
+      const persona = m.cobrado_por?.trim();
+      if (!persona) continue;
+      if (m.tipo !== "ingreso" || m.liquidado) continue;
+      const acc = get(persona);
+      if (m.naturaleza === "amigos") acc.debenTDO.amigos += Number(m.importe);
+      else acc.debenTDO.oficial += Number(m.importe);
       map.set(persona, acc);
     }
     return Array.from(map.entries())
-      .map(([nombre, v]) => ({ nombre, ...v, total: v.oficial + v.amigos }))
-      .sort((a, b) => b.total - a.total);
-  }, [deudas]);
-  const totalDeudaEquipo = deudasEquipo.reduce((s, d) => s + d.total, 0);
+      .map(([nombre, v]) => {
+        const debeTotal = v.debeTDO.oficial + v.debeTDO.amigos;
+        const debenTotal = v.debenTDO.oficial + v.debenTDO.amigos;
+        return { nombre, ...v, debeTotal, debenTotal, neto: debeTotal - debenTotal };
+      })
+      .sort((a, b) => Math.abs(b.neto) - Math.abs(a.neto));
+  }, [movimientos]);
+  const hayCuentasEquipo = cuentasEquipo.some((c) => c.debeTotal > 0 || c.debenTotal > 0);
 
   // Desglose de la deuda por acreedor (a quién se debe) para el donut. Se
   // agrupan importes por "a quién" y se ordenan de mayor a menor; a partir
@@ -254,44 +275,61 @@ export function TesoreriaClient({
         </Card>
       )}
 
-      {/* Se debe al equipo: reembolsos pendientes por persona y por caja */}
-      {deudasEquipo.length > 0 && (
+      {/* Cuentas con el equipo: en los dos sentidos y por caja */}
+      {hayCuentasEquipo && (
         <Card className="p-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
-              Se debe al equipo
+              Cuentas con el equipo
             </span>
-            <span className="tabular font-display text-[18px] text-warn">{eur(totalDeudaEquipo)}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="text-[10.5px] uppercase tracking-[0.08em] text-ink-secondary">
                   <th className="border-b border-border py-2 text-left font-semibold">Persona</th>
-                  <th className="border-b border-border py-2 text-right font-semibold">🏦 Caja oficial</th>
-                  <th className="border-b border-border py-2 text-right font-semibold">🤝 Caja amigos</th>
-                  <th className="border-b border-border py-2 text-right font-semibold">Total</th>
+                  <th className="border-b border-border py-2 text-right font-semibold">TDO le debe</th>
+                  <th className="border-b border-border py-2 text-right font-semibold">Le debe a TDO</th>
+                  <th className="border-b border-border py-2 text-right font-semibold">Neto</th>
                 </tr>
               </thead>
               <tbody>
-                {deudasEquipo.map((d) => (
-                  <tr key={d.nombre}>
-                    <td className="border-b border-[#f0eae1] py-2 font-medium">{d.nombre}</td>
-                    <td className="border-b border-[#f0eae1] py-2 text-right tabular">
-                      {d.oficial > 0 ? eur(d.oficial) : <span className="text-ink-muted">—</span>}
+                {cuentasEquipo.map((c) => (
+                  <tr key={c.nombre}>
+                    <td className="border-b border-[#f0eae1] py-2 font-medium">{c.nombre}</td>
+                    <td className="border-b border-[#f0eae1] py-2 text-right">
+                      {c.debeTotal > 0 ? (
+                        <span className="tabular">
+                          {eur(c.debeTotal)}
+                          <CajaDetalle oficial={c.debeTDO.oficial} amigos={c.debeTDO.amigos} />
+                        </span>
+                      ) : (
+                        <span className="text-ink-muted">—</span>
+                      )}
                     </td>
-                    <td className="border-b border-[#f0eae1] py-2 text-right tabular text-clay">
-                      {d.amigos > 0 ? eur(d.amigos) : <span className="text-ink-muted">—</span>}
+                    <td className="border-b border-[#f0eae1] py-2 text-right">
+                      {c.debenTotal > 0 ? (
+                        <span className="tabular">
+                          {eur(c.debenTotal)}
+                          <CajaDetalle oficial={c.debenTDO.oficial} amigos={c.debenTDO.amigos} />
+                        </span>
+                      ) : (
+                        <span className="text-ink-muted">—</span>
+                      )}
                     </td>
-                    <td className="border-b border-[#f0eae1] py-2 text-right tabular font-semibold">{eur(d.total)}</td>
+                    <td className={`border-b border-[#f0eae1] py-2 text-right tabular font-semibold ${c.neto > 0.01 ? "text-warn" : c.neto < -0.01 ? "text-ok" : "text-ink-muted"}`}>
+                      {c.neto > 0.01 ? `TDO paga ${eur(c.neto)}` : c.neto < -0.01 ? `${c.nombre.split(" ")[0]} paga ${eur(-c.neto)}` : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="mt-2 text-[11px] text-ink-muted">
-            Reembolsos pendientes: dinero que alguien del equipo ha adelantado de su bolsillo. La
-            columna indica de qué caja saldrá cada pago. Marca el gasto como pagado para saldarlo.
+            <b>TDO le debe</b>: gastos que la persona adelantó de su bolsillo (reembolso pendiente).{" "}
+            <b>Le debe a TDO</b>: cobros que recibió en mano y aún no ha entregado a la caja. Cada
+            importe indica su caja (🏦 oficial / 🤝 amigos). Marca el gasto como pagado o el cobro
+            como entregado para saldarlo.
           </p>
         </Card>
       )}
@@ -485,6 +523,15 @@ export function TesoreriaClient({
       </div>
     </div>
   );
+}
+
+// Desglose por caja (🏦 oficial / 🤝 amigos) bajo un importe de las cuentas.
+function CajaDetalle({ oficial, amigos }: { oficial: number; amigos: number }) {
+  const partes: string[] = [];
+  if (oficial > 0) partes.push(`🏦 ${eur(oficial)}`);
+  if (amigos > 0) partes.push(`🤝 ${eur(amigos)}`);
+  if (partes.length < 2) return null;
+  return <span className="ml-1 block text-[10px] font-normal text-ink-muted">{partes.join(" · ")}</span>;
 }
 
 // Desplegable de estado del movimiento: cambia entre Previsto y Cobrado

@@ -248,7 +248,9 @@ export type Tesoreria = {
   proveedor_id?: string | null;
   factura_id?: string | null;
   ticket_url?: string | null; // foto del ticket/justificante en Storage
-  quien_lo_paga?: string | null;
+  quien_lo_paga?: string | null; // gasto adelantado por una persona → TDO le debe
+  cobrado_por?: string | null; // ingreso recibido por una persona → debe a TDO
+  liquidado?: boolean | null; // el cobro ya se entregó a la caja de TDO
   notas?: string | null;
   computa_contabilidad: boolean;
   created_at: string;
@@ -353,6 +355,9 @@ export type GastoFijo = {
   importe_mensual: number;
   periodicidad: string;
   quien_lo_paga: string | null;
+  caja?: string | null; // 'amigos' o null (oficial)
+  desde?: string | null; // primer mes en que aplica (YYYY-MM-01); null = sin límite
+  hasta?: string | null; // último mes en que aplica; null = sin límite
   activo: boolean;
   notas: string | null;
 };

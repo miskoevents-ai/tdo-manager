@@ -79,7 +79,7 @@ export function MovimientoDialog({
 
   // Pagado por: desplegable del equipo o escribir uno externo (sirve para
   // saber a quién reembolsar si alguien adelanta el dinero).
-  const [pagadoPor, setPagadoPor] = React.useState(movimiento?.quien_lo_paga ?? "");
+  const [pagadoPor, setPagadoPor] = React.useState(movimiento?.quien_lo_paga ?? movimiento?.cobrado_por ?? "");
   const pagadoEnLista = responsables.includes(pagadoPor);
   const [pagadoExterno, setPagadoExterno] = React.useState(Boolean(pagadoPor) && !pagadoEnLista);
 
@@ -329,7 +329,7 @@ export function MovimientoDialog({
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-                  Pagado por
+                  {tipo === "ingreso" ? "Cobrado por (equipo)" : "Pagado por"}
                 </span>
                 <button
                   type="button"
@@ -354,13 +354,34 @@ export function MovimientoDialog({
                 />
               ) : (
                 <Select value={pagadoPor} onChange={(e) => setPagadoPor(e.target.value)}>
-                  <option value="">— Sin especificar —</option>
+                  <option value="">{tipo === "ingreso" ? "— TDO (a la caja) —" : "— Sin especificar —"}</option>
                   {responsables.map((r) => (
                     <option key={r} value={r}>{r}</option>
                   ))}
                 </Select>
               )}
-              <input type="hidden" name="quien_lo_paga" value={pagadoPor} />
+              {tipo === "ingreso" ? (
+                <>
+                  <input type="hidden" name="cobrado_por" value={pagadoPor} />
+                  <input type="hidden" name="quien_lo_paga" value="" />
+                  {pagadoPor && (
+                    <label className="mt-1.5 flex items-center gap-2 text-[11.5px] text-ink-secondary">
+                      <input type="checkbox" name="liquidado" defaultChecked={Boolean(movimiento?.liquidado)} className="h-3.5 w-3.5 accent-sage" />
+                      Ya lo ha entregado a la caja de TDO
+                    </label>
+                  )}
+                  {pagadoPor && (
+                    <p className="mt-1 text-[10.5px] text-ink-muted">
+                      Si no lo ha entregado aún, queda como deuda de {pagadoPor} con TDO.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <input type="hidden" name="quien_lo_paga" value={pagadoPor} />
+                  <input type="hidden" name="cobrado_por" value="" />
+                </>
+              )}
             </div>
           </div>
 
