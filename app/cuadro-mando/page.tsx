@@ -7,10 +7,37 @@ import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades, getTesoreria, getCostesEstimadosTodos, getPartesHorasTodas } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha, num } from "@/lib/format";
+import { TIPO_EVENTO_LABEL } from "@/lib/estados";
 
 export const dynamic = "force-dynamic";
 
 const CONTRATADAS = ["confirmada", "realizada", "facturada"];
+
+// Agrupa las oportunidades contratadas por una clave (tipo de evento, cliente…)
+// y calcula ingresos, gastos, margen, margen % y ticket medio.
+type RentRow = { clave: string; n: number; ingresos: number; gastos: number; margen: number; margenPct: number; ticket: number };
+function rentabilidadPor(rows: OpRow[], keyFn: (r: OpRow) => string | null): RentRow[] {
+  const m = new Map<string, { n: number; ingresos: number; gastos: number; margen: number }>();
+  for (const r of rows) {
+    if (!r.contratada) continue;
+    const k = keyFn(r);
+    if (!k) continue;
+    const a = m.get(k) ?? { n: 0, ingresos: 0, gastos: 0, margen: 0 };
+    a.n += 1;
+    a.ingresos += r.total;
+    a.gastos += r.gastos;
+    a.margen += r.margen;
+    m.set(k, a);
+  }
+  return Array.from(m.entries())
+    .map(([clave, v]) => ({
+      clave,
+      ...v,
+      margenPct: v.ingresos > 0 ? (v.margen / v.ingresos) * 100 : 0,
+      ticket: v.n > 0 ? v.ingresos / v.n : 0,
+    }))
+    .sort((a, b) => b.margen - a.margen);
+}
 
 // Fila de la tabla de precisión presupuestando (pre vs real por evento).
 type PrecisionRow = {
@@ -143,6 +170,31 @@ export default async function CuadroMandoPage() {
       </div>
       <CuadroMando rows={rows} />
 
+      {/* Rentabilidad por tipo de evento y por cliente (solo contratadas) */}
+      {(() => {
+        const porTipo = rentabilidadPor(rows, (r) => r.tipoEvento).map((x) => ({
+          ...x,
+          etiqueta: TIPO_EVENTO_LABEL[x.clave] ?? x.clave,
+        }));
+        const porCliente = rentabilidadPor(rows, (r) => r.cliente)
+          .slice(0, 10)
+          .map((x) => ({ ...x, etiqueta: x.clave }));
+        if (porTipo.length === 0 && porCliente.length === 0) return null;
+        return (
+          <>
+            <Overline>Rentabilidad</Overline>
+            <p className="-mt-2 text-[12px] text-ink-muted">
+              Solo eventos contratados. Margen de caja (ingresos − gastos de evento registrados);
+              no incluye horas de personal salvo que se registren como gasto.
+            </p>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <RentabilidadTabla titulo="Por tipo de evento" col="Tipo" filas={porTipo} />
+              <RentabilidadTabla titulo="Por cliente (top 10)" col="Cliente" filas={porCliente} />
+            </div>
+          </>
+        );
+      })()}
+
       {/* ¿Nos equivocamos presupuestando? Pre vs real, evento a evento. */}
       {precision.length > 0 && (
         <>
@@ -209,5 +261,69 @@ export default async function CuadroMandoPage() {
         </>
       )}
     </div>
+  );
+}
+
+// Tabla de rentabilidad reutilizable (por tipo de evento o por cliente).
+function RentabilidadTabla({
+  titulo,
+  col,
+  filas,
+}: {
+  titulo: string;
+  col: string;
+  filas: (RentRow & { etiqueta: string })[];
+}) {
+  const totIngresos = filas.reduce((s, f) => s + f.ingresos, 0);
+  const totMargen = filas.reduce((s, f) => s + f.margen, 0);
+  const totN = filas.reduce((s, f) => s + f.n, 0);
+  return (
+    <Card>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">{titulo}</div>
+      {filas.length === 0 ? (
+        <p className="py-2 text-small text-ink-muted">Sin datos todavía.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[12.5px]">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-[0.06em] text-ink-secondary">
+                <th className="border-b border-border py-2 text-left font-semibold">{col}</th>
+                <th className="border-b border-border py-2 text-right font-semibold">Nº</th>
+                <th className="border-b border-border py-2 text-right font-semibold">Ingresos</th>
+                <th className="border-b border-border py-2 text-right font-semibold">Margen</th>
+                <th className="border-b border-border py-2 text-right font-semibold">%</th>
+                <th className="border-b border-border py-2 text-right font-semibold">Ticket medio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((f) => (
+                <tr key={f.clave}>
+                  <td className="border-b border-[#f0eae1] py-1.5 font-medium">{f.etiqueta}</td>
+                  <td className="border-b border-[#f0eae1] py-1.5 text-right tabular">{f.n}</td>
+                  <td className="border-b border-[#f0eae1] py-1.5 text-right tabular">{eur(f.ingresos)}</td>
+                  <td className={`border-b border-[#f0eae1] py-1.5 text-right tabular font-semibold ${f.margen >= 0 ? "text-ok" : "text-error"}`}>
+                    {eur(f.margen)}
+                  </td>
+                  <td className="border-b border-[#f0eae1] py-1.5 text-right tabular text-ink-secondary">{num(f.margenPct, 0)}%</td>
+                  <td className="border-b border-[#f0eae1] py-1.5 text-right tabular">{eur(f.ticket)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="text-[12px] font-semibold">
+                <td className="py-2">Total</td>
+                <td className="py-2 text-right tabular">{totN}</td>
+                <td className="py-2 text-right tabular">{eur(totIngresos)}</td>
+                <td className={`py-2 text-right tabular ${totMargen >= 0 ? "text-ok" : "text-error"}`}>{eur(totMargen)}</td>
+                <td className="py-2 text-right tabular text-ink-secondary">
+                  {totIngresos > 0 ? num((totMargen / totIngresos) * 100, 0) : 0}%
+                </td>
+                <td className="py-2 text-right tabular">{totN > 0 ? eur(totIngresos / totN) : eur(0)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </Card>
   );
 }
