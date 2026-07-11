@@ -188,7 +188,9 @@ export function TesoreriaClient({
     "rounded-sm border-med border-border bg-white px-3 py-2 text-[13px] text-ink-secondary focus:border-sage-300 focus:outline-none";
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
+      {/* Deudas y cuentas con el equipo: al final para no estorbar arriba */}
+      <div className="order-last flex flex-col gap-4">
       {/* Deudas / pendiente de pago (gastos sin pagar) */}
       {deudas.length > 0 && (
         <Card className="border-l-[3px] border-l-warn">
@@ -333,6 +335,7 @@ export function TesoreriaClient({
           </p>
         </Card>
       )}
+      </div>
 
       {/* Caja: los saldos y la lista se recalculan según la caja elegida */}
       <div className="flex flex-wrap items-center gap-2">
