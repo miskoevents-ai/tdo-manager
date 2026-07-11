@@ -360,9 +360,10 @@ export async function guardarLineas(
 // --------------------------- Tesorería ---------------------------
 
 // Canoniza un nombre de persona contra la tabla equipo para evitar duplicados
-// ("Jero" → "Jero (Jerónimo Alonso Marcos)"). Coincidencia exacta, luego por
-// prefijo y por contenido (sin mayúsculas/acentos): si hay UN único candidato,
-// devuelve su nombre oficial; si no hay match claro, deja el nombre tal cual.
+// ("Jero" → "Jero (Jerónimo Alonso Marcos)"). Primero coincidencia exacta;
+// si no, solo iguala cuando la PRIMERA PALABRA coincide exactamente (así
+// "Cris" y "Cristina", que son personas distintas, nunca se mezclan). Si no
+// hay un único candidato claro, deja el nombre tal cual.
 async function canonizarPersonaEquipo(
   sb: ReturnType<typeof createAdminClient>,
   nombre: string | null | undefined,
@@ -376,10 +377,9 @@ async function canonizarPersonaEquipo(
   const b = norm(bruto);
   const exacto = nombres.filter((n) => norm(n) === b);
   if (exacto.length === 1) return exacto[0];
-  const prefijo = nombres.filter((n) => norm(n).startsWith(b) || b.startsWith(norm(n)));
-  if (prefijo.length === 1) return prefijo[0];
-  const contiene = nombres.filter((n) => norm(n).includes(b) || b.includes(norm(n)));
-  if (contiene.length === 1) return contiene[0];
+  const primeraPalabra = (s: string) => norm(s).split(/[\s(]+/)[0];
+  const mismaPalabra = nombres.filter((n) => primeraPalabra(n) === primeraPalabra(bruto));
+  if (mismaPalabra.length === 1) return mismaPalabra[0];
   return bruto;
 }
 
