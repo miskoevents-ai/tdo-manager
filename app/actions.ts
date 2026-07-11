@@ -1796,6 +1796,41 @@ export async function crearFactura(input: {
   return facturaId;
 }
 
+// Anula una factura (o la restaura a emitida). La anulada conserva su número
+// —como exige la normativa— y su cobro previsto se retira de tesorería.
+export async function anularFactura(id: string, anular: boolean) {
+  const sb = createAdminClient();
+  const { data: f, error } = await sb
+    .from("facturas")
+    .update({ estado: anular ? "anulada" : "emitida" })
+    .eq("id", id)
+    .select("oportunidad_id, fecha_vencimiento, total, numero")
+    .single();
+  if (error) throw new Error(error.message);
+
+  if (anular) {
+    // Retira el cobro previsto asociado (por factura o por oportunidad).
+    await sb
+      .from("tesoreria")
+      .delete()
+      .eq("factura_id", id)
+      .eq("naturaleza", "ingreso_factura")
+      .eq("estado", "previsto");
+    if (f?.oportunidad_id) {
+      await sb
+        .from("tesoreria")
+        .delete()
+        .eq("oportunidad_id", f.oportunidad_id)
+        .eq("naturaleza", "ingreso_factura")
+        .eq("estado", "previsto");
+    }
+  }
+  revalidatePath("/facturas");
+  revalidatePath("/tesoreria");
+  revalidatePath("/contabilidad");
+  revalidatePath("/");
+}
+
 // Añade un cobro previsto al plan de pagos de la oportunidad. La vía decide
 // la contabilidad: 'factura' (oficial, con IVA ya incluido en el importe) o
 // 'efectivo' (vista de amigos, sin IVA). Sale en Tesorería y en el Calendario.

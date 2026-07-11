@@ -3,10 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Undo2, FileDown } from "lucide-react";
+import { Check, Undo2, FileDown, Ban } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { marcarFacturaCobrada } from "@/app/actions";
+import { marcarFacturaCobrada, anularFactura } from "@/app/actions";
 import { eur, fecha } from "@/lib/format";
 import { FACTURA_META } from "@/lib/estados";
 import type { Factura, FacturaEstado } from "@/lib/types";
@@ -52,6 +52,24 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
     setBusy(f.id);
     try {
       await marcarFacturaCobrada(f.id, f.estado !== "cobrada");
+      router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function anular(f: Factura) {
+    const anulando = f.estado !== "anulada";
+    if (
+      anulando &&
+      !confirm(
+        `¿Anular la factura ${f.numero}? Conserva su número (como exige la normativa) y se retira su cobro previsto.`,
+      )
+    )
+      return;
+    setBusy(f.id);
+    try {
+      await anularFactura(f.id, anulando);
       router.refresh();
     } finally {
       setBusy(null);
@@ -191,25 +209,49 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
                       >
                         <FileDown size={12} /> PDF
                       </Link>
-                      <button
-                        onClick={() => toggle(f)}
-                        disabled={busy === f.id}
-                        className={`inline-flex items-center gap-1 rounded-sm border-med px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${
-                          f.estado === "cobrada"
-                            ? "border-border text-ink-muted hover:bg-beige-warm"
-                            : "border-ok bg-ok text-cream hover:opacity-90"
-                        }`}
-                      >
-                        {f.estado === "cobrada" ? (
-                          <>
-                            <Undo2 size={12} /> Reabrir
-                          </>
-                        ) : (
-                          <>
-                            <Check size={12} /> Cobrada
-                          </>
-                        )}
-                      </button>
+                      {f.estado !== "anulada" && (
+                        <button
+                          onClick={() => toggle(f)}
+                          disabled={busy === f.id}
+                          className={`inline-flex items-center gap-1 rounded-sm border-med px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${
+                            f.estado === "cobrada"
+                              ? "border-border text-ink-muted hover:bg-beige-warm"
+                              : "border-ok bg-ok text-cream hover:opacity-90"
+                          }`}
+                        >
+                          {f.estado === "cobrada" ? (
+                            <>
+                              <Undo2 size={12} /> Reabrir
+                            </>
+                          ) : (
+                            <>
+                              <Check size={12} /> Cobrada
+                            </>
+                          )}
+                        </button>
+                      )}
+                      {f.estado !== "cobrada" && (
+                        <button
+                          onClick={() => anular(f)}
+                          disabled={busy === f.id}
+                          title={f.estado === "anulada" ? "Restaurar la factura (vuelve a emitida)" : "Anular la factura (conserva su número)"}
+                          className={`inline-flex items-center gap-1 rounded-sm border-med px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${
+                            f.estado === "anulada"
+                              ? "border-border text-ink-muted hover:bg-beige-warm"
+                              : "border-border-strong text-error hover:bg-error-tint"
+                          }`}
+                        >
+                          {f.estado === "anulada" ? (
+                            <>
+                              <Undo2 size={12} /> Restaurar
+                            </>
+                          ) : (
+                            <>
+                              <Ban size={12} /> Anular
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
