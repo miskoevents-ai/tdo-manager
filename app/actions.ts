@@ -413,6 +413,40 @@ export async function marcarMovimientoLiquidado(id: string, liquidado: boolean) 
   revalidatePath("/");
 }
 
+// Reembolsa a la persona un gasto que adelantó, indicando de qué caja sale el
+// dinero (oficial o amigos): marca el gasto como liquidado y registra la salida
+// de caja como un movimiento de reembolso (no computa: el gasto ya se contó).
+export async function reembolsarMovimiento(id: string, caja: string) {
+  const sb = createAdminClient();
+  const { data: mov, error } = await sb
+    .from("tesoreria")
+    .select("importe, concepto, quien_lo_paga")
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(error.message);
+
+  const esAmigos = caja === "amigos";
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const { error: insErr } = await sb.from("tesoreria").insert({
+    concepto: `Reembolso a ${mov.quien_lo_paga ?? "equipo"} · ${mov.concepto}`,
+    tipo: "gasto",
+    naturaleza: esAmigos ? "amigos" : "otro",
+    categoria: "Reembolso",
+    importe: Number(mov.importe),
+    fecha: hoy,
+    estado: "pagado",
+    // No computa: el gasto original ya está contabilizado; esto es solo la
+    // salida de caja al saldar la deuda con la persona.
+    computa_contabilidad: false,
+  });
+  if (insErr) throw new Error(insErr.message);
+
+  const { error: updErr } = await sb.from("tesoreria").update({ liquidado: true }).eq("id", id);
+  if (updErr) throw new Error(updErr.message);
+  revalidatePath("/tesoreria");
+  revalidatePath("/");
+}
+
 export async function borrarMovimiento(id: string) {
   const sb = createAdminClient();
   const { error } = await sb.from("tesoreria").delete().eq("id", id);

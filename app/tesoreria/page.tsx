@@ -38,6 +38,19 @@ export default async function TesoreriaPage() {
   const responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
   const resumenCom = resumenComisiones(computeDevengos(ops, comConfig, comPagadas));
 
+  // Plan de cobros por solicitud: ingresos previstos enlazados a una oportunidad,
+  // para cuadrar concepto e importe al registrar el cobro real.
+  const planPorOportunidad: Record<string, { id: string; concepto: string; importe: number }[]> = {};
+  for (const m of movimientos) {
+    if (!m.oportunidad_id || m.tipo !== "ingreso") continue;
+    if (m.estado !== "previsto" && m.estado !== "vencido") continue;
+    (planPorOportunidad[m.oportunidad_id] ??= []).push({
+      id: m.id,
+      concepto: m.concepto,
+      importe: Number(m.importe),
+    });
+  }
+
   return (
     <div className="space-y-5">
       <InfoNote id="tesoreria">La caja del negocio: todo el dinero que entra y sale, con o sin factura. Arriba ves lo pendiente de pagar. Es la base de la que sale la Contabilidad.</InfoNote>
@@ -58,6 +71,7 @@ export default async function TesoreriaPage() {
             oportunidades={oportunidades}
             proveedores={provs}
             responsables={responsables}
+            planPorOportunidad={planPorOportunidad}
             categoriasExtra={Array.from(
               new Set(movimientos.map((m) => m.categoria).filter((c): c is string => Boolean(c))),
             )}
@@ -70,6 +84,7 @@ export default async function TesoreriaPage() {
         oportunidades={oportunidades}
         proveedores={provs}
         responsables={responsables}
+        planPorOportunidad={planPorOportunidad}
         hoy={new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date())}
       />
       <ResumenComisiones {...resumenCom} />

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Input, Select, Textarea, Field } from "@/components/ui/input";
 import { guardarMovimiento } from "@/app/actions";
+import { eur } from "@/lib/format";
 import {
   NATURALEZAS_MOV,
   NATURALEZA_LABEL,
@@ -26,6 +27,7 @@ export function MovimientoDialog({
   tipoInicial = "gasto",
   duplicar = false,
   categoriasExtra = [],
+  planPorOportunidad = {},
 }: {
   clientes: Cliente[];
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
@@ -39,6 +41,9 @@ export function MovimientoDialog({
   // Categorías ya usadas en tesorería: se suman a las habituales para que
   // una categoría nueva aparezca en la lista a partir de entonces.
   categoriasExtra?: string[];
+  // Plan de cobros previstos por oportunidad (para cuadrar el concepto e importe
+  // con el cobro planificado al que corresponde este ingreso).
+  planPorOportunidad?: Record<string, { id: string; concepto: string; importe: number }[]>;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -52,6 +57,23 @@ export function MovimientoDialog({
   }, [categoriasExtra]);
 
   const [tipo, setTipo] = React.useState<string>(movimiento?.tipo ?? tipoInicial);
+  // Importe y concepto controlados: se pueden precargar desde el plan de cobros.
+  const [importeVal, setImporteVal] = React.useState(movimiento?.importe != null ? String(movimiento.importe) : "");
+  const [conceptoVal, setConceptoVal] = React.useState(movimiento?.concepto ?? "");
+  // Solicitud (oportunidad) enlazada, con buscador.
+  const [eventoId, setEventoId] = React.useState(movimiento?.oportunidad_id ?? "");
+  const eventoSel = oportunidades.find((o) => o.id === eventoId) ?? null;
+  const [eventoQ, setEventoQ] = React.useState("");
+  const [eventoOpen, setEventoOpen] = React.useState(false);
+  const eventosFiltrados = React.useMemo(() => {
+    const t = eventoQ.trim().toLowerCase();
+    const arr = t
+      ? oportunidades.filter((o) => `${o.numero ?? ""} ${o.titulo}`.toLowerCase().includes(t))
+      : oportunidades;
+    return arr.slice(0, 30);
+  }, [eventoQ, oportunidades]);
+  // Cobros previstos de la solicitud elegida (para cuadrar el concepto/importe).
+  const planEvento = eventoId ? planPorOportunidad[eventoId] ?? [] : [];
   const [naturaleza, setNaturaleza] = React.useState<string>(
     movimiento?.naturaleza ?? (tipoInicial === "ingreso" ? "ingreso_factura" : "gasto_fijo"),
   );
@@ -179,14 +201,15 @@ export function MovimientoDialog({
                 step="0.01"
                 min="0"
                 name="importe"
-                defaultValue={movimiento?.importe ?? ""}
+                value={importeVal}
+                onChange={(e) => setImporteVal(e.target.value)}
                 required
                 autoFocus
                 placeholder="0,00"
               />
             </Field>
             <Field label="Concepto *" className="col-span-2">
-              <Input name="concepto" defaultValue={movimiento?.concepto ?? ""} required />
+              <Input name="concepto" value={conceptoVal} onChange={(e) => setConceptoVal(e.target.value)} required />
             </Field>
           </div>
 
@@ -299,13 +322,66 @@ export function MovimientoDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Evento (opcional)">
-              <Select name="oportunidad_id" defaultValue={movimiento?.oportunidad_id ?? ""}>
-                <option value="">— Ninguno —</option>
-                {oportunidades.map((o) => (
-                  <option key={o.id} value={o.id}>{o.numero} · {o.titulo}</option>
-                ))}
-              </Select>
+            <Field label="Solicitud / evento (opcional)">
+              <input type="hidden" name="oportunidad_id" value={eventoId} />
+              <div className="relative">
+                <Input
+                  value={eventoSel ? `${eventoSel.numero ?? "s/n"} · ${eventoSel.titulo}` : eventoQ}
+                  onChange={(e) => {
+                    if (eventoSel) setEventoId("");
+                    setEventoQ(e.target.value);
+                    setEventoOpen(true);
+                  }}
+                  onFocus={() => setEventoOpen(true)}
+                  onBlur={() => setTimeout(() => setEventoOpen(false), 150)}
+                  placeholder="Buscar solicitud…"
+                />
+                {eventoSel && (
+                  <button
+                    type="button"
+                    onClick={() => { setEventoId(""); setEventoQ(""); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[14px] text-ink-muted hover:text-error"
+                    title="Quitar"
+                  >
+                    ×
+                  </button>
+                )}
+                {eventoOpen && eventosFiltrados.length > 0 && (
+                  <div className="absolute z-30 mt-1 max-h-[200px] w-full overflow-y-auto rounded-md border-hair border-border bg-white p-1 shadow-lg">
+                    {eventosFiltrados.map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => { setEventoId(o.id); setEventoQ(""); setEventoOpen(false); }}
+                        className="block w-full truncate rounded-sm px-2 py-1.5 text-left text-[12.5px] hover:bg-beige-warm"
+                      >
+                        <span className="text-ink-muted">{o.numero ?? "s/n"}</span> · {o.titulo}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Cobros del plan de la solicitud: cuadra el concepto y el importe */}
+              {tipo === "ingreso" && planEvento.length > 0 && (
+                <div className="mt-2 space-y-1 rounded-md bg-beige-light p-2">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-ink-muted">
+                    Cobros previstos de esta solicitud
+                  </div>
+                  {planEvento.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => { setConceptoVal(p.concepto); setImporteVal(String(p.importe)); }}
+                      className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-[12px] hover:bg-white"
+                    >
+                      <span className="min-w-0 truncate">{p.concepto}</span>
+                      <span className="shrink-0 tabular font-semibold text-sage">{eur(p.importe)}</span>
+                    </button>
+                  ))}
+                  <p className="text-[10px] text-ink-muted">Pincha uno para cuadrar concepto e importe.</p>
+                </div>
+              )}
             </Field>
             <Field label="Cliente (opcional)">
               <Select name="cliente_id" defaultValue={movimiento?.cliente_id ?? ""}>
