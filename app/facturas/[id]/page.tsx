@@ -71,6 +71,17 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const hayBloques = grupos.some((g) => g.nombre);
   const anulada = f.estado === "anulada";
 
+  // Descuentos: columna Dto si alguna línea lo lleva; el descuento total
+  // (líneas + global congelado) se reconcilia con la base y se menciona.
+  const importeBruto = (l: FacturaLinea) => l.cantidad * l.precio_unitario;
+  const netoLinea = (l: FacturaLinea) => importeBruto(l) * (1 - (l.descuento_pct ?? 0) / 100);
+  const descuentoLinea = (l: FacturaLinea) => importeBruto(l) - netoLinea(l);
+  const hayDescLinea = lineas.some((l) => (l.descuento_pct ?? 0) > 0);
+  const brutoSinDto = lineas.reduce((s, l) => s + importeBruto(l), 0);
+  const descuentoTotal = Math.max(0, brutoSinDto - base);
+  const dtoGlobalPct = Number(f.descuento_pct ?? 0);
+  const nCols = hayDescLinea ? 5 : 4;
+
   return (
     <div className="mx-auto max-w-[820px] space-y-4">
       {/* Barra de acciones (no se imprime) */}
@@ -159,6 +170,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               <th className="border-b border-border px-3 py-2 text-left font-semibold">Concepto</th>
               <th className="border-b border-border px-3 py-2 text-right font-semibold">Cant.</th>
               <th className="border-b border-border px-3 py-2 text-right font-semibold">Precio</th>
+              {hayDescLinea && <th className="border-b border-border px-3 py-2 text-right font-semibold">Dto.</th>}
               <th className="border-b border-border px-3 py-2 text-right font-semibold">Subtotal</th>
             </tr>
           </thead>
@@ -167,7 +179,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               <Fragment key={gi}>
                 {hayBloques && (
                   <tr>
-                    <td colSpan={4} className="border-b border-[#f0eae1] px-3 pb-1 pt-4">
+                    <td colSpan={nCols} className="border-b border-[#f0eae1] px-3 pb-1 pt-4">
                       <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-clay">
                         {g.nombre ?? "Otros conceptos"}
                       </span>
@@ -179,8 +191,20 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     <td className="border-b border-[#f0eae1] px-3 py-2">{l.concepto}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{num(l.cantidad, 0)}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{eur(l.precio_unitario)}</td>
+                    {hayDescLinea && (
+                      <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
+                        {(l.descuento_pct ?? 0) > 0 ? (
+                          <>
+                            <span className="text-clay">−{eur(descuentoLinea(l))}</span>
+                            <span className="ml-1 text-[10px] text-ink-muted">({num(l.descuento_pct ?? 0, 0)}%)</span>
+                          </>
+                        ) : (
+                          <span className="text-ink-muted">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
-                      {eur(l.cantidad * l.precio_unitario)}
+                      {eur(netoLinea(l))}
                     </td>
                   </tr>
                 ))}
@@ -191,7 +215,16 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
         {/* Totales (importes congelados de la factura) */}
         <div className="mt-4 flex justify-end">
-          <div className="w-full max-w-[280px] space-y-1.5 text-[13px]">
+          <div className="w-full max-w-[300px] space-y-1.5 text-[13px]">
+            {descuentoTotal > 0 && (
+              <>
+                <Row label="Subtotal (sin descuento)" value={eur(brutoSinDto)} />
+                <div className="flex justify-between font-semibold text-clay">
+                  <span>Descuento{dtoGlobalPct > 0 ? ` (incl. −${num(dtoGlobalPct, 0)}% global)` : ""}</span>
+                  <span className="tabular">−{eur(descuentoTotal)}</span>
+                </div>
+              </>
+            )}
             <Row label="Base imponible" value={eur(base)} />
             <Row label={`IVA (${ivaPct}%)`} value={eur(iva)} />
             {ret > 0 && <Row label={`Retención IRPF (−${retPct}%)`} value={`−${eur(ret)}`} />}
@@ -199,6 +232,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               <span>TOTAL</span>
               <span className="tabular">{eur(Number(f.total))}</span>
             </div>
+            {descuentoTotal > 0 && (
+              <div className="mt-1 rounded-sm bg-clay-tint/50 px-2.5 py-1.5 text-center text-[11.5px] font-semibold text-clay-600">
+                Incluye un descuento de {eur(descuentoTotal)}
+              </div>
+            )}
           </div>
         </div>
 

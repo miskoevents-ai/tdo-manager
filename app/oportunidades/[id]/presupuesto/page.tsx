@@ -73,6 +73,16 @@ export default async function Page({
   }
   const hayBloques = grupos.some((g) => g.nombre);
 
+  // Descuentos: hay columna de Dto si alguna línea lo lleva; el descuento total
+  // (líneas + global) se menciona al final. importeBruto = precio sin ningún
+  // descuento (para calcular lo que se ahorra el cliente).
+  const importeBruto = (l: (typeof lineas)[number]) => l.cantidad * l.precio_unitario;
+  const descuentoLinea = (l: (typeof lineas)[number]) => importeBruto(l) * ((l.descuento_pct ?? 0) / 100);
+  const hayDescLinea = lineasDoc.some((l) => (l.descuento_pct ?? 0) > 0);
+  const brutoSinDto = lineasDoc.reduce((s, l) => s + importeBruto(l), 0);
+  const descuentoTotal = Math.max(0, brutoSinDto - t.base);
+  const nCols = hayDescLinea ? 5 : 4;
+
   return (
     <div className="mx-auto max-w-[820px] space-y-4">
       {/* Barra de acciones (no se imprime) */}
@@ -176,13 +186,14 @@ export default async function Page({
               <th className="border-b border-border px-3 py-2 text-left font-semibold">Concepto</th>
               <th className="border-b border-border px-3 py-2 text-right font-semibold">Cant.</th>
               <th className="border-b border-border px-3 py-2 text-right font-semibold">Precio</th>
+              {hayDescLinea && <th className="border-b border-border px-3 py-2 text-right font-semibold">Dto.</th>}
               <th className="border-b border-border px-3 py-2 text-right font-semibold">Subtotal</th>
             </tr>
           </thead>
           <tbody>
             {lineasDoc.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-4 text-center text-ink-muted">
+                <td colSpan={nCols} className="px-3 py-4 text-center text-ink-muted">
                   Sin líneas de presupuesto todavía.
                 </td>
               </tr>
@@ -191,7 +202,7 @@ export default async function Page({
               <Fragment key={gi}>
                 {hayBloques && (
                   <tr>
-                    <td colSpan={4} className="border-b border-[#f0eae1] px-3 pb-1 pt-4">
+                    <td colSpan={nCols} className="border-b border-[#f0eae1] px-3 pb-1 pt-4">
                       <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-clay">
                         {g.nombre ? `Bloque ${gi + 1} · ${g.nombre}` : "Otros conceptos"}
                       </span>
@@ -221,10 +232,19 @@ export default async function Page({
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">{l.cantidad}</td>
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
                       {eur(l.precio_unitario)}
-                      {(l.descuento_pct ?? 0) > 0 && (
-                        <span className="ml-1 text-[10.5px] text-clay">−{num(l.descuento_pct ?? 0, 0)}%</span>
-                      )}
                     </td>
+                    {hayDescLinea && (
+                      <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
+                        {(l.descuento_pct ?? 0) > 0 ? (
+                          <>
+                            <span className="text-clay">−{eur(descuentoLinea(l))}</span>
+                            <span className="ml-1 text-[10px] text-ink-muted">({num(l.descuento_pct ?? 0, 0)}%)</span>
+                          </>
+                        ) : (
+                          <span className="text-ink-muted">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="border-b border-[#f0eae1] px-3 py-2 text-right tabular">
                       {eur(importeLinea(l))}
                     </td>
@@ -232,7 +252,7 @@ export default async function Page({
                 ))}
                 {hayBloques && (
                   <tr>
-                    <td colSpan={3} className="border-b border-border bg-beige-light px-3 py-1.5 text-right text-[11px] text-ink-muted">
+                    <td colSpan={nCols - 1} className="border-b border-border bg-beige-light px-3 py-1.5 text-right text-[11px] text-ink-muted">
                       Subtotal {g.nombre ?? "otros conceptos"}
                     </td>
                     <td className="border-b border-border bg-beige-light px-3 py-1.5 text-right tabular text-[12px] font-semibold">
@@ -247,11 +267,14 @@ export default async function Page({
 
         {/* Totales */}
         <div className="mt-4 flex justify-end">
-          <div className="w-full max-w-[280px] space-y-1.5 text-[13px]">
-            {t.descuento > 0 && (
+          <div className="w-full max-w-[300px] space-y-1.5 text-[13px]">
+            {descuentoTotal > 0 && (
               <>
-                <Row label="Suma de los conceptos" value={eur(t.bruto)} />
-                <Row label={`Descuento (−${num(dtoPct, 0)}%)`} value={`−${eur(t.descuento)}`} />
+                <Row label="Subtotal (sin descuento)" value={eur(brutoSinDto)} />
+                <div className="flex justify-between font-semibold text-clay">
+                  <span>Descuento{dtoPct > 0 ? ` (incl. −${num(dtoPct, 0)}% global)` : ""}</span>
+                  <span className="tabular">−{eur(descuentoTotal)}</span>
+                </div>
               </>
             )}
             <Row label="Base imponible" value={eur(esAmigos ? t.base : t.baseFactura)} />
@@ -267,6 +290,11 @@ export default async function Page({
               <span>TOTAL</span>
               <span className="tabular">{eur(totalDoc)}</span>
             </div>
+            {descuentoTotal > 0 && (
+              <div className="mt-1 rounded-sm bg-clay-tint/50 px-2.5 py-1.5 text-center text-[11.5px] font-semibold text-clay-600">
+                Incluye un descuento de {eur(descuentoTotal)}
+              </div>
+            )}
             {(op.fianza ?? 0) > 0 && (
               <div className="flex justify-between pt-1 text-[12px] text-clay">
                 <span>Fianza (reembolsable)</span>
