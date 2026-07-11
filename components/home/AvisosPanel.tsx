@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Bell, X, Check, ChevronRight } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { marcarCobradoOportunidad, toggleFianzaDevuelta } from "@/app/actions";
+import { PersonaCajaModal } from "@/components/ui/PersonaCajaModal";
 import type { Aviso } from "@/lib/avisos";
 
 const SEV_CLASS: Record<string, string> = {
@@ -16,11 +17,13 @@ const SEV_CLASS: Record<string, string> = {
 
 const KEY = "tdo_avisos_ocultos";
 
-export function AvisosPanel({ avisos }: { avisos: Aviso[] }) {
+export function AvisosPanel({ avisos, responsables = [] }: { avisos: Aviso[]; responsables?: string[] }) {
   const router = useRouter();
   const [ocultos, setOcultos] = React.useState<string[]>([]);
   const [cargado, setCargado] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
+  // Aviso de cobro pendiente de confirmar quién recibió el dinero.
+  const [cobrando, setCobrando] = React.useState<Aviso | null>(null);
 
   React.useEffect(() => {
     try {
@@ -43,15 +46,21 @@ export function AvisosPanel({ avisos }: { avisos: Aviso[] }) {
     });
   }
 
-  async function resolver(a: Aviso) {
+  async function resolver(a: Aviso, cobradoPor?: string | null) {
     if (!a.oportunidadId) return;
+    // Un cobro pregunta primero quién recibió el dinero (equipo o caja).
+    if (a.categoria === "cobro" && cobradoPor === undefined && responsables.length > 0) {
+      setCobrando(a);
+      return;
+    }
     setBusy(a.id);
     try {
-      if (a.categoria === "cobro") await marcarCobradoOportunidad(a.oportunidadId);
+      if (a.categoria === "cobro") await marcarCobradoOportunidad(a.oportunidadId, cobradoPor ?? null);
       else if (a.categoria === "fianza") await toggleFianzaDevuelta(a.oportunidadId, true);
       router.refresh();
     } finally {
       setBusy(null);
+      setCobrando(null);
     }
   }
 
@@ -104,6 +113,17 @@ export function AvisosPanel({ avisos }: { avisos: Aviso[] }) {
           </div>
         ))}
       </div>
+      {cobrando && (
+        <PersonaCajaModal
+          titulo="Marcar como cobrado"
+          descripcion={cobrando.titulo}
+          responsables={responsables}
+          busy={busy === cobrando.id}
+          confirmLabel="Cobrado"
+          onConfirm={({ persona }) => resolver(cobrando, persona)}
+          onClose={() => setCobrando(null)}
+        />
+      )}
     </Card>
   );
 }

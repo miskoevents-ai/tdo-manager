@@ -1130,30 +1130,23 @@ function CajaSelect({ caja, setCaja }: { caja: string; setCaja: (v: string) => v
   );
 }
 
-// Desplegable de "quién lo ha pagado": la empresa (por defecto), alguien del
-// equipo o una persona externa escrita a mano. Si lo pagó una persona, el
-// gasto queda como reembolso pendiente y aparece en las deudas de Tesorería.
+// Desplegable de "quién lo ha pagado": la empresa (por defecto) o alguien del
+// equipo — SIEMPRE del desplegable, sin texto libre, para no crear duplicados
+// de nombres. Si lo pagó una persona, el gasto queda como reembolso pendiente
+// y aparece en las deudas de Tesorería.
 function PagadoPor({
-  nombres, quien, otro, setQuien, setOtro,
+  nombres, quien, setQuien,
 }: {
-  nombres: string[]; quien: string; otro: string;
-  setQuien: (v: string) => void; setOtro: (v: string) => void;
+  nombres: string[]; quien: string;
+  setQuien: (v: string) => void;
 }) {
   return (
-    <>
-      <Field label="Pagado por">
-        <Select value={quien} onChange={(e) => setQuien(e.target.value)}>
-          <option value="">TDO (cuenta empresa)</option>
-          {nombres.map((n) => <option key={n} value={n}>{n}</option>)}
-          <option value="__otro__">Otra persona…</option>
-        </Select>
-      </Field>
-      {quien === "__otro__" && (
-        <Field label="Nombre de quien pagó">
-          <Input value={otro} onChange={(e) => setOtro(e.target.value)} placeholder="Nombre…" autoFocus />
-        </Field>
-      )}
-    </>
+    <Field label="Pagado por (equipo)">
+      <Select value={quien} onChange={(e) => setQuien(e.target.value)}>
+        <option value="">TDO (cuenta empresa)</option>
+        {nombres.map((n) => <option key={n} value={n}>{n}</option>)}
+      </Select>
+    </Field>
   );
 }
 
@@ -1167,7 +1160,6 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
   const [parking, setParking] = React.useState(0);
   const [precioKm, setPrecioKm] = React.useState(kmPrecio);
   const [quien, setQuien] = React.useState("");
-  const [otro, setOtro] = React.useState("");
   const [fechaD, setFechaD] = React.useState("");
   const [caja, setCaja] = React.useState("oficial");
   const [busy, setBusy] = React.useState(false);
@@ -1176,7 +1168,7 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
   const gasEstim = Math.round(kmTotal * precioKm * 100) / 100;
   const gas = gasManual ? Number(gasManual) : gasEstim;
   const total = Math.round((gas + peaje + parking) * 100) / 100;
-  const quienFinal = quien === "__otro__" ? otro.trim() : quien;
+  const quienFinal = quien;
 
   async function add() {
     setBusy(true);
@@ -1208,7 +1200,7 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
         <Field label="Peaje €"><Input type="number" step="0.01" value={peaje || ""} onChange={(e) => setPeaje(Number(e.target.value))} /></Field>
         <Field label="Parking €"><Input type="number" step="0.01" value={parking || ""} onChange={(e) => setParking(Number(e.target.value))} /></Field>
         <Field label="Fecha (vacía = hoy)"><Input type="date" value={fechaD} onChange={(e) => setFechaD(e.target.value)} /></Field>
-        <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
+        <PagadoPor nombres={pagadores} quien={quien} setQuien={setQuien} />
         <CajaSelect caja={caja} setCaja={setCaja} />
       </div>
       {quienFinal && (
@@ -1262,7 +1254,6 @@ function CompraForm({ oportunidadId, proveedores, pagadores, categoriasGasto = [
   const [proveedorId, setProveedorId] = React.useState("");
   const [proveedorNuevo, setProveedorNuevo] = React.useState("");
   const [quien, setQuien] = React.useState("");
-  const [otro, setOtro] = React.useState("");
   const [fechaC, setFechaC] = React.useState("");
   const [caja, setCaja] = React.useState("oficial");
   const [cats, setCats] = React.useState<string[]>(() => unirCategorias(categoriasGasto));
@@ -1270,7 +1261,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, categoriasGasto = [
   const [ticket, setTicket] = React.useState<File | null>(null);
   const [busy, setBusy] = React.useState(false);
   const ticketRef = React.useRef<HTMLInputElement>(null);
-  const quienFinal = quien === "__otro__" ? otro.trim() : quien;
+  const quienFinal = quien;
   async function add() {
     setBusy(true);
     try {
@@ -1294,7 +1285,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, categoriasGasto = [
           alert(`El gasto se guardó, pero el ticket no se pudo subir: ${(e as Error).message}`);
         }
       }
-      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); setProveedorNuevo(""); setQuien(""); setOtro(""); setFechaC(""); setCaja("oficial"); setTicket(null); onDone();
+      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); setProveedorNuevo(""); setQuien(""); setFechaC(""); setCaja("oficial"); setTicket(null); onDone();
     } finally { setBusy(false); }
   }
   if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus size={14} /> Añadir compra</Button>;
@@ -1332,7 +1323,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, categoriasGasto = [
             <Input value={proveedorNuevo} onChange={(e) => setProveedorNuevo(e.target.value)} placeholder="Floristería…" autoFocus />
           </Field>
         )}
-        <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
+        <PagadoPor nombres={pagadores} quien={quien} setQuien={setQuien} />
         <CajaSelect caja={caja} setCaja={setCaja} />
         <Field label="Fecha (vacía = hoy)"><Input type="date" value={fechaC} onChange={(e) => setFechaC(e.target.value)} /></Field>
         <Field label="Ticket (foto, opcional)">

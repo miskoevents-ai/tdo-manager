@@ -31,12 +31,14 @@ export default async function TareasPage() {
     if (t.creada_por) nombres.add(t.creada_por);
   }
 
-  // Info del equipo (id + €/hora) para imputar horas al cerrar una tarea.
-  const equipoInfo = equipo.map((e) => ({
-    nombre: e.nombre,
-    id: e.id,
-    precioHora: Number(e.precio_hora ?? 0),
-  }));
+  // Info del equipo ACTIVO (id + €/hora) para imputar horas al cerrar una tarea.
+  const equipoInfo = equipo
+    .filter((e) => e.activo)
+    .map((e) => ({
+      nombre: e.nombre,
+      id: e.id,
+      precioHora: Number(e.precio_hora ?? 0),
+    }));
 
   return (
     <div className="space-y-5">

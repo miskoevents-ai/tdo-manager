@@ -7,7 +7,7 @@ import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { FacturasList } from "@/components/facturas/FacturasList";
 import { PresupuestosList, type PresupuestoRow } from "@/components/facturas/PresupuestosList";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getFacturas, getOportunidades } from "@/lib/data";
+import { getFacturas, getOportunidades, getEquipo } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import type { Factura, Oportunidad } from "@/lib/types";
 
@@ -29,9 +29,12 @@ export default async function DocumentosPage({
   if (!supabaseConfigurado()) return <SetupNotice />;
   const { tab } = (await searchParams) ?? {};
 
-  let facturas: Factura[], ops: Oportunidad[];
+  let facturas: Factura[], ops: Oportunidad[], responsables: string[] = [];
   try {
-    [facturas, ops] = await Promise.all([getFacturas(), getOportunidades()]);
+    const [f, o, equipo] = await Promise.all([getFacturas(), getOportunidades(), getEquipo()]);
+    facturas = f;
+    ops = o;
+    responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -140,7 +143,7 @@ export default async function DocumentosPage({
               Aún no hay facturas. Emite una desde la ficha de una oportunidad confirmada.
             </p>
           ) : (
-            <FacturasList facturas={facturas} />
+            <FacturasList facturas={facturas} responsables={responsables} />
           )}
         </TabsContent>
 

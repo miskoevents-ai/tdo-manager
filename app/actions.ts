@@ -359,6 +359,30 @@ export async function guardarLineas(
 
 // --------------------------- Tesorería ---------------------------
 
+// Canoniza un nombre de persona contra la tabla equipo para evitar duplicados
+// ("Jero" → "Jero (Jerónimo Alonso Marcos)"). Coincidencia exacta, luego por
+// prefijo y por contenido (sin mayúsculas/acentos): si hay UN único candidato,
+// devuelve su nombre oficial; si no hay match claro, deja el nombre tal cual.
+async function canonizarPersonaEquipo(
+  sb: ReturnType<typeof createAdminClient>,
+  nombre: string | null | undefined,
+): Promise<string | null> {
+  const bruto = nombre?.trim();
+  if (!bruto) return null;
+  const { data } = await sb.from("equipo").select("nombre");
+  const nombres = (data ?? []).map((e) => e.nombre as string);
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  const b = norm(bruto);
+  const exacto = nombres.filter((n) => norm(n) === b);
+  if (exacto.length === 1) return exacto[0];
+  const prefijo = nombres.filter((n) => norm(n).startsWith(b) || b.startsWith(norm(n)));
+  if (prefijo.length === 1) return prefijo[0];
+  const contiene = nombres.filter((n) => norm(n).includes(b) || b.includes(norm(n)));
+  if (contiene.length === 1) return contiene[0];
+  return bruto;
+}
+
 export async function guardarMovimiento(formData: FormData) {
   const sb = createAdminClient();
   const id = (formData.get("id") as string) || null;
@@ -377,10 +401,10 @@ export async function guardarMovimiento(formData: FormData) {
     oportunidad_id: (formData.get("oportunidad_id") as string) || null,
     cliente_id: (formData.get("cliente_id") as string) || null,
     proveedor_id: (formData.get("proveedor_id") as string) || null,
-    quien_lo_paga: (formData.get("quien_lo_paga") as string)?.trim() || null,
+    quien_lo_paga: await canonizarPersonaEquipo(sb, formData.get("quien_lo_paga") as string),
     // Cobrado por: persona del equipo que recibió el ingreso (Jero, Cris…);
     // ese dinero lo tiene ella hasta que lo entrega a la caja de TDO.
-    cobrado_por: (formData.get("cobrado_por") as string)?.trim() || null,
+    cobrado_por: await canonizarPersonaEquipo(sb, formData.get("cobrado_por") as string),
     liquidado: formData.get("liquidado") === "on",
     computa_contabilidad: formData.get("computa_contabilidad") === "on",
     notas: (formData.get("notas") as string)?.trim() || null,
@@ -466,16 +490,26 @@ export async function marcarMovimientoPagado(id: string) {
 
 // Cambia el estado de un movimiento (previsto / cobrado / pagado / vencido).
 // Si una factura está enlazada y el ingreso pasa a cobrado, se marca cobrada.
-export async function cambiarEstadoMovimiento(id: string, estado: string) {
+export async function cambiarEstadoMovimiento(id: string, estado: string, cobradoPor?: string | null) {
   const sb = createAdminClient();
   const validos = ["previsto", "cobrado", "pagado", "vencido"];
   if (!validos.includes(estado)) throw new Error("Estado no válido.");
-  const { data: mov, error } = await sb
+  const patch: Record<string, unknown> = { estado };
+  // Al dar por cobrado un ingreso se puede indicar quién lo recibió en mano
+  // (queda como deuda suya con TDO hasta que lo entregue). null/"" = a la caja.
+  if (cobradoPor !== undefined) {
+    patch.cobrado_por = await canonizarPersonaEquipo(sb, cobradoPor);
+    patch.liquidado = false;
+  }
+  let { data: mov, error } = await sb
     .from("tesoreria")
-    .update({ estado })
+    .update(patch)
     .eq("id", id)
     .select("factura_id")
     .single();
+  if (error && /(cobrado_por|liquidado)/.test(error.message) && /column/i.test(error.message)) {
+    ({ data: mov, error } = await sb.from("tesoreria").update({ estado }).eq("id", id).select("factura_id").single());
+  }
   if (error) throw new Error(error.message);
   // Un cobro de factura marcado cobrado/previsto sincroniza la factura.
   if (mov?.factura_id && (estado === "cobrado" || estado === "previsto")) {
@@ -584,7 +618,7 @@ export async function crearParteHoras(input: {
   if (externo) {
     const importe = Math.round(Math.max(0, input.horas) * Math.max(0, input.precioHora) * 100) / 100;
     if (importe > 0) {
-      const quien = input.pagadoPor?.trim() || null;
+      const quien = await canonizarPersonaEquipo(sb, input.pagadoPor);
       const { data: mov, error: tesErr } = await sb
         .from("tesoreria")
         .insert({
@@ -840,7 +874,7 @@ export async function crearDesplazamiento(input: {
 
   // Gasto en tesorería (gasto de evento, no computa). Si lo adelantó una
   // persona (socio o externo) queda como reembolso pendiente → deudas.
-  const quien = input.quienLoPaga?.trim() || null;
+  const quien = await canonizarPersonaEquipo(sb, input.quienLoPaga);
   const { data: mov, error: movErr } = await sb
     .from("tesoreria")
     .insert({
@@ -921,7 +955,7 @@ export async function crearCompra(input: {
     }
   }
 
-  const quien = input.quienLoPaga?.trim() || null;
+  const quien = await canonizarPersonaEquipo(sb, input.quienLoPaga);
   const { data: mov, error } = await sb
     .from("tesoreria")
     .insert({
@@ -1129,16 +1163,19 @@ export async function pagarComision(input: {
   base: number;
   porcentaje: number;
   importe: number;
+  // Caja de la que sale el pago: 'oficial' (por defecto) o 'amigos'.
+  caja?: string | null;
 }) {
   const sb = createAdminClient();
   const hoy = new Date().toISOString().slice(0, 10);
+  const esAmigos = input.caja === "amigos";
 
   const { data: mov, error: movErr } = await sb
     .from("tesoreria")
     .insert({
       concepto: `Comisión ${input.nombre} · ${input.evento}`,
       tipo: "gasto",
-      naturaleza: "comision",
+      naturaleza: esAmigos ? "amigos" : "comision",
       categoria: "Comisión",
       importe: Math.abs(input.importe),
       fecha: hoy,
@@ -1218,7 +1255,7 @@ export async function guardarGastoFijo(formData: FormData) {
     concepto: (formData.get("concepto") as string)?.trim(),
     importe_mensual: Math.abs(Number(formData.get("importe_mensual") || 0)),
     periodicidad: (formData.get("periodicidad") as string) || "mensual",
-    quien_lo_paga: (formData.get("quien_lo_paga") as string)?.trim() || null,
+    quien_lo_paga: await canonizarPersonaEquipo(sb, formData.get("quien_lo_paga") as string),
     caja: (formData.get("caja") as string) === "amigos" ? "amigos" : null,
     desde: (formData.get("desde") as string) ? `${formData.get("desde")}-01` : null,
     hasta: (formData.get("hasta") as string) ? `${formData.get("hasta")}-01` : null,
@@ -1359,7 +1396,7 @@ export async function crearCosteEstimado(input: {
     categoria: input.categoria || null,
     equipo_id: input.equipoId || null,
     persona_externa: input.personaExterna?.trim() || null,
-    pagador: input.pagador?.trim() || null,
+    pagador: await canonizarPersonaEquipo(sb, input.pagador),
     caja: input.caja === "amigos" ? "amigos" : null,
     importe,
   };
@@ -1947,7 +1984,7 @@ export async function validarOportunidad(
   return { facturaId, aviso };
 }
 
-export async function marcarFacturaCobrada(id: string, cobrada: boolean) {
+export async function marcarFacturaCobrada(id: string, cobrada: boolean, cobradoPor?: string | null) {
   const sb = createAdminClient();
   const { data: f, error } = await sb
     .from("facturas")
@@ -1960,26 +1997,40 @@ export async function marcarFacturaCobrada(id: string, cobrada: boolean) {
   // Sincroniza el cobro previsto de tesorería: al cobrar pasa a "cobrado" con
   // fecha de hoy (y entra en contabilidad); al reabrir vuelve a "previsto"
   // con la fecha del vencimiento. Busca por factura (facturas nuevas) y por
-  // oportunidad (facturas antiguas sin enlace directo).
+  // oportunidad (facturas antiguas sin enlace directo). Si el cobro lo recibió
+  // una persona del equipo, se registra (deuda suya con TDO hasta entregarlo).
   const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
-  const patch = cobrada
+  const persona = cobrada ? await canonizarPersonaEquipo(sb, cobradoPor) : null;
+  const patch: Record<string, unknown> = cobrada
+    ? { estado: "cobrado", fecha: hoy, cobrado_por: persona, liquidado: false }
+    : { estado: "previsto", fecha: f?.fecha_vencimiento ?? hoy };
+  const patchLegacy = cobrada
     ? { estado: "cobrado", fecha: hoy }
     : { estado: "previsto", fecha: f?.fecha_vencimiento ?? hoy };
   const estadoPrevio = cobrada ? "previsto" : "cobrado";
-  await sb
-    .from("tesoreria")
-    .update(patch)
-    .eq("factura_id", id)
-    .eq("naturaleza", "ingreso_factura")
-    .eq("estado", estadoPrevio);
-  if (f?.oportunidad_id) {
-    await sb
+  async function aplicar(p: Record<string, unknown>) {
+    const r1 = await sb
       .from("tesoreria")
-      .update(patch)
-      .eq("oportunidad_id", f.oportunidad_id)
+      .update(p)
+      .eq("factura_id", id)
       .eq("naturaleza", "ingreso_factura")
       .eq("estado", estadoPrevio);
+    if (r1.error) return r1;
+    if (f?.oportunidad_id) {
+      return sb
+        .from("tesoreria")
+        .update(p)
+        .eq("oportunidad_id", f.oportunidad_id)
+        .eq("naturaleza", "ingreso_factura")
+        .eq("estado", estadoPrevio);
+    }
+    return r1;
   }
+  let { error: updErr } = await aplicar(patch);
+  if (updErr && /(cobrado_por|liquidado)/.test(updErr.message) && /column/i.test(updErr.message)) {
+    ({ error: updErr } = await aplicar(patchLegacy));
+  }
+  if (updErr) throw new Error(updErr.message);
   revalidatePath("/facturas");
   revalidatePath("/tesoreria");
   revalidatePath("/contabilidad");
@@ -2013,6 +2064,9 @@ export async function crearFactura(input: {
   descuentoPct?: number | null;
   cobradaFactura: boolean;
   cobradoEfectivo: boolean;
+  // Persona del equipo que recibió cada cobro (si no fue directo a la caja).
+  cobradoPorFactura?: string | null;
+  cobradoPorEfectivo?: string | null;
   notas: string | null;
 }): Promise<{ id?: string; error?: string }> {
   const sb = createAdminClient();
@@ -2115,41 +2169,62 @@ export async function crearFactura(input: {
   if (insErr) throw new Error(insErr.message);
   const facturaId = fac!.id as string;
 
+  // Movimientos de cobro (con reintento sin cobrado_por si falta la 032).
+  async function insertarCobroFactura(fila: Record<string, unknown>, persona: string | null) {
+    let { error: insErr } = await sb
+      .from("tesoreria")
+      .insert(persona ? { ...fila, cobrado_por: persona, liquidado: false } : fila);
+    if (insErr && persona && /(cobrado_por|liquidado)/.test(insErr.message) && /column/i.test(insErr.message)) {
+      ({ error: insErr } = await sb.from("tesoreria").insert(fila));
+    }
+    if (insErr) throw new Error(insErr.message);
+  }
+
   // Movimiento de la parte facturada (contabilidad oficial).
   const fechaCobroFactura = input.cobradaFactura
     ? input.fechaEmision
     : input.fechaVencimiento || input.fechaEmision;
-  const { error: tesErr } = await sb.from("tesoreria").insert({
-    concepto: `Cobro factura ${numero}`,
-    tipo: "ingreso",
-    naturaleza: "ingreso_factura",
-    categoria: "Cobro factura",
-    importe: t.totalFactura,
-    fecha: fechaCobroFactura,
-    estado: input.cobradaFactura ? "cobrado" : "previsto",
-    cliente_id: clienteId,
-    oportunidad_id: input.oportunidadId || null,
-    factura_id: facturaId,
-    computa_contabilidad: true,
-  });
-  if (tesErr) throw new Error(tesErr.message);
-
-  // Parte en efectivo (interna, sin IVA) → contabilidad de amigos.
-  if (t.efectivo > 0) {
-    const { error: efErr } = await sb.from("tesoreria").insert({
-      concepto: `Parte en efectivo (sin IVA) · Factura ${numero}`,
+  const personaFactura = input.cobradaFactura
+    ? await canonizarPersonaEquipo(sb, input.cobradoPorFactura)
+    : null;
+  await insertarCobroFactura(
+    {
+      concepto: `Cobro factura ${numero}`,
       tipo: "ingreso",
-      naturaleza: "amigos",
-      categoria: "Cobro en efectivo",
-      importe: t.efectivo,
-      fecha: input.cobradoEfectivo ? input.fechaEmision : fechaCobroFactura,
-      estado: input.cobradoEfectivo ? "cobrado" : "previsto",
+      naturaleza: "ingreso_factura",
+      categoria: "Cobro factura",
+      importe: t.totalFactura,
+      fecha: fechaCobroFactura,
+      estado: input.cobradaFactura ? "cobrado" : "previsto",
       cliente_id: clienteId,
       oportunidad_id: input.oportunidadId || null,
       factura_id: facturaId,
-      computa_contabilidad: false,
-    });
-    if (efErr) throw new Error(efErr.message);
+      computa_contabilidad: true,
+    },
+    personaFactura,
+  );
+
+  // Parte en efectivo (interna, sin IVA) → contabilidad de amigos.
+  if (t.efectivo > 0) {
+    const personaEfectivo = input.cobradoEfectivo
+      ? await canonizarPersonaEquipo(sb, input.cobradoPorEfectivo)
+      : null;
+    await insertarCobroFactura(
+      {
+        concepto: `Parte en efectivo (sin IVA) · Factura ${numero}`,
+        tipo: "ingreso",
+        naturaleza: "amigos",
+        categoria: "Cobro en efectivo",
+        importe: t.efectivo,
+        fecha: input.cobradoEfectivo ? input.fechaEmision : fechaCobroFactura,
+        estado: input.cobradoEfectivo ? "cobrado" : "previsto",
+        cliente_id: clienteId,
+        oportunidad_id: input.oportunidadId || null,
+        factura_id: facturaId,
+        computa_contabilidad: false,
+      },
+      personaEfectivo,
+    );
   }
 
   // Si viene de una oportunidad confirmada/realizada, pasa a "facturada".
@@ -2246,7 +2321,7 @@ export async function crearCobroPrevisto(input: {
 
 // Marca una oportunidad como cobrada al 100%: registra en tesorería el importe
 // pendiente como ingreso cobrado y pone su factura (si existe) como cobrada.
-export async function marcarCobradoOportunidad(oportunidadId: string) {
+export async function marcarCobradoOportunidad(oportunidadId: string, cobradoPor?: string | null) {
   const sb = createAdminClient();
   const { data: op, error } = await sb
     .from("oportunidades")
@@ -2254,6 +2329,9 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
     .eq("id", oportunidadId)
     .single();
   if (error) throw new Error(error.message);
+  // Persona del equipo que recibió el dinero (opcional): queda como deuda
+  // suya con TDO hasta que lo entregue a la caja.
+  const persona = await canonizarPersonaEquipo(sb, cobradoPor);
 
   const t = calcularTotales(
     (op.presupuesto_lineas ?? []).map((l: LineaInput) => ({
@@ -2270,12 +2348,26 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
   // Primero se dan por cobrados los ingresos previstos ya enlazados (p. ej.
   // el cobro previsto que dejó la factura), para no duplicar movimientos.
   const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
-  await sb
-    .from("tesoreria")
-    .update({ estado: "cobrado", fecha: hoy })
-    .eq("oportunidad_id", oportunidadId)
-    .eq("tipo", "ingreso")
-    .eq("estado", "previsto");
+  {
+    const patchCobro: Record<string, unknown> = persona
+      ? { estado: "cobrado", fecha: hoy, cobrado_por: persona, liquidado: false }
+      : { estado: "cobrado", fecha: hoy };
+    let { error: flipErr } = await sb
+      .from("tesoreria")
+      .update(patchCobro)
+      .eq("oportunidad_id", oportunidadId)
+      .eq("tipo", "ingreso")
+      .eq("estado", "previsto");
+    if (flipErr && /(cobrado_por|liquidado)/.test(flipErr.message) && /column/i.test(flipErr.message)) {
+      ({ error: flipErr } = await sb
+        .from("tesoreria")
+        .update({ estado: "cobrado", fecha: hoy })
+        .eq("oportunidad_id", oportunidadId)
+        .eq("tipo", "ingreso")
+        .eq("estado", "previsto"));
+    }
+    if (flipErr) throw new Error(flipErr.message);
+  }
 
   const { data: cobros } = await sb
     .from("tesoreria")
@@ -2299,8 +2391,17 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
   const pendFactura = r2(objFactura - cobradoFactura);
   const pendEfectivo = r2(objEfectivo - cobradoAmigos);
 
+  // Inserta el importe pendiente como cobrado (con reintento sin cobrado_por
+  // si falta la migración 032).
+  async function insertarCobro(fila: Record<string, unknown>) {
+    let { error: insErr } = await sb.from("tesoreria").insert({ ...fila, cobrado_por: persona, liquidado: false });
+    if (insErr && /(cobrado_por|liquidado)/.test(insErr.message) && /column/i.test(insErr.message)) {
+      ({ error: insErr } = await sb.from("tesoreria").insert(fila));
+    }
+    if (insErr) throw new Error(insErr.message);
+  }
   if (pendFactura > 0.01) {
-    const { error: insErr } = await sb.from("tesoreria").insert({
+    await insertarCobro({
       concepto: `Cobro final ${op.titulo}`,
       tipo: "ingreso",
       naturaleza: "ingreso_factura",
@@ -2311,10 +2412,9 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
       oportunidad_id: oportunidadId,
       computa_contabilidad: true,
     });
-    if (insErr) throw new Error(insErr.message);
   }
   if (pendEfectivo > 0.01) {
-    const { error: insErr } = await sb.from("tesoreria").insert({
+    await insertarCobro({
       concepto: esAmigos
         ? `Aportación amigos · ${op.titulo}`
         : `Parte en efectivo (sin IVA) · ${op.titulo}`,
@@ -2327,7 +2427,6 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
       oportunidad_id: oportunidadId,
       computa_contabilidad: false,
     });
-    if (insErr) throw new Error(insErr.message);
   }
 
   await sb.from("facturas").update({ estado: "cobrada" }).eq("oportunidad_id", oportunidadId);

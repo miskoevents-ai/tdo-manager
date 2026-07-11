@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { NuevaFacturaForm, type PresupuestoOrigen } from "@/components/facturas/NuevaFacturaForm";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getClientes, getFacturas, getOportunidades } from "@/lib/data";
+import { getClientes, getFacturas, getOportunidades, getEquipo } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 
 export const dynamic = "force-dynamic";
@@ -11,12 +11,13 @@ export const dynamic = "force-dynamic";
 export default async function NuevaFacturaPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
-  let clientes, facturas, ops;
+  let clientes, facturas, ops, equipo;
   try {
-    [clientes, facturas, ops] = await Promise.all([
+    [clientes, facturas, ops, equipo] = await Promise.all([
       getClientes(),
       getFacturas(),
       getOportunidades(),
+      getEquipo(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
@@ -81,6 +82,7 @@ export default async function NuevaFacturaPage() {
         presupuestos={presupuestos}
         numeroSugerido={numeroSugerido}
         hoy={hoy}
+        responsables={equipo.filter((e) => e.activo).map((e) => e.nombre)}
       />
     </div>
   );

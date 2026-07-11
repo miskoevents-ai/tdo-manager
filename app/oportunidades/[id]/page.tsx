@@ -8,7 +8,7 @@ import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog"
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
 import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn, ValidarOportunidadBtn } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
-import { PlanPagos, BorrarPrevistoBtn } from "@/components/oportunidades/PlanPagos";
+import { PlanPagos, BorrarPrevistoBtn, MarcarCobradoBtn } from "@/components/oportunidades/PlanPagos";
 import { VersionesPresupuesto } from "@/components/oportunidades/VersionesPresupuesto";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
@@ -97,7 +97,11 @@ export default async function Page({
       (m.naturaleza === "gasto_de_evento" || (m.naturaleza === "amigos" && m.tipo === "gasto")) &&
       !desplTesoIds.has(m.id),
   );
-  const equipoLite = equipo.map((e) => ({ id: e.id, nombre: e.nombre, precio_hora: e.precio_hora }));
+  // Solo equipo activo: los desplegables de persona/pagador salen de aquí.
+  const equipoLite = equipo
+    .filter((e) => e.activo)
+    .map((e) => ({ id: e.id, nombre: e.nombre, precio_hora: e.precio_hora }));
+  const responsablesFicha = equipoLite.map((e) => e.nombre);
   const provLite = proveedores.map((p) => ({ id: p.id, nombre: p.nombre }));
   const lugarInfo = op.lugar
     ? { id: op.lugar.id, nombre: op.lugar.nombre, distancia_km: op.lugar.distancia_km ?? null }
@@ -377,7 +381,15 @@ export default async function Page({
                     {eur(Number(c.importe))}
                   </span>
                   {c.estado === "previsto" && c.tipo === "ingreso" && (
-                    <BorrarPrevistoBtn id={c.id} oportunidadId={op.id} />
+                    <>
+                      <MarcarCobradoBtn
+                        id={c.id}
+                        concepto={c.concepto}
+                        importe={Number(c.importe)}
+                        responsables={responsablesFicha}
+                      />
+                      <BorrarPrevistoBtn id={c.id} oportunidadId={op.id} />
+                    </>
                   )}
                 </div>
               </div>
