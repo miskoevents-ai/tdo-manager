@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { EquipoDialog } from "@/components/equipo/EquipoDialog";
 import { SueldosPanel } from "@/components/equipo/SueldosPanel";
+import { DistribucionSemanal, type DistribPersona } from "@/components/equipo/DistribucionSemanal";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getEquipo, getPartesHorasTodas, getSueldos } from "@/lib/data";
 import { eur, fecha, num } from "@/lib/format";
@@ -56,6 +57,51 @@ export default async function EquipoPage() {
   }
   const resumenHoras = Array.from(porPersona.entries()).sort((a, b) => b[1].horas - a[1].horas);
   const ultimasPartes = partes.slice(0, 8);
+
+  // Distribución de horas de ESTA semana (lunes–domingo, Madrid) por persona:
+  // repartidas por fase (comercial/pre/durante/post) y por proyecto.
+  const hoyMadrid = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const hoyD = new Date(hoyMadrid + "T00:00:00Z");
+  const lunes = new Date(hoyD);
+  lunes.setUTCDate(hoyD.getUTCDate() - ((hoyD.getUTCDay() + 6) % 7));
+  const domingo = new Date(lunes);
+  domingo.setUTCDate(lunes.getUTCDate() + 6);
+  const iniSem = lunes.toISOString().slice(0, 10);
+  const finSem = domingo.toISOString().slice(0, 10);
+  const fmtCorto = (iso: string) => iso.split("-").reverse().slice(0, 2).join("/");
+  const rangoSemana = `${fmtCorto(iniSem)}–${fmtCorto(finSem)}`;
+
+  const distMap = new Map<
+    string,
+    { total: number; coste: number; fases: Record<string, number>; proyectos: Map<string, number> }
+  >();
+  for (const p of partes) {
+    const dia = p.fecha ?? p.created_at.slice(0, 10);
+    if (dia < iniSem || dia > finSem) continue;
+    const nombre =
+      p.equipo?.nombre ?? (p.persona_externa ? `${p.persona_externa} (externo)` : "Sin asignar");
+    const acc = distMap.get(nombre) ?? { total: 0, coste: 0, fases: {} as Record<string, number>, proyectos: new Map<string, number>() };
+    const h = Number(p.horas);
+    acc.total += h;
+    acc.coste += h * Number(p.precio_hora);
+    const fase = p.fase ?? "pre";
+    acc.fases[fase] = (acc.fases[fase] ?? 0) + h;
+    const proy = p.oportunidad?.titulo ?? "Sin proyecto";
+    acc.proyectos.set(proy, (acc.proyectos.get(proy) ?? 0) + h);
+    distMap.set(nombre, acc);
+  }
+  const distribucion: DistribPersona[] = Array.from(distMap.entries())
+    .map(([nombre, d]) => ({
+      nombre,
+      total: d.total,
+      coste: d.coste,
+      fases: d.fases,
+      proyectos: Array.from(d.proyectos.entries())
+        .map(([titulo, horas]) => ({ titulo, horas }))
+        .sort((a, b) => b.horas - a.horas)
+        .slice(0, 5),
+    }))
+    .sort((a, b) => b.total - a.total);
 
   return (
     <div className="space-y-5">
@@ -127,6 +173,13 @@ export default async function EquipoPage() {
         costeMesPorId={costeMesPorId}
         mesActual={mesActual}
       />
+
+      {/* Distribución de horas de esta semana por fase y proyecto */}
+      <div className="flex items-baseline justify-between">
+        <Overline className="!mt-0">Horas de esta semana</Overline>
+        <span className="text-[11.5px] text-ink-muted">{rangoSemana}</span>
+      </div>
+      <DistribucionSemanal personas={distribucion} rango={rangoSemana} />
 
       {/* Horas imputadas por persona (desde la pestaña Costes de cada evento) */}
       <Overline>Horas imputadas</Overline>
