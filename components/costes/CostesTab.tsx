@@ -333,7 +333,12 @@ export function CostesTab({
                 <Tabla headers={["Concepto", "Fecha", "Pagado por", "Ticket", "Importe", ""]}>
                   {compras.map((m) => (
                     <tr key={m.id}>
-                      <Td>{m.concepto}</Td>
+                      <Td>
+                        {m.concepto}
+                        {m.naturaleza === "amigos" && (
+                          <span className="ml-1.5 rounded-sm bg-clay/10 px-1 text-[10px] font-semibold text-clay">🤝 amigos</span>
+                        )}
+                      </Td>
                       <Td>{fecha(m.fecha)}</Td>
                       <Td>
                         {m.quien_lo_paga ?? "TDO"}
@@ -374,8 +379,8 @@ export function CostesTab({
 // cálculo: tipo + concepto + cantidad/horas × €/ud con total automático y
 // fila nueva sola. Al guardar, cada fila va a su sitio real: Personal →
 // partes de horas, Desplazamiento → desplazamientos, Material/Otro → compras.
-type FilaRapida = { tipo: string; persona: string; personaExt: string; concepto: string; cantidad: number; precio: number; pagador: string };
-const FILA_RAPIDA: FilaRapida = { tipo: "material", persona: "", personaExt: "", concepto: "", cantidad: 1, precio: 0, pagador: "" };
+type FilaRapida = { tipo: string; persona: string; personaExt: string; concepto: string; cantidad: number; precio: number; pagador: string; caja: string };
+const FILA_RAPIDA: FilaRapida = { tipo: "material", persona: "", personaExt: "", concepto: "", cantidad: 1, precio: 0, pagador: "", caja: "oficial" };
 
 function ApunteRapido({
   oportunidadId,
@@ -424,6 +429,7 @@ function ApunteRapido({
             equipoId: f.tipo === "personal" && !esExterno ? f.persona || null : null,
             personaExterna: esExterno ? f.personaExt.trim() || null : null,
             pagador: f.tipo !== "personal" || esExterno ? f.pagador || null : null,
+            caja: f.caja,
           });
           continue;
         }
@@ -437,6 +443,7 @@ function ApunteRapido({
             fecha: fechaComun || null,
             personaExterna: esExterno ? f.personaExt.trim() || null : null,
             pagadoPor: esExterno ? f.pagador || null : null,
+            caja: f.caja,
           });
         } else if (f.tipo === "desplazamiento") {
           await crearDesplazamiento({
@@ -449,6 +456,7 @@ function ApunteRapido({
             parking: 0,
             fecha: fechaComun || null,
             quienLoPaga: f.pagador || null,
+            caja: f.caja,
           });
         } else {
           await crearCompra({
@@ -458,6 +466,7 @@ function ApunteRapido({
             fecha: fechaComun || null,
             proveedorId: null,
             quienLoPaga: f.pagador || null,
+            caja: f.caja,
           });
         }
       }
@@ -526,6 +535,7 @@ function ApunteRapido({
               <th className="w-[95px] border-b border-border py-2 text-right font-semibold">€/ud·h</th>
               <th className="w-[95px] border-b border-border py-2 text-right font-semibold">Total</th>
               <th className="w-[130px] border-b border-border py-2 pl-2 text-left font-semibold">Pagado por</th>
+              <th className="w-[120px] border-b border-border py-2 pl-2 text-left font-semibold">Caja</th>
               <th className="w-[36px] border-b border-border py-2"></th>
             </tr>
           </thead>
@@ -598,6 +608,17 @@ function ApunteRapido({
                       ))}
                     </Select>
                   )}
+                </td>
+                <td className="border-b border-[#f0eae1] py-1 pl-1">
+                  <Select
+                    value={f.caja}
+                    onChange={(e) => set(i, { caja: e.target.value })}
+                    title="¿De qué caja sale este gasto?"
+                    className={`py-1.5 text-[12px] ${f.caja === "amigos" ? "font-semibold text-clay" : ""}`}
+                  >
+                    <option value="oficial">🏦 Oficial</option>
+                    <option value="amigos">🤝 Amigos</option>
+                  </Select>
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 text-center">
                   {filas.length > 1 && (
@@ -955,6 +976,7 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
   const [horas, setHoras] = React.useState(0);
   const [precio, setPrecio] = React.useState(0);
   const [fechaP, setFechaP] = React.useState("");
+  const [caja, setCaja] = React.useState("oficial");
   const [busy, setBusy] = React.useState(false);
   const esExterno = equipoId === "__ext__";
 
@@ -972,8 +994,9 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
         tarea, horas, precioHora: precio, fecha: fechaP || null,
         personaExterna: esExterno ? externo.trim() || null : null,
         pagadoPor: esExterno ? pagador || null : null,
+        caja,
       });
-      setOpen(false); setEquipoId(""); setExterno(""); setPagador(""); setTarea(""); setHoras(0); setPrecio(0); setFechaP(""); onDone();
+      setOpen(false); setEquipoId(""); setExterno(""); setPagador(""); setTarea(""); setHoras(0); setPrecio(0); setFechaP(""); setCaja("oficial"); onDone();
     } finally { setBusy(false); }
   }
   if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus size={14} /> Añadir horas</Button>;
@@ -1004,6 +1027,7 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
             </Select>
           </Field>
         )}
+        {esExterno && <CajaSelect caja={caja} setCaja={setCaja} />}
       </div>
       {esExterno && (
         <p className="text-[11px] text-ink-muted">
@@ -1013,6 +1037,24 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
       )}
       <div className="flex justify-end gap-1"><Button size="sm" onClick={add} disabled={busy || (esExterno && !externo.trim())}>{busy ? "Guardando…" : "Añadir"}</Button><Button size="sm" variant="ghost" onClick={() => setOpen(false)}>×</Button></div>
     </div>
+  );
+}
+
+// Caja de la que sale el gasto del evento: la oficial de TDO (por defecto) o
+// la de amigos. La de amigos no computa en la contabilidad oficial y actualiza
+// el saldo/movimientos de la caja de amigos.
+function CajaSelect({ caja, setCaja }: { caja: string; setCaja: (v: string) => void }) {
+  return (
+    <Field label="Caja">
+      <Select
+        value={caja}
+        onChange={(e) => setCaja(e.target.value)}
+        className={caja === "amigos" ? "font-semibold text-clay" : ""}
+      >
+        <option value="oficial">🏦 Oficial (TDO)</option>
+        <option value="amigos">🤝 Amigos</option>
+      </Select>
+    </Field>
   );
 }
 
@@ -1055,6 +1097,7 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
   const [quien, setQuien] = React.useState("");
   const [otro, setOtro] = React.useState("");
   const [fechaD, setFechaD] = React.useState("");
+  const [caja, setCaja] = React.useState("oficial");
   const [busy, setBusy] = React.useState(false);
 
   const kmTotal = (km || 0) * (ida ? 2 : 1);
@@ -1071,6 +1114,7 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
         gasolinaManual: gasManual ? Number(gasManual) : null,
         peaje, parking, fecha: fechaD || null,
         quienLoPaga: quienFinal || null,
+        caja,
       });
       setOpen(false); onDone();
     } finally { setBusy(false); }
@@ -1093,6 +1137,7 @@ function DesplForm({ oportunidadId, kmPrecio, lugar, pagadores, onDone }: { opor
         <Field label="Parking €"><Input type="number" step="0.01" value={parking || ""} onChange={(e) => setParking(Number(e.target.value))} /></Field>
         <Field label="Fecha (vacía = hoy)"><Input type="date" value={fechaD} onChange={(e) => setFechaD(e.target.value)} /></Field>
         <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
+        <CajaSelect caja={caja} setCaja={setCaja} />
       </div>
       {quienFinal && (
         <p className="text-[11px] text-warn">
@@ -1147,6 +1192,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
   const [quien, setQuien] = React.useState("");
   const [otro, setOtro] = React.useState("");
   const [fechaC, setFechaC] = React.useState("");
+  const [caja, setCaja] = React.useState("oficial");
   const [ticket, setTicket] = React.useState<File | null>(null);
   const [busy, setBusy] = React.useState(false);
   const ticketRef = React.useRef<HTMLInputElement>(null);
@@ -1159,6 +1205,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
         proveedorId: proveedorId && proveedorId !== "__nuevo__" ? proveedorId : null,
         proveedorNuevo: proveedorId === "__nuevo__" ? proveedorNuevo.trim() || null : null,
         quienLoPaga: quienFinal || null,
+        caja,
       });
       // Ticket en el mismo paso: se adjunta al gasto recién creado.
       if (ticket && movId) {
@@ -1172,7 +1219,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
           alert(`El gasto se guardó, pero el ticket no se pudo subir: ${(e as Error).message}`);
         }
       }
-      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); setProveedorNuevo(""); setQuien(""); setOtro(""); setFechaC(""); setTicket(null); onDone();
+      setOpen(false); setConcepto(""); setImporte(0); setProveedorId(""); setProveedorNuevo(""); setQuien(""); setOtro(""); setFechaC(""); setCaja("oficial"); setTicket(null); onDone();
     } finally { setBusy(false); }
   }
   if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus size={14} /> Añadir compra</Button>;
@@ -1194,6 +1241,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
           </Field>
         )}
         <PagadoPor nombres={pagadores} quien={quien} otro={otro} setQuien={setQuien} setOtro={setOtro} />
+        <CajaSelect caja={caja} setCaja={setCaja} />
         <Field label="Fecha (vacía = hoy)"><Input type="date" value={fechaC} onChange={(e) => setFechaC(e.target.value)} /></Field>
         <Field label="Ticket (foto, opcional)">
           <button

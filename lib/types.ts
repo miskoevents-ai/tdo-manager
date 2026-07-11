@@ -136,6 +136,7 @@ export type CosteEstimado = {
   equipo_id?: string | null; // persona prevista (horas)
   persona_externa?: string | null; // ayudante externo previsto
   pagador?: string | null; // quién pagará (reembolso al cuadrar)
+  caja?: string | null; // caja prevista: 'amigos' o null (oficial)
   created_at: string;
 };
 
