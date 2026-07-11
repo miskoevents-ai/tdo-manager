@@ -6,6 +6,7 @@ import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockO
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
+import { FASES_HORAS } from "@/lib/estados";
 import {
   crearParteHoras, borrarParteHoras,
   crearDesplazamiento, borrarDesplazamiento,
@@ -381,8 +382,8 @@ export function CostesTab({
 // cálculo: tipo + concepto + cantidad/horas × €/ud con total automático y
 // fila nueva sola. Al guardar, cada fila va a su sitio real: Personal →
 // partes de horas, Desplazamiento → desplazamientos, Material/Otro → compras.
-type FilaRapida = { tipo: string; persona: string; personaExt: string; concepto: string; cantidad: number; precio: number; pagador: string; caja: string };
-const FILA_RAPIDA: FilaRapida = { tipo: "Material", persona: "", personaExt: "", concepto: "", cantidad: 1, precio: 0, pagador: "", caja: "oficial" };
+type FilaRapida = { tipo: string; persona: string; personaExt: string; concepto: string; cantidad: number; precio: number; pagador: string; caja: string; fase: string };
+const FILA_RAPIDA: FilaRapida = { tipo: "Material", persona: "", personaExt: "", concepto: "", cantidad: 1, precio: 0, pagador: "", caja: "oficial", fase: "pre" };
 
 // Tipos de gasto por defecto (además de los que ya se hayan usado). Se pueden
 // añadir nuevos y quedan guardados en cuanto se registra un gasto con ellos.
@@ -474,6 +475,7 @@ function ApunteRapido({
             personaExterna: esExterno ? f.personaExt.trim() || null : null,
             pagadoPor: esExterno ? f.pagador || null : null,
             caja: f.caja,
+            fase: f.fase || null,
           });
         } else if (esDespl(f.tipo)) {
           await crearDesplazamiento({
@@ -565,7 +567,7 @@ function ApunteRapido({
               <th className="w-[85px] border-b border-border py-2 text-right font-semibold">Cant./h</th>
               <th className="w-[95px] border-b border-border py-2 text-right font-semibold">€/ud·h</th>
               <th className="w-[95px] border-b border-border py-2 text-right font-semibold">Total</th>
-              <th className="w-[130px] border-b border-border py-2 pl-2 text-left font-semibold">Pagado por</th>
+              <th className="w-[140px] border-b border-border py-2 pl-2 text-left font-semibold">Pagado / Fase</th>
               <th className="w-[120px] border-b border-border py-2 pl-2 text-left font-semibold">Caja</th>
               <th className="w-[36px] border-b border-border py-2"></th>
             </tr>
@@ -653,7 +655,11 @@ function ApunteRapido({
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1">
                   {esPersonal(f.tipo) && f.persona !== "__ext__" ? (
-                    <span className="block px-1 text-[11px] text-ink-muted">n/a</span>
+                    <Select value={f.fase} onChange={(e) => set(i, { fase: e.target.value })} title="Fase de las horas" className="py-1.5 text-[12px]">
+                      {FASES_HORAS.map((x) => (
+                        <option key={x.value} value={x.value}>{x.label}</option>
+                      ))}
+                    </Select>
                   ) : (
                     <Select value={f.pagador} onChange={(e) => set(i, { pagador: e.target.value })} className="py-1.5 text-[12px]">
                       <option value="">TDO</option>
@@ -1031,6 +1037,7 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
   const [precio, setPrecio] = React.useState(0);
   const [fechaP, setFechaP] = React.useState("");
   const [caja, setCaja] = React.useState("oficial");
+  const [fase, setFase] = React.useState("pre");
   const [busy, setBusy] = React.useState(false);
   const esExterno = equipoId === "__ext__";
 
@@ -1049,8 +1056,9 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
         personaExterna: esExterno ? externo.trim() || null : null,
         pagadoPor: esExterno ? pagador || null : null,
         caja,
+        fase,
       });
-      setOpen(false); setEquipoId(""); setExterno(""); setPagador(""); setTarea(""); setHoras(0); setPrecio(0); setFechaP(""); setCaja("oficial"); onDone();
+      setOpen(false); setEquipoId(""); setExterno(""); setPagador(""); setTarea(""); setHoras(0); setPrecio(0); setFechaP(""); setCaja("oficial"); setFase("pre"); onDone();
     } finally { setBusy(false); }
   }
   if (!open) return <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus size={14} /> Añadir horas</Button>;
@@ -1073,6 +1081,11 @@ function PersonalForm({ oportunidadId, equipo, onDone }: { oportunidadId: string
         <Field label="Horas"><Input type="number" step="0.5" value={horas || ""} onChange={(e) => setHoras(Number(e.target.value))} /></Field>
         <Field label="€/hora"><Input type="number" step="0.01" value={precio || ""} onChange={(e) => setPrecio(Number(e.target.value))} /></Field>
         <Field label="Fecha (vacía = hoy)"><Input type="date" value={fechaP} onChange={(e) => setFechaP(e.target.value)} /></Field>
+        <Field label="Fase">
+          <Select value={fase} onChange={(e) => setFase(e.target.value)}>
+            {FASES_HORAS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+          </Select>
+        </Field>
         {esExterno && (
           <Field label="Efectivo pagado por">
             <Select value={pagador} onChange={(e) => setPagador(e.target.value)}>

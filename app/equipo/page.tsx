@@ -3,19 +3,21 @@ import { InfoNote } from "@/components/ui/InfoNote";
 import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { EquipoDialog } from "@/components/equipo/EquipoDialog";
+import { SueldosPanel } from "@/components/equipo/SueldosPanel";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getEquipo, getPartesHorasTodas } from "@/lib/data";
+import { getEquipo, getPartesHorasTodas, getSueldos } from "@/lib/data";
 import { eur, fecha, num } from "@/lib/format";
-import type { Equipo, ParteHoras } from "@/lib/types";
+import { FASE_LABEL } from "@/lib/estados";
+import type { Equipo, ParteHoras, Sueldo } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function EquipoPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
-  let equipo: Equipo[], partes: ParteHoras[];
+  let equipo: Equipo[], partes: ParteHoras[], sueldos: Sueldo[];
   try {
-    [equipo, partes] = await Promise.all([getEquipo(), getPartesHorasTodas()]);
+    [equipo, partes, sueldos] = await Promise.all([getEquipo(), getPartesHorasTodas(), getSueldos()]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -24,6 +26,15 @@ export default async function EquipoPage() {
   const mesActual = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" })
     .format(new Date())
     .slice(0, 7);
+
+  // Coste de horas imputadas este mes por persona (por equipo_id), para
+  // comparar con su sueldo.
+  const costeMesPorId: Record<string, number> = {};
+  for (const p of partes) {
+    if (!p.equipo_id) continue;
+    if (!(p.fecha ?? p.created_at.slice(0, 10)).startsWith(mesActual)) continue;
+    costeMesPorId[p.equipo_id] = (costeMesPorId[p.equipo_id] ?? 0) + Number(p.horas) * Number(p.precio_hora);
+  }
   const porPersona = new Map<
     string,
     { horas: number; coste: number; horasMes: number; costeMes: number; n: number }
@@ -108,6 +119,15 @@ export default async function EquipoPage() {
         ))}
       </div>
 
+      {/* Sueldos del equipo y cobertura con horas imputadas este mes */}
+      <Overline>Sueldos</Overline>
+      <SueldosPanel
+        personas={equipo.filter((e) => e.activo).map((e) => ({ id: e.id, nombre: e.nombre }))}
+        sueldos={sueldos}
+        costeMesPorId={costeMesPorId}
+        mesActual={mesActual}
+      />
+
       {/* Horas imputadas por persona (desde la pestaña Costes de cada evento) */}
       <Overline>Horas imputadas</Overline>
       <Card>
@@ -154,6 +174,7 @@ export default async function EquipoPage() {
                 >
                   <span className="min-w-0 truncate">
                     <b>{p.equipo?.nombre ?? (p.persona_externa ? `${p.persona_externa} (externo)` : "—")}</b>
+                    {p.fase ? ` · ${FASE_LABEL[p.fase] ?? p.fase}` : ""}
                     {p.tarea ? ` · ${p.tarea}` : ""}
                     {p.oportunidad ? ` · ${p.oportunidad.titulo}` : ""}
                   </span>

@@ -160,3 +160,16 @@ export const CLIENTE_TIPO_LABEL: Record<string, string> = {
   wedding_planner: "Wedding planner",
   sin_clasificar: "Sin clasificar",
 };
+
+// Fase en que se imputan las horas de una persona a un proyecto: desde la
+// captación comercial hasta el cierre post-evento.
+export const FASES_HORAS: { value: string; label: string }[] = [
+  { value: "comercial", label: "Comercial" },
+  { value: "pre", label: "Pre-evento" },
+  { value: "evento", label: "Durante el evento" },
+  { value: "post", label: "Post-evento" },
+];
+
+export const FASE_LABEL: Record<string, string> = Object.fromEntries(
+  FASES_HORAS.map((f) => [f.value, f.label]),
+);

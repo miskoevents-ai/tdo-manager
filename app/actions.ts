@@ -465,6 +465,8 @@ export async function crearParteHoras(input: {
   pagadoPor?: string | null;
   // Caja de la que sale el efectivo del externo: oficial o amigos.
   caja?: string | null;
+  // Fase de la imputación: comercial | pre | evento | post.
+  fase?: string | null;
 }) {
   const sb = createAdminClient();
   const externo = input.personaExterna?.trim() || null;
@@ -478,18 +480,25 @@ export async function crearParteHoras(input: {
     fecha: input.fecha || null,
   };
   if (externo) fila.persona_externa = externo;
+  if (input.fase) fila.fase = input.fase;
 
-  const { data: parte, error } = await sb
+  let { data: parte, error } = await sb
     .from("partes_horas")
     .insert(fila)
     .select("id")
     .single();
+  // La columna fase es de la migración 029: si no está, se guarda sin ella.
+  if (error && /fase/.test(error.message) && /column/i.test(error.message)) {
+    const { fase: _f, ...sinFase } = fila;
+    ({ data: parte, error } = await sb.from("partes_horas").insert(sinFase).select("id").single());
+  }
   if (error) {
     if (/persona_externa/.test(error.message)) {
       throw new Error("Falta ejecutar la migración 026 (personal externo) en Supabase.");
     }
     throw new Error(error.message);
   }
+  if (!parte) throw new Error("No se pudo crear el parte de horas.");
 
   // El efectivo del externo sale de caja: movimiento en tesorería enlazado al
   // parte (y excluido de las compras para no contar el gasto dos veces).
@@ -1296,6 +1305,41 @@ export async function guardarParamsCostes(
     .eq("id", oportunidadId);
   if (error) throw new Error(error.message);
   revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Sueldo mensual de una persona del equipo, vigente desde un mes. Guardar el
+// mismo mes lo actualiza (upsert manual: si ya hay una fila de ese mes, se
+// reemplaza el importe).
+export async function guardarSueldo(input: { equipoId: string; mes: string; importe: number }) {
+  const sb = createAdminClient();
+  const desde = `${input.mes}-01`; // el input es 'YYYY-MM'
+  const importe = Math.round(Number(input.importe) * 100) / 100;
+  if (!input.equipoId || !/^\d{4}-\d{2}-01$/.test(desde) || !(importe >= 0)) {
+    throw new Error("Faltan datos del sueldo (persona, mes o importe).");
+  }
+  const { data: existente } = await sb
+    .from("sueldos")
+    .select("id")
+    .eq("equipo_id", input.equipoId)
+    .eq("desde", desde)
+    .maybeSingle();
+  const res = existente
+    ? await sb.from("sueldos").update({ importe }).eq("id", existente.id)
+    : await sb.from("sueldos").insert({ equipo_id: input.equipoId, desde, importe });
+  if (res.error) {
+    if (res.error.code === "42P01" || /does not exist/i.test(res.error.message)) {
+      throw new Error("Falta ejecutar la migración 029 (sueldos) en Supabase.");
+    }
+    throw new Error(res.error.message);
+  }
+  revalidatePath("/equipo");
+}
+
+export async function borrarSueldo(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("sueldos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/equipo");
 }
 
 // Adjunta la foto del ticket/justificante a un movimiento de tesorería
