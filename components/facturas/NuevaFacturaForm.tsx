@@ -287,7 +287,7 @@ export function NuevaFacturaForm({
                 <th className="border-b border-border py-2 text-left font-semibold">Concepto</th>
                 <th className="w-[70px] border-b border-border py-2 text-right font-semibold">Cant.</th>
                 <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Precio €</th>
-                <th className="w-[64px] border-b border-border py-2 text-right font-semibold">Dto %</th>
+                <th className="w-[84px] border-b border-border py-2 text-right font-semibold">Dto %</th>
                 <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Subtotal</th>
                 <th className="w-[96px] border-b border-border py-2 pl-2 text-left font-semibold">Vía</th>
                 <th className="w-[36px] border-b border-border py-2"></th>
@@ -332,7 +332,7 @@ export function NuevaFacturaForm({
                       value={l.descuento_pct || ""}
                       onChange={(e) => setLinea(i, { descuento_pct: Math.min(100, Number(e.target.value) || 0) || null })}
                       placeholder="—"
-                      className="py-2 text-right text-[12px] tabular"
+                      className="py-2 pr-1.5 text-right text-[12px] tabular [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                   </td>
                   <td className="border-b border-[#f0eae1] py-1.5 text-right text-[13px] tabular font-semibold">

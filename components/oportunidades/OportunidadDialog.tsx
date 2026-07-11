@@ -36,8 +36,8 @@ export function OportunidadDialog({
   const editar = Boolean(oportunidad);
 
   // Fechas encadenadas: al fijar la fecha del evento, se acercan las de material
-  // (montaje y recogida). Al fijar la recogida, la devolución de la fianza se
-  // propone a 3 días después. Todo editable.
+  // (montaje y recogida/devolución). Al fijar la devolución del material, la
+  // devolución de la fianza se propone a 2 días después. Todo editable.
   const [evento, setEvento] = React.useState(oportunidad?.fecha_evento ?? "");
   const [montaje, setMontaje] = React.useState(oportunidad?.fecha_montaje ?? "");
   const [recogida, setRecogida] = React.useState(oportunidad?.fecha_recogida ?? "");
@@ -367,12 +367,12 @@ export function OportunidadDialog({
                 />
                 {recogida && (
                   <p className="mt-1 text-[10.5px] text-ink-muted">
-                    Sugerido: 2 días tras la recogida ({sumaDias(recogida, 2).split("-").reverse().join("/")}). Puedes cambiarlo.
+                    Sugerido: 2 días tras la devolución del material ({sumaDias(recogida, 2).split("-").reverse().join("/")}). Puedes cambiarlo.
                   </p>
                 )}
                 {!recogida && (
                   <p className="mt-1 text-[10.5px] text-ink-muted">
-                    Al fijar la recogida del material, se propone 2 días después. Puedes cambiarlo.
+                    Al fijar la devolución del material, se propone 2 días después. Puedes cambiarlo.
                   </p>
                 )}
               </Field>
