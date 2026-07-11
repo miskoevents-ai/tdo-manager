@@ -7,8 +7,10 @@ import { Plus, Trash2, Check, Pencil, MessageCircle, CalendarClock, Link2 } from
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
-import { crearTarea, actualizarTarea, borrarTarea, ordenarTareas } from "@/app/actions";
+import { crearTarea, actualizarTarea, borrarTarea, ordenarTareas, crearTareasPlantilla } from "@/app/actions";
 import { fecha as fmtFecha, num } from "@/lib/format";
+import { plantillaPara } from "@/lib/plantillas-tareas";
+import { TIPO_EVENTO_LABEL } from "@/lib/estados";
 import type { Tarea, TareaEstado, TareaPrioridad } from "@/lib/types";
 
 const PRIORIDAD: Record<TareaPrioridad, { label: string; clase: string; punto: string }> = {
@@ -34,7 +36,7 @@ const COLUMNAS: { estado: TareaEstado; titulo: string; barra: string }[] = [
   { estado: "hecha", titulo: "Hecha ✓", barra: "bg-ok" },
 ];
 
-type OpLite = { id: string; titulo: string };
+type OpLite = { id: string; titulo: string; tipoEvento?: string | null; fechaEvento?: string | null };
 
 export function TareasClient({
   tareas,
@@ -164,7 +166,10 @@ export function TareasClient({
         </div>
       </Card>
 
-      <NuevaTarea personas={personas} oportunidades={oportunidades} yo={yo} onDone={r} />
+      <div className="flex flex-wrap items-start gap-2">
+        <NuevaTarea personas={personas} oportunidades={oportunidades} yo={yo} onDone={r} />
+        <PlantillaTareas personas={personas} oportunidades={oportunidades} yo={yo} onDone={r} />
+      </div>
 
       {vista === "tablero" ? (
         <Tablero tareas={visiblesPersona} hoy={hoy} personas={personas} onOrdenar={ordenar} onDone={r} />
@@ -371,7 +376,7 @@ function NuevaTarea({
     );
   }
   return (
-    <div className="space-y-3 rounded-md border-hair border-sage-tint-deep bg-sage-tint/40 p-4">
+    <div className="w-full space-y-3 rounded-md border-hair border-sage-tint-deep bg-sage-tint/40 p-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Tarea *">
           <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Preparar los centros de la boda…" autoFocus />
@@ -415,6 +420,116 @@ function NuevaTarea({
       <div className="flex justify-end gap-1">
         <Button size="sm" onClick={guardar} disabled={busy || !titulo.trim() || !para}>
           {busy ? "Guardando…" : "Asignar tarea"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Generar tareas desde plantilla (por tipo de evento) ----------
+function PlantillaTareas({
+  personas,
+  oportunidades,
+  yo,
+  onDone,
+}: {
+  personas: string[];
+  oportunidades: OpLite[];
+  yo: string;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [opId, setOpId] = React.useState("");
+  const [tipo, setTipo] = React.useState("boda");
+  const [para, setPara] = React.useState(yo);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => setPara(yo), [yo]);
+
+  const op = oportunidades.find((o) => o.id === opId);
+  // Al elegir un evento, se usa su tipo (y su fecha para las fechas límite).
+  const tipoEfectivo = op?.tipoEvento || tipo;
+  const items = plantillaPara(tipoEfectivo);
+
+  // Tipos de evento ofrecidos (los que tienen plantilla propia + genérico).
+  const tiposEvento = ["boda", "comunion", "corporativo", "cumpleanos", "bautizo", "navidad", "alquiler_encargo", "otro"];
+
+  async function generar() {
+    if (!para) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const n = await crearTareasPlantilla({
+        items,
+        asignadaA: para,
+        creadaPor: yo || null,
+        oportunidadId: opId || null,
+        fechaEvento: op?.fechaEvento || null,
+      });
+      setOpen(false);
+      setOpId("");
+      onDone();
+      // Pequeño aviso visual: no bloqueamos, el refresco muestra las tareas.
+      void n;
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <Plus size={14} /> Plantilla de evento
+      </Button>
+    );
+  }
+  return (
+    <div className="w-full space-y-3 rounded-md border-hair border-clay/40 bg-clay-tint/30 p-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Field label="Para un evento (opcional)">
+          <Select value={opId} onChange={(e) => setOpId(e.target.value)}>
+            <option value="">— Sin vincular —</option>
+            {oportunidades.map((o) => <option key={o.id} value={o.id}>{o.titulo}</option>)}
+          </Select>
+        </Field>
+        <Field label="Tipo de evento">
+          <Select value={tipoEfectivo} onChange={(e) => setTipo(e.target.value)} disabled={Boolean(op?.tipoEvento)}>
+            {tiposEvento.map((t) => <option key={t} value={t}>{TIPO_EVENTO_LABEL[t] ?? t}</option>)}
+          </Select>
+        </Field>
+        <Field label="Asignar todas a *">
+          <Select value={para} onChange={(e) => setPara(e.target.value)}>
+            <option value="">—</option>
+            {personas.map((p) => <option key={p} value={p}>{p}</option>)}
+          </Select>
+        </Field>
+      </div>
+      <div className="rounded-md bg-white/60 p-3">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+          Se crearán {items.length} tareas
+        </p>
+        <ol className="grid grid-cols-1 gap-x-4 gap-y-0.5 text-[12px] text-ink-secondary sm:grid-cols-2">
+          {items.map((it, i) => (
+            <li key={i} className="tabular">
+              {i + 1}. {it.titulo}
+              {it.horas ? <span className="ml-1 text-ink-muted">~{num(it.horas, 1)} h</span> : ""}
+            </li>
+          ))}
+        </ol>
+        {op?.fechaEvento && (
+          <p className="mt-2 text-[11px] text-ink-muted">
+            El montaje y la recogida cogen fecha a partir del {fmtFecha(op.fechaEvento)}.
+          </p>
+        )}
+      </div>
+      {error && <p className="text-caption text-error">{error}</p>}
+      <div className="flex justify-end gap-1">
+        <Button size="sm" onClick={generar} disabled={busy || !para}>
+          {busy ? "Creando…" : `Crear ${items.length} tareas`}
         </Button>
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
       </div>
