@@ -29,8 +29,10 @@ import {
   getFacturaDeOportunidad,
   getVersionesPresupuesto,
   getCostesEstimados,
+  getComisionesConfig,
 } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
+import { comisionDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha } from "@/lib/format";
 import { TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
 
@@ -60,7 +62,7 @@ export default async function Page({
   const TABS = ["datos", "reuniones", "presupuesto", "material", "costes", "cobros"];
   const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
-  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados] =
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados, comConfig] =
     await Promise.all([
       getOportunidad(id),
       getClientes(),
@@ -77,8 +79,11 @@ export default async function Page({
       getFacturaDeOportunidad(id),
       getVersionesPresupuesto(id),
       getCostesEstimados(id),
+      getComisionesConfig(),
     ]);
   if (!op) notFound();
+  // Comisión del evento: cuenta como coste (afecta al margen).
+  const comisionEvento = comisionDeOportunidad(op, comConfig);
 
   // Compras/material = gastos de evento en tesorería que NO vienen de un
   // desplazamiento ni del pago a un ayudante externo (esos viven en su sección)
@@ -318,6 +323,7 @@ export default async function Page({
             cerrada={op.cerrada ?? false}
             cerradaFecha={op.cerrada_fecha ?? null}
             pendienteCobro={pendiente}
+            comision={comisionEvento}
             categoriasGasto={Array.from(
               new Set([
                 ...costesEstimados

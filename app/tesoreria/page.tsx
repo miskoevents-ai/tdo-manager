@@ -5,8 +5,10 @@ import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { TesoreriaClient } from "@/components/tesoreria/TesoreriaClient";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
+import { ResumenComisiones } from "@/components/comisiones/ResumenComisiones";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getTesoreria, getClientes, getOportunidades, getProveedores, getEquipo } from "@/lib/data";
+import { getTesoreria, getClientes, getOportunidades, getProveedores, getEquipo, getComisionesConfig, getComisiones } from "@/lib/data";
+import { computeDevengos, resumenComisiones } from "@/lib/comisiones";
 
 export const dynamic = "force-dynamic";
 
@@ -16,14 +18,16 @@ const linkCls =
 export default async function TesoreriaPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
-  let movimientos, clientes, ops, proveedores, equipo;
+  let movimientos, clientes, ops, proveedores, equipo, comConfig, comPagadas;
   try {
-    [movimientos, clientes, ops, proveedores, equipo] = await Promise.all([
+    [movimientos, clientes, ops, proveedores, equipo, comConfig, comPagadas] = await Promise.all([
       getTesoreria(),
       getClientes(),
       getOportunidades(),
       getProveedores(),
       getEquipo(),
+      getComisionesConfig(),
+      getComisiones(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
@@ -32,6 +36,7 @@ export default async function TesoreriaPage() {
   const oportunidades = ops.map((o) => ({ id: o.id, numero: o.numero, titulo: o.titulo }));
   const provs = proveedores.map((p) => ({ id: p.id, nombre: p.nombre }));
   const responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
+  const resumenCom = resumenComisiones(computeDevengos(ops, comConfig, comPagadas));
 
   return (
     <div className="space-y-5">
@@ -67,6 +72,7 @@ export default async function TesoreriaPage() {
         responsables={responsables}
         hoy={new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date())}
       />
+      <ResumenComisiones {...resumenCom} />
     </div>
   );
 }

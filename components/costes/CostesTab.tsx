@@ -36,6 +36,7 @@ export function CostesTab({
   cerradaFecha = null,
   pendienteCobro = 0,
   categoriasGasto = [],
+  comision = 0,
 }: {
   oportunidadId: string;
   base: number;
@@ -49,6 +50,7 @@ export function CostesTab({
   estimados?: CosteEstimado[];
   contingenciaPct?: number;
   margenObjetivoPct?: number;
+  comision?: number;
   cerrada?: boolean;
   cerradaFecha?: string | null;
   pendienteCobro?: number;
@@ -63,7 +65,8 @@ export function CostesTab({
     0,
   );
   const cMaterial = compras.reduce((s, m) => s + Number(m.importe), 0);
-  const costes = cPersonal + cDespl + cMaterial;
+  const cComision = Number(comision) || 0;
+  const costes = cPersonal + cDespl + cMaterial + cComision;
   const margen = base - costes;
   const margenPct = base > 0 ? (margen / base) * 100 : 0;
 
@@ -136,6 +139,7 @@ export function CostesTab({
                 <span className="bg-clay-300" style={{ width: `${Math.min(100, (cPersonal / base) * 100)}%` }} title="Personal" />
                 <span className="bg-warn" style={{ width: `${Math.min(100, (cDespl / base) * 100)}%` }} title="Desplazamientos" />
                 <span className="bg-error" style={{ width: `${Math.min(100, (cMaterial / base) * 100)}%` }} title="Material" />
+                {cComision > 0 && <span className="bg-sage" style={{ width: `${Math.min(100, (cComision / base) * 100)}%` }} title="Comisión" />}
                 <span className="bg-ok" style={{ width: `${Math.max(0, (margen / base) * 100)}%` }} title="Margen" />
               </>
             )}
@@ -144,6 +148,7 @@ export function CostesTab({
             <Leg color="bg-clay-300" t={`Personal ${eur(cPersonal)}`} />
             <Leg color="bg-warn" t={`Desplazamientos ${eur(cDespl)}`} />
             <Leg color="bg-error" t={`Material ${eur(cMaterial)}`} />
+            {cComision > 0 && <Leg color="bg-sage" t={`Comisión ${eur(cComision)}`} />}
             <Leg color="bg-ok" t={`Margen ${eur(margen)}`} />
           </div>
         </div>
