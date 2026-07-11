@@ -9,6 +9,7 @@ import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor"
 import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn, ValidarOportunidadBtn } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { PlanPagos, BorrarPrevistoBtn, MarcarCobradoBtn } from "@/components/oportunidades/PlanPagos";
+import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { VersionesPresupuesto } from "@/components/oportunidades/VersionesPresupuesto";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
@@ -381,15 +382,22 @@ export default async function Page({
                     {eur(Number(c.importe))}
                   </span>
                   {c.estado === "previsto" && c.tipo === "ingreso" && (
-                    <>
-                      <MarcarCobradoBtn
-                        id={c.id}
-                        concepto={c.concepto}
-                        importe={Number(c.importe)}
-                        responsables={responsablesFicha}
-                      />
-                      <BorrarPrevistoBtn id={c.id} oportunidadId={op.id} />
-                    </>
+                    <MarcarCobradoBtn
+                      id={c.id}
+                      concepto={c.concepto}
+                      importe={Number(c.importe)}
+                      responsables={responsablesFicha}
+                    />
+                  )}
+                  <MovimientoDialog
+                    clientes={clientes}
+                    oportunidades={[{ id: op.id, numero: op.numero, titulo: op.titulo }]}
+                    proveedores={provLite}
+                    responsables={responsablesFicha}
+                    movimiento={c}
+                  />
+                  {c.estado === "previsto" && c.tipo === "ingreso" && (
+                    <BorrarPrevistoBtn id={c.id} oportunidadId={op.id} />
                   )}
                 </div>
               </div>
