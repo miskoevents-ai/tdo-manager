@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { FileText, RotateCcw, Mail } from "lucide-react";
+import { FileText, RotateCcw, Mail, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { emitirFactura, toggleFianzaDevuelta, cambiarEstado, marcarPresupuestoEnviado } from "@/app/actions";
+import { emitirFactura, toggleFianzaDevuelta, cambiarEstado, marcarPresupuestoEnviado, validarOportunidad } from "@/app/actions";
 import { ESTADO_META, ESTADO_COLOR } from "@/lib/estados";
 import type { OportunidadEstado } from "@/lib/types";
 
@@ -109,6 +109,47 @@ export function EmitirFacturaBtn({ oportunidadId }: { oportunidadId: string }) {
       }}
     >
       <FileText size={14} /> {loading ? "Emitiendo…" : "Emitir factura"}
+    </Button>
+  );
+}
+
+// Valida la oportunidad: la da por cerrada y genera la factura (normal) en un
+// clic. Estado destacado para cerrar el ciclo del evento.
+export function ValidarOportunidadBtn({
+  oportunidadId,
+  yaFacturada,
+}: {
+  oportunidadId: string;
+  yaFacturada: boolean;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = React.useState(false);
+  return (
+    <Button
+      size="sm"
+      disabled={loading}
+      onClick={async () => {
+        if (
+          !window.confirm(
+            yaFacturada
+              ? "¿Cerrar la oportunidad? Los costes quedarán congelados."
+              : "¿Validar la oportunidad? Se generará la factura y quedará cerrada con los costes congelados.",
+          )
+        )
+          return;
+        setLoading(true);
+        try {
+          const { facturaId, aviso } = await validarOportunidad(oportunidadId);
+          if (aviso) window.alert(aviso);
+          if (facturaId) router.push(`/facturas/${facturaId}`);
+          else router.refresh();
+        } catch (e) {
+          window.alert((e as Error).message);
+          setLoading(false);
+        }
+      }}
+    >
+      <CheckCircle2 size={14} /> {loading ? "Validando…" : "Validar y facturar"}
     </Button>
   );
 }

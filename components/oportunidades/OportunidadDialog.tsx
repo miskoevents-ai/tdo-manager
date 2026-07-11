@@ -51,7 +51,7 @@ export function OportunidadDialog({
   const hayFianza = (parseFloat(fianza) || 0) > 0;
   function onRecogida(v: string) {
     setRecogida(v);
-    if (v) setFianzaFecha(sumaDias(v, 3));
+    if (v) setFianzaFecha(sumaDias(v, 2));
   }
   function onEvento(v: string) {
     setEvento(v);
@@ -367,7 +367,12 @@ export function OportunidadDialog({
                 />
                 {recogida && (
                   <p className="mt-1 text-[10.5px] text-ink-muted">
-                    Sugerido: 3 días tras la recogida ({sumaDias(recogida, 3).split("-").reverse().join("/")}). Puedes cambiarlo.
+                    Sugerido: 2 días tras la recogida ({sumaDias(recogida, 2).split("-").reverse().join("/")}). Puedes cambiarlo.
+                  </p>
+                )}
+                {!recogida && (
+                  <p className="mt-1 text-[10.5px] text-ink-muted">
+                    Al fijar la recogida del material, se propone 2 días después. Puedes cambiarlo.
                   </p>
                 )}
               </Field>
