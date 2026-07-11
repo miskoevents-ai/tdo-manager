@@ -46,6 +46,23 @@ export function MovimientoDialog({
   const [computa, setComputa] = React.useState(
     movimiento?.computa_contabilidad ?? computaPorNaturaleza(naturaleza),
   );
+  // Caja: de qué contabilidad sale/entra el dinero. Amigos → naturaleza
+  // 'amigos' y no computa en la oficial; se ve en la vista Amigos.
+  const [caja, setCaja] = React.useState<"oficial" | "amigos">(
+    movimiento?.naturaleza === "amigos" ? "amigos" : "oficial",
+  );
+
+  function onCaja(v: "oficial" | "amigos") {
+    setCaja(v);
+    if (v === "amigos") {
+      setNaturaleza("amigos");
+      setComputa(false);
+    } else {
+      const nat = tipo === "ingreso" ? "ingreso_factura" : "gasto_fijo";
+      setNaturaleza(nat);
+      setComputa(computaPorNaturaleza(nat));
+    }
+  }
 
   // Pagado por: desplegable del equipo o escribir uno externo (sirve para
   // saber a quién reembolsar si alguien adelanta el dinero).
@@ -151,14 +168,55 @@ export function MovimientoDialog({
             </Field>
           </div>
 
+          {/* Caja: contabilidad oficial o circuito de amigos */}
+          <div>
+            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+              ¿De qué caja?
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onCaja("oficial")}
+                className={`rounded-md border-med px-4 py-2.5 text-center text-[12.5px] font-semibold ${
+                  caja === "oficial"
+                    ? "border-sage bg-sage-tint text-sage"
+                    : "border-border bg-white text-ink-muted"
+                }`}
+              >
+                🏦 Oficial
+              </button>
+              <button
+                type="button"
+                onClick={() => onCaja("amigos")}
+                className={`rounded-md border-med px-4 py-2.5 text-center text-[12.5px] font-semibold ${
+                  caja === "amigos"
+                    ? "border-clay bg-clay-tint text-clay"
+                    : "border-border bg-white text-ink-muted"
+                }`}
+              >
+                🤝 Amigos (sin factura)
+              </button>
+            </div>
+            {caja === "amigos" && (
+              <p className="mt-1.5 text-[11px] text-ink-muted">
+                Entra/sale de la contabilidad de <b>Amigos</b>: actualiza su saldo y sus
+                movimientos, y no computa en la oficial.
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Naturaleza">
-              <Select name="naturaleza" value={naturaleza} onChange={(e) => onNaturaleza(e.target.value)}>
-                {NATURALEZAS_MOV.map((n) => (
-                  <option key={n} value={n}>{NATURALEZA_LABEL[n]}</option>
-                ))}
-              </Select>
-            </Field>
+            {caja === "amigos" ? (
+              <input type="hidden" name="naturaleza" value="amigos" />
+            ) : (
+              <Field label="Naturaleza">
+                <Select name="naturaleza" value={naturaleza} onChange={(e) => onNaturaleza(e.target.value)}>
+                  {NATURALEZAS_MOV.filter((n) => n !== "amigos").map((n) => (
+                    <option key={n} value={n}>{NATURALEZA_LABEL[n]}</option>
+                  ))}
+                </Select>
+              </Field>
+            )}
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
