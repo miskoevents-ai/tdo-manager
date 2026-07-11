@@ -378,18 +378,37 @@ export async function guardarMovimiento(formData: FormData) {
     cliente_id: (formData.get("cliente_id") as string) || null,
     proveedor_id: (formData.get("proveedor_id") as string) || null,
     quien_lo_paga: (formData.get("quien_lo_paga") as string)?.trim() || null,
+    // Cobrado por: persona del equipo que recibió el ingreso (Jero, Cris…);
+    // ese dinero lo tiene ella hasta que lo entrega a la caja de TDO.
+    cobrado_por: (formData.get("cobrado_por") as string)?.trim() || null,
+    liquidado: formData.get("liquidado") === "on",
     computa_contabilidad: formData.get("computa_contabilidad") === "on",
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.concepto) throw new Error("El concepto es obligatorio.");
 
-  if (id) {
-    const { error } = await sb.from("tesoreria").update(payload).eq("id", id);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await sb.from("tesoreria").insert(payload);
-    if (error) throw new Error(error.message);
+  // cobrado_por/liquidado son de la migración 032: si no están, se omiten.
+  async function persistir(p: Record<string, unknown>) {
+    return id
+      ? sb.from("tesoreria").update(p).eq("id", id)
+      : sb.from("tesoreria").insert(p);
   }
+  let { error } = await persistir(payload);
+  if (error && /(cobrado_por|liquidado)/.test(error.message) && /column/i.test(error.message)) {
+    const { cobrado_por: _c, liquidado: _l, ...sin } = payload;
+    ({ error } = await persistir(sin));
+  }
+  if (error) throw new Error(error.message);
+  revalidatePath("/tesoreria");
+  revalidatePath("/");
+}
+
+// Marca un cobro recibido por una persona como ya entregado a TDO (liquidado):
+// deja de contar como deuda de esa persona hacia TDO.
+export async function marcarMovimientoLiquidado(id: string, liquidado: boolean) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("tesoreria").update({ liquidado }).eq("id", id);
+  if (error) throw new Error(error.message);
   revalidatePath("/tesoreria");
   revalidatePath("/");
 }
@@ -1166,18 +1185,26 @@ export async function guardarGastoFijo(formData: FormData) {
     importe_mensual: Math.abs(Number(formData.get("importe_mensual") || 0)),
     periodicidad: (formData.get("periodicidad") as string) || "mensual",
     quien_lo_paga: (formData.get("quien_lo_paga") as string)?.trim() || null,
+    caja: (formData.get("caja") as string) === "amigos" ? "amigos" : null,
+    desde: (formData.get("desde") as string) ? `${formData.get("desde")}-01` : null,
+    hasta: (formData.get("hasta") as string) ? `${formData.get("hasta")}-01` : null,
     activo: formData.get("activo") === "on",
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.concepto) throw new Error("El concepto es obligatorio.");
 
-  if (id) {
-    const { error } = await sb.from("gastos_fijos").update(payload).eq("id", id);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await sb.from("gastos_fijos").insert(payload);
-    if (error) throw new Error(error.message);
+  async function persistir(p: Record<string, unknown>) {
+    return id
+      ? sb.from("gastos_fijos").update(p).eq("id", id)
+      : sb.from("gastos_fijos").insert(p);
   }
+  let { error } = await persistir(payload);
+  // Las columnas caja/desde/hasta son de la migración 032: si no están, se omiten.
+  if (error && /(caja|desde|hasta)/.test(error.message) && /column/i.test(error.message)) {
+    const { caja: _c, desde: _d, hasta: _h, ...sin } = payload;
+    ({ error } = await persistir(sin));
+  }
+  if (error) throw new Error(error.message);
   revalidatePath("/gastos-fijos");
 }
 
@@ -1214,7 +1241,14 @@ export async function generarGastosDelMes(
     .eq("activo", true);
   if (error) throw new Error(error.message);
 
-  const activos = (plantillas ?? []).filter((g) => tocaEnMes(g.periodicidad, mes));
+  // Vigencia por mes: solo los gastos activos en ese mes (desde ≤ mes ≤ hasta).
+  // Si no tienen desde/hasta (o falta la migración), valen para todos los meses.
+  const activos = (plantillas ?? []).filter((g) => {
+    if (!tocaEnMes(g.periodicidad, mes)) return false;
+    if (g.desde && (g.desde as string) > desde) return false;
+    if (g.hasta && (g.hasta as string) < desde) return false;
+    return true;
+  });
 
   // Movimientos ya generados en ese mes (por gasto_fijo_id)
   const { data: existentesMov } = await sb
@@ -1227,22 +1261,32 @@ export async function generarGastosDelMes(
 
   const nuevos = activos
     .filter((g) => !yaHechos.has(g.id))
-    .map((g) => ({
-      concepto: g.concepto,
-      tipo: "gasto",
-      naturaleza: "gasto_fijo",
-      categoria: "Gasto fijo",
-      importe: Math.abs(Number(g.importe_mensual)),
-      fecha: g.dia_cargo
-        ? `${ym}-${String(Math.min(g.dia_cargo, finMes)).padStart(2, "0")}`
-        : desde,
-      estado: "previsto",
-      gasto_fijo_id: g.id,
-      computa_contabilidad: true,
-    }));
+    .map((g) => {
+      const esAmigos = g.caja === "amigos";
+      return {
+        concepto: g.concepto,
+        tipo: "gasto",
+        // Caja amigos → naturaleza amigos (no computa en la oficial).
+        naturaleza: esAmigos ? "amigos" : "gasto_fijo",
+        categoria: "Gasto fijo",
+        importe: Math.abs(Number(g.importe_mensual)),
+        fecha: g.dia_cargo
+          ? `${ym}-${String(Math.min(g.dia_cargo, finMes)).padStart(2, "0")}`
+          : desde,
+        estado: "previsto",
+        // Si lo paga una persona concreta, queda como reembolso pendiente.
+        quien_lo_paga: g.quien_lo_paga || null,
+        gasto_fijo_id: g.id,
+        computa_contabilidad: !esAmigos,
+      };
+    });
 
   if (nuevos.length) {
-    const { error: insErr } = await sb.from("tesoreria").insert(nuevos);
+    // quien_lo_paga podría no gustar a un esquema viejo; si falla, reintenta sin él.
+    let { error: insErr } = await sb.from("tesoreria").insert(nuevos);
+    if (insErr && /quien_lo_paga/.test(insErr.message) && /column/i.test(insErr.message)) {
+      ({ error: insErr } = await sb.from("tesoreria").insert(nuevos.map(({ quien_lo_paga: _q, ...r }) => r)));
+    }
     if (insErr) throw new Error(insErr.message);
   }
   revalidatePath("/tesoreria");

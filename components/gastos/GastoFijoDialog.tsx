@@ -9,8 +9,14 @@ import { Input, Select, Textarea, Field } from "@/components/ui/input";
 import { guardarGastoFijo, borrarGastoFijo } from "@/app/actions";
 import type { GastoFijo } from "@/lib/types";
 
-export function GastoFijoDialog({ gasto }: { gasto?: GastoFijo }) {
+export function GastoFijoDialog({ gasto, responsables = [] }: { gasto?: GastoFijo; responsables?: string[] }) {
   const router = useRouter();
+  // Opciones de "quién lo paga": el equipo + el valor actual si es libre.
+  const quienOpts = React.useMemo(() => {
+    const s = new Set(responsables);
+    if (gasto?.quien_lo_paga) s.add(gasto.quien_lo_paga);
+    return Array.from(s);
+  }, [responsables, gasto]);
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -80,9 +86,34 @@ export function GastoFijoDialog({ gasto }: { gasto?: GastoFijo }) {
               </Select>
             </Field>
           </div>
-          <Field label="Quién lo paga">
-            <Input name="quien_lo_paga" defaultValue={gasto?.quien_lo_paga ?? ""} placeholder="Jero, Sarmi…" />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Quién lo paga">
+              <Select name="quien_lo_paga" defaultValue={gasto?.quien_lo_paga ?? ""}>
+                <option value="">🏦 TDO (caja)</option>
+                {quienOpts.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Caja">
+              <Select name="caja" defaultValue={gasto?.caja ?? "oficial"}>
+                <option value="oficial">🏦 Oficial (TDO)</option>
+                <option value="amigos">🤝 Amigos</option>
+              </Select>
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Desde el mes (opcional)">
+              <Input type="month" name="desde" defaultValue={gasto?.desde ? gasto.desde.slice(0, 7) : ""} />
+            </Field>
+            <Field label="Hasta el mes (opcional)">
+              <Input type="month" name="hasta" defaultValue={gasto?.hasta ? gasto.hasta.slice(0, 7) : ""} />
+            </Field>
+          </div>
+          <p className="-mt-2 text-[10.5px] text-ink-muted">
+            Vacío = sin límite. Úsalo para gastos que empiezan o terminan en un mes (p. ej. uno
+            nuevo desde septiembre). Solo se generan en los meses en que aplican.
+          </p>
           <label className="flex items-center gap-2 text-[13px]">
             <input
               type="checkbox"

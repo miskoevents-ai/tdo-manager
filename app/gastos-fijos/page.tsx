@@ -7,9 +7,21 @@ import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { GastoFijoDialog } from "@/components/gastos/GastoFijoDialog";
 import { GenerarMesButton } from "@/components/gastos/GenerarMesButton";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getGastosFijos } from "@/lib/data";
+import { getGastosFijos, getEquipo } from "@/lib/data";
 import { eur } from "@/lib/format";
 import type { GastoFijo } from "@/lib/types";
+
+const MESES3 = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function mesCorto(iso: string) {
+  const [y, m] = iso.split("-");
+  return `${MESES3[Number(m) - 1] ?? m} ${y}`;
+}
+function vigencia(g: GastoFijo): string | null {
+  if (g.desde && g.hasta) return `${mesCorto(g.desde)} → ${mesCorto(g.hasta)}`;
+  if (g.desde) return `desde ${mesCorto(g.desde)}`;
+  if (g.hasta) return `hasta ${mesCorto(g.hasta)}`;
+  return null;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +35,11 @@ export default async function GastosFijosPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
   let gastos: GastoFijo[];
+  let responsables: string[] = [];
   try {
-    gastos = await getGastosFijos();
+    const [gs, equipo] = await Promise.all([getGastosFijos(), getEquipo()]);
+    gastos = gs;
+    responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -48,7 +63,7 @@ export default async function GastosFijosPage() {
             Plantilla mensual · {eur(totalMensual)} /mes en gastos mensuales activos
           </p>
         </div>
-        <GastoFijoDialog />
+        <GastoFijoDialog responsables={responsables} />
       </div>
 
       <Card className="bg-sage-tint/40">
@@ -78,14 +93,20 @@ export default async function GastosFijosPage() {
                 <td className="border-t border-border px-[15px] py-3 text-[13px] font-medium">
                   {g.concepto}
                   {g.notas && <span className="ml-2 text-[11px] text-ink-muted">{g.notas}</span>}
+                  {vigencia(g) && (
+                    <span className="ml-2 rounded-sm bg-beige-warm px-1.5 py-0.5 text-[10px] font-normal text-ink-muted">{vigencia(g)}</span>
+                  )}
                 </td>
                 <td className="border-t border-border px-[15px] py-3 text-[13px] tabular">{eur(Number(g.importe_mensual))}</td>
                 <td className="border-t border-border px-[15px] py-3 text-[12px] text-ink-secondary">{PERIOD_LABEL[g.periodicidad] ?? g.periodicidad}</td>
-                <td className="border-t border-border px-[15px] py-3 text-[12px] text-ink-secondary">{g.quien_lo_paga ?? "—"}</td>
+                <td className="border-t border-border px-[15px] py-3 text-[12px] text-ink-secondary">
+                  {g.quien_lo_paga ?? "TDO"}
+                  {g.caja === "amigos" && <span className="ml-1.5 text-[10px] font-semibold text-clay">🤝 amigos</span>}
+                </td>
                 <td className="border-t border-border px-[15px] py-3">
                   <Badge tone={g.activo ? "ok" : "neutral"}>{g.activo ? "Activo" : "Inactivo"}</Badge>
                 </td>
-                <td className="border-t border-border px-[15px] py-3 text-right"><GastoFijoDialog gasto={g} /></td>
+                <td className="border-t border-border px-[15px] py-3 text-right"><GastoFijoDialog gasto={g} responsables={responsables} /></td>
               </tr>
             ))}
           </tbody>
@@ -104,7 +125,7 @@ export default async function GastosFijosPage() {
                   {g.quien_lo_paga ? ` · ${g.quien_lo_paga}` : ""}
                 </div>
               </div>
-              <GastoFijoDialog gasto={g} />
+              <GastoFijoDialog gasto={g} responsables={responsables} />
             </div>
             <div className="mt-2 flex items-center justify-between">
               <span className="tabular text-[15px] font-semibold text-sage">{eur(Number(g.importe_mensual))}</span>
