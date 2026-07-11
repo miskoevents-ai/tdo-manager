@@ -2,15 +2,23 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { CAL_META, type CalEvento, type CalTipo } from "@/lib/calendario";
 
 const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
+const DIAS_LARGO = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 const pad = (n: number) => String(n).padStart(2, "0");
+
+// "2026-07-10" → "viernes, 10 de julio de 2026"
+function fechaLarga(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dow = (new Date(y, m - 1, d).getDay() + 6) % 7;
+  return `${DIAS_LARGO[dow]}, ${d} de ${MESES[m - 1].toLowerCase()} de ${y}`;
+}
 
 export function Calendario({
   eventos,
@@ -25,6 +33,8 @@ export function Calendario({
   const [activos, setActivos] = React.useState<Set<CalTipo>>(
     new Set(Object.keys(CAL_META) as CalTipo[]),
   );
+  // Día abierto en el cajón (muestra TODOS sus eventos).
+  const [diaAbierto, setDiaAbierto] = React.useState<string | null>(null);
 
   const year = Number(ym.slice(0, 4));
   const month0 = Number(ym.slice(5, 7)) - 1;
@@ -162,15 +172,17 @@ export function Calendario({
               >
                 {d && (
                   <div className="mb-1 flex justify-end">
-                    <span
-                      className={`text-[12px] font-semibold ${
+                    <button
+                      onClick={() => evs.length > 0 && setDiaAbierto(dateStr)}
+                      title={evs.length > 0 ? "Ver todo el día" : undefined}
+                      className={`text-[12px] font-semibold ${evs.length > 0 ? "hover:underline" : ""} ${
                         esHoy
                           ? "flex h-[21px] w-[21px] items-center justify-center rounded-full bg-clay text-cream"
                           : "text-ink-muted"
                       }`}
                     >
                       {d}
-                    </span>
+                    </button>
                   </div>
                 )}
                 <div className="space-y-1">
@@ -192,7 +204,12 @@ export function Calendario({
                     );
                   })}
                   {evs.length > 3 && (
-                    <span className="block px-1 text-[10px] text-ink-muted">+{evs.length - 3} más</span>
+                    <button
+                      onClick={() => setDiaAbierto(dateStr)}
+                      className="block w-full rounded-[5px] px-1 py-0.5 text-left text-[10px] font-semibold text-sage hover:bg-sage-tint"
+                    >
+                      +{evs.length - 3} más — ver todo
+                    </button>
                   )}
                 </div>
               </div>
@@ -200,6 +217,51 @@ export function Calendario({
           })}
         </div>
       </div>
+
+      {/* Cajón del día: TODOS los eventos de esa fecha */}
+      {diaAbierto && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 p-4 pt-[8vh]"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setDiaAbierto(null);
+          }}
+        >
+          <div className="w-full max-w-[460px] rounded-lg border-hair border-border bg-white p-5 shadow-xl">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <div className="font-display text-[18px] capitalize leading-tight">{fechaLarga(diaAbierto)}</div>
+                <div className="mt-0.5 text-[11.5px] text-ink-muted">
+                  {(porFecha.get(diaAbierto) ?? []).length}{" "}
+                  {(porFecha.get(diaAbierto) ?? []).length === 1 ? "evento" : "eventos"}
+                </div>
+              </div>
+              <button onClick={() => setDiaAbierto(null)} className="rounded-sm p-1.5 text-ink-muted hover:bg-beige-warm">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {(porFecha.get(diaAbierto) ?? []).map((e, j) => {
+                const fila = (
+                  <div className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] ${CAL_META[e.tipo].clase}`}>
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${CAL_META[e.tipo].punto}`} />
+                    <span className="min-w-0 flex-1 truncate font-medium">{e.titulo}</span>
+                    <span className="shrink-0 text-[10.5px] uppercase tracking-[0.05em] opacity-70">
+                      {CAL_META[e.tipo].label}
+                    </span>
+                  </div>
+                );
+                return e.href ? (
+                  <Link key={j} href={e.href} onClick={() => setDiaAbierto(null)} className="block hover:opacity-90">
+                    {fila}
+                  </Link>
+                ) : (
+                  <div key={j}>{fila}</div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
