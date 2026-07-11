@@ -34,6 +34,7 @@ export function CostesTab({
   cerrada = false,
   cerradaFecha = null,
   pendienteCobro = 0,
+  categoriasGasto = [],
 }: {
   oportunidadId: string;
   base: number;
@@ -50,6 +51,7 @@ export function CostesTab({
   cerrada?: boolean;
   cerradaFecha?: string | null;
   pendienteCobro?: number;
+  categoriasGasto?: string[];
 }) {
   const router = useRouter();
   const r = () => router.refresh();
@@ -222,7 +224,7 @@ export function CostesTab({
 
         {!cerrada && (
           <div className="mb-5 rounded-md border-hair border-border bg-beige-light/60 p-3">
-            <ApunteRapido oportunidadId={oportunidadId} equipo={equipo} onDone={r} />
+            <ApunteRapido oportunidadId={oportunidadId} equipo={equipo} categoriasGasto={categoriasGasto} onDone={r} />
           </div>
         )}
 
@@ -328,7 +330,7 @@ export function CostesTab({
             </SubGrupo>
 
             <SubGrupo icon={<Flower2 size={13} />} titulo="Compras / material" total={eur(cMaterial)}>
-              {!cerrada && <CompraForm oportunidadId={oportunidadId} proveedores={proveedores} pagadores={equipo.map((e) => e.nombre)} onDone={r} />}
+              {!cerrada && <CompraForm oportunidadId={oportunidadId} proveedores={proveedores} pagadores={equipo.map((e) => e.nombre)} categoriasGasto={categoriasGasto} onDone={r} />}
               {compras.length > 0 && (
                 <Tabla headers={["Concepto", "Fecha", "Pagado por", "Ticket", "Importe", ""]}>
                   {compras.map((m) => (
@@ -380,18 +382,45 @@ export function CostesTab({
 // fila nueva sola. Al guardar, cada fila va a su sitio real: Personal →
 // partes de horas, Desplazamiento → desplazamientos, Material/Otro → compras.
 type FilaRapida = { tipo: string; persona: string; personaExt: string; concepto: string; cantidad: number; precio: number; pagador: string; caja: string };
-const FILA_RAPIDA: FilaRapida = { tipo: "material", persona: "", personaExt: "", concepto: "", cantidad: 1, precio: 0, pagador: "", caja: "oficial" };
+const FILA_RAPIDA: FilaRapida = { tipo: "Material", persona: "", personaExt: "", concepto: "", cantidad: 1, precio: 0, pagador: "", caja: "oficial" };
+
+// Tipos de gasto por defecto (además de los que ya se hayan usado). Se pueden
+// añadir nuevos y quedan guardados en cuanto se registra un gasto con ellos.
+const GASTOS_BASE = ["Material", "Alquiler de vehículos", "Dietas y comida", "Flores", "Atrezzo", "Otro"];
+
+// Une los tipos base con los ya usados, sin duplicar (ignorando may/mín).
+function unirCategorias(extra: string[]): string[] {
+  const vistas = new Set<string>();
+  const salida: string[] = [];
+  for (const c of [...GASTOS_BASE, ...extra]) {
+    const t = c.trim();
+    if (!t) continue;
+    const k = t.toLowerCase();
+    if (vistas.has(k)) continue;
+    vistas.add(k);
+    salida.push(t);
+  }
+  return salida;
+}
+
+// El tipo es de personal / desplazamiento (rutas especiales) o una etiqueta de
+// gasto (todo lo demás va a "compra" con esa categoría).
+const esPersonal = (t: string) => t === "personal";
+const esDespl = (t: string) => t === "desplazamiento";
 
 function ApunteRapido({
   oportunidadId,
   equipo,
+  categoriasGasto = [],
   onDone,
 }: {
   oportunidadId: string;
   equipo: Pick<Equipo, "id" | "nombre" | "precio_hora">[];
+  categoriasGasto?: string[];
   onDone: () => void;
 }) {
   const [filas, setFilas] = React.useState<FilaRapida[]>([{ ...FILA_RAPIDA }]);
+  const [cats, setCats] = React.useState<string[]>(() => unirCategorias(categoriasGasto));
   // Destino de las filas: previstos (plan, antes del presu) o reales (contabilidad).
   const [modo, setModo] = React.useState<"previsto" | "real">("previsto");
   // Fecha común de los apuntes reales (para cargar datos antiguos); vacía = hoy.
@@ -418,22 +447,23 @@ function ApunteRapido({
     setMsg(null);
     try {
       for (const f of validas) {
-        const esExterno = f.tipo === "personal" && f.persona === "__ext__";
+        const esExterno = esPersonal(f.tipo) && f.persona === "__ext__";
         if (modo === "previsto") {
           await crearCosteEstimado({
             oportunidadId,
             concepto: f.concepto.trim(),
             cantidad: f.cantidad,
             precioUnitario: f.precio,
-            categoria: f.tipo,
-            equipoId: f.tipo === "personal" && !esExterno ? f.persona || null : null,
+            // Personal/desplazamiento guardan su clave; el resto, la etiqueta.
+            categoria: esPersonal(f.tipo) || esDespl(f.tipo) ? f.tipo : f.tipo,
+            equipoId: esPersonal(f.tipo) && !esExterno ? f.persona || null : null,
             personaExterna: esExterno ? f.personaExt.trim() || null : null,
-            pagador: f.tipo !== "personal" || esExterno ? f.pagador || null : null,
+            pagador: !esPersonal(f.tipo) || esExterno ? f.pagador || null : null,
             caja: f.caja,
           });
           continue;
         }
-        if (f.tipo === "personal") {
+        if (esPersonal(f.tipo)) {
           await crearParteHoras({
             oportunidadId,
             equipoId: esExterno ? null : f.persona || null,
@@ -445,7 +475,7 @@ function ApunteRapido({
             pagadoPor: esExterno ? f.pagador || null : null,
             caja: f.caja,
           });
-        } else if (f.tipo === "desplazamiento") {
+        } else if (esDespl(f.tipo)) {
           await crearDesplazamiento({
             oportunidadId,
             trayecto: f.concepto.trim(),
@@ -467,6 +497,7 @@ function ApunteRapido({
             proveedorId: null,
             quienLoPaga: f.pagador || null,
             caja: f.caja,
+            categoria: f.tipo,
           });
         }
       }
@@ -543,15 +574,38 @@ function ApunteRapido({
             {filas.map((f, i) => (
               <tr key={i}>
                 <td className="border-b border-[#f0eae1] py-1 pr-1">
-                  <Select value={f.tipo} onChange={(e) => set(i, { tipo: e.target.value })} className="py-1.5 text-[12px]">
-                    <option value="material">Material</option>
-                    <option value="personal">Personal</option>
-                    <option value="desplazamiento">Desplaz.</option>
-                    <option value="otro">Otro</option>
+                  <Select
+                    value={f.tipo}
+                    onChange={(e) => {
+                      if (e.target.value === "__nuevo__") {
+                        const nombre = (window.prompt("Nuevo tipo de gasto (p. ej. Alquiler de vehículos, Dietas…)") || "").trim();
+                        if (!nombre) return;
+                        setCats((cs) => unirCategorias([...cs, nombre]));
+                        set(i, { tipo: nombre });
+                      } else {
+                        set(i, { tipo: e.target.value });
+                      }
+                    }}
+                    className="py-1.5 text-[12px]"
+                  >
+                    <optgroup label="Gastos">
+                      {cats.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      {/* La categoría actual, si es una a medida ya elegida */}
+                      {!esPersonal(f.tipo) && !esDespl(f.tipo) && !cats.some((c) => c.toLowerCase() === f.tipo.toLowerCase()) && (
+                        <option value={f.tipo}>{f.tipo}</option>
+                      )}
+                      <option value="__nuevo__">➕ Nuevo tipo…</option>
+                    </optgroup>
+                    <optgroup label="Especiales">
+                      <option value="personal">Personal (horas)</option>
+                      <option value="desplazamiento">Desplazamiento</option>
+                    </optgroup>
                   </Select>
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1 pr-1">
-                  {f.tipo === "personal" ? (
+                  {esPersonal(f.tipo) ? (
                     f.persona === "__ext__" ? (
                       <Input
                         value={f.personaExt}
@@ -584,7 +638,7 @@ function ApunteRapido({
                   <Input
                     value={f.concepto}
                     onChange={(e) => set(i, { concepto: e.target.value })}
-                    placeholder={f.tipo === "personal" ? "Montaje…" : f.tipo === "desplazamiento" ? "Gasolina finca…" : "Petunias, moqueta…"}
+                    placeholder={esPersonal(f.tipo) ? "Montaje…" : esDespl(f.tipo) ? "Gasolina finca…" : "Petunias, moqueta…"}
                     className="py-1.5 text-[12.5px]"
                   />
                 </td>
@@ -598,7 +652,7 @@ function ApunteRapido({
                   {eur(f.cantidad * f.precio)}
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1">
-                  {f.tipo === "personal" && f.persona !== "__ext__" ? (
+                  {esPersonal(f.tipo) && f.persona !== "__ext__" ? (
                     <span className="block px-1 text-[11px] text-ink-muted">n/a</span>
                   ) : (
                     <Select value={f.pagador} onChange={(e) => set(i, { pagador: e.target.value })} className="py-1.5 text-[12px]">
@@ -1183,7 +1237,7 @@ function KmPrecioEditor({ kmPrecio, onDone }: { kmPrecio: number; onDone: () => 
   );
 }
 
-function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportunidadId: string; proveedores: Pick<Proveedor, "id" | "nombre">[]; pagadores: string[]; onDone: () => void }) {
+function CompraForm({ oportunidadId, proveedores, pagadores, categoriasGasto = [], onDone }: { oportunidadId: string; proveedores: Pick<Proveedor, "id" | "nombre">[]; pagadores: string[]; categoriasGasto?: string[]; onDone: () => void }) {
   const [open, setOpen] = React.useState(false);
   const [concepto, setConcepto] = React.useState("");
   const [importe, setImporte] = React.useState(0);
@@ -1193,6 +1247,8 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
   const [otro, setOtro] = React.useState("");
   const [fechaC, setFechaC] = React.useState("");
   const [caja, setCaja] = React.useState("oficial");
+  const [cats, setCats] = React.useState<string[]>(() => unirCategorias(categoriasGasto));
+  const [categoria, setCategoria] = React.useState("Material");
   const [ticket, setTicket] = React.useState<File | null>(null);
   const [busy, setBusy] = React.useState(false);
   const ticketRef = React.useRef<HTMLInputElement>(null);
@@ -1206,6 +1262,7 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
         proveedorNuevo: proveedorId === "__nuevo__" ? proveedorNuevo.trim() || null : null,
         quienLoPaga: quienFinal || null,
         caja,
+        categoria,
       });
       // Ticket en el mismo paso: se adjunta al gasto recién creado.
       if (ticket && movId) {
@@ -1227,6 +1284,23 @@ function CompraForm({ oportunidadId, proveedores, pagadores, onDone }: { oportun
     <div className="space-y-2 rounded-md bg-beige-light p-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Field label="Concepto"><Input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Flores, moqueta…" /></Field>
+        <Field label="Tipo de gasto">
+          <Select
+            value={categoria}
+            onChange={(e) => {
+              if (e.target.value === "__nuevo__") {
+                const nombre = (window.prompt("Nuevo tipo de gasto (p. ej. Alquiler de vehículos, Dietas…)") || "").trim();
+                if (!nombre) return;
+                setCats((cs) => unirCategorias([...cs, nombre]));
+                setCategoria(nombre);
+              } else setCategoria(e.target.value);
+            }}
+          >
+            {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+            {!cats.some((c) => c.toLowerCase() === categoria.toLowerCase()) && <option value={categoria}>{categoria}</option>}
+            <option value="__nuevo__">➕ Nuevo tipo…</option>
+          </Select>
+        </Field>
         <Field label="Importe €"><Input type="number" step="0.01" value={importe || ""} onChange={(e) => setImporte(Number(e.target.value))} /></Field>
         <Field label="Proveedor">
           <Select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>

@@ -314,6 +314,14 @@ export default async function Page({
             cerrada={op.cerrada ?? false}
             cerradaFecha={op.cerrada_fecha ?? null}
             pendienteCobro={pendiente}
+            categoriasGasto={Array.from(
+              new Set([
+                ...costesEstimados
+                  .map((e) => e.categoria)
+                  .filter((c): c is string => Boolean(c) && c !== "personal" && c !== "desplazamiento"),
+                ...compras.map((m) => m.categoria).filter((c): c is string => Boolean(c)),
+              ]),
+            )}
           />
         </TabsContent>
 
