@@ -7,7 +7,7 @@ import { Plus, Trash2, Check, Pencil, MessageCircle, CalendarClock, Link2 } from
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
-import { crearTarea, actualizarTarea, borrarTarea, ordenarTareas, crearTareasPlantilla } from "@/app/actions";
+import { crearTarea, actualizarTarea, borrarTarea, ordenarTareas, crearTareasPlantilla, crearParteHoras } from "@/app/actions";
 import { fecha as fmtFecha, num } from "@/lib/format";
 import { plantillaPara } from "@/lib/plantillas-tareas";
 import { TIPO_EVENTO_LABEL } from "@/lib/estados";
@@ -38,15 +38,19 @@ const COLUMNAS: { estado: TareaEstado; titulo: string; barra: string }[] = [
 
 type OpLite = { id: string; titulo: string; tipoEvento?: string | null; fechaEvento?: string | null };
 
+type EquipoInfo = { nombre: string; id: string; precioHora: number };
+
 export function TareasClient({
   tareas,
   oportunidades,
   personas,
+  equipoInfo = [],
   hoy,
 }: {
   tareas: Tarea[];
   oportunidades: OpLite[];
   personas: string[];
+  equipoInfo?: EquipoInfo[];
   hoy: string;
 }) {
   const router = useRouter();
@@ -172,7 +176,7 @@ export function TareasClient({
       </div>
 
       {vista === "tablero" ? (
-        <Tablero tareas={visiblesPersona} hoy={hoy} personas={personas} onOrdenar={ordenar} onDone={r} />
+        <Tablero tareas={visiblesPersona} hoy={hoy} personas={personas} equipoInfo={equipoInfo} onOrdenar={ordenar} onDone={r} />
       ) : (
         <>
           {/* Abiertas */}
@@ -183,7 +187,7 @@ export function TareasClient({
           )}
           <div className="space-y-2.5">
             {abiertas.map((t) => (
-              <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} onDone={r} />
+              <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} equipoInfo={equipoInfo} onDone={r} />
             ))}
           </div>
 
@@ -194,7 +198,7 @@ export function TareasClient({
                 Hechas recientemente
               </p>
               {hechas.map((t) => (
-                <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} onDone={r} />
+                <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} equipoInfo={equipoInfo} onDone={r} />
               ))}
             </div>
           )}
@@ -209,12 +213,14 @@ function Tablero({
   tareas,
   hoy,
   personas,
+  equipoInfo,
   onOrdenar,
   onDone,
 }: {
   tareas: Tarea[];
   hoy: string;
   personas: string[];
+  equipoInfo: EquipoInfo[];
   onOrdenar: (estado: TareaEstado, ids: string[], id: string) => void;
   onDone: () => void;
 }) {
@@ -303,7 +309,7 @@ function Tablero({
                     dragId === t.id ? "opacity-40" : ""
                   } ${activa && over?.antesDe === t.id ? "border-t-2 border-sage pt-1" : ""}`}
                 >
-                  <TarjetaTarea t={t} hoy={hoy} personas={personas} onDone={onDone} compacta />
+                  <TarjetaTarea t={t} hoy={hoy} personas={personas} equipoInfo={equipoInfo} onDone={onDone} compacta />
                 </div>
               ))}
               {items.length === 0 && (
@@ -542,12 +548,14 @@ function TarjetaTarea({
   t,
   hoy,
   personas,
+  equipoInfo = [],
   onDone,
   compacta = false,
 }: {
   t: Tarea;
   hoy: string;
   personas: string[];
+  equipoInfo?: EquipoInfo[];
   onDone: () => void;
   compacta?: boolean;
 }) {
@@ -569,6 +577,40 @@ function TarjetaTarea({
     setBusy(true);
     try {
       await actualizarTarea(t.id, patch);
+      onDone();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Al marcar HECHA: si la tarea está vinculada a un evento, tiene horas
+  // estimadas y quien la hizo es del equipo, ofrece imputar esas horas al
+  // evento (cierra el círculo horas → sueldos sin volver a teclearlas).
+  const persona = equipoInfo.find((e) => e.nombre === t.asignada_a);
+  const puedeImputar = !hecha && Boolean(t.oportunidad) && Number(t.horas_estimadas ?? 0) > 0 && Boolean(persona);
+
+  async function marcarHecha() {
+    setBusy(true);
+    try {
+      await actualizarTarea(t.id, { estado: "hecha" });
+      if (puedeImputar && persona && t.oportunidad) {
+        const h = Number(t.horas_estimadas);
+        if (
+          window.confirm(
+            `¿Imputar ~${num(h, 1)} h de "${t.titulo}" a ${t.asignada_a} en «${t.oportunidad.titulo}»?`,
+          )
+        ) {
+          await crearParteHoras({
+            oportunidadId: t.oportunidad.id,
+            equipoId: persona.id,
+            tarea: t.titulo,
+            horas: h,
+            precioHora: persona.precioHora,
+            fecha: hoy,
+            fase: "pre",
+          });
+        }
+      }
       onDone();
     } finally {
       setBusy(false);
@@ -650,7 +692,7 @@ function TarjetaTarea({
             <select
               value={t.estado}
               disabled={busy}
-              onChange={(e) => act({ estado: e.target.value })}
+              onChange={(e) => (e.target.value === "hecha" ? marcarHecha() : act({ estado: e.target.value }))}
               className={`rounded-sm border-hair border-border px-2 py-1.5 text-[12px] font-medium ${
                 hecha ? "bg-ok-tint text-ok" : t.estado === "no_puedo" ? "bg-warn-tint text-warn" : "bg-beige-light"
               }`}
@@ -662,9 +704,9 @@ function TarjetaTarea({
           )}
           {!hecha && (
             <button
-              title="Marcar como hecha"
+              title={puedeImputar ? "Marcar hecha e imputar sus horas al evento" : "Marcar como hecha"}
               disabled={busy}
-              onClick={() => act({ estado: "hecha" })}
+              onClick={marcarHecha}
               className="rounded-sm p-1.5 text-ink-muted hover:bg-ok-tint hover:text-ok"
             >
               <Check size={15} />
