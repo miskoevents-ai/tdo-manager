@@ -65,6 +65,7 @@ export default async function TesoreriaPage() {
         oportunidades={oportunidades}
         proveedores={provs}
         responsables={responsables}
+        hoy={new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date())}
       />
     </div>
   );

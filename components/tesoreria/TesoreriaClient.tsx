@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { Donut, DONUT_COLORS } from "@/components/ui/Donut";
-import { marcarMovimientoPagado } from "@/app/actions";
+import { marcarMovimientoPagado, cambiarEstadoMovimiento } from "@/app/actions";
 import { eur, fecha } from "@/lib/format";
 import {
   NATURALEZA_LABEL,
@@ -33,12 +33,14 @@ export function TesoreriaClient({
   oportunidades,
   proveedores = [],
   responsables = [],
+  hoy = "",
 }: {
   movimientos: Tesoreria[];
   clientes: Cliente[];
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
   proveedores?: Pick<Proveedor, "id" | "nombre">[];
   responsables?: string[];
+  hoy?: string;
 }) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
@@ -402,7 +404,6 @@ export function TesoreriaClient({
           </thead>
           <tbody>
             {visibles.map((m) => {
-              const em = ESTADO_MOV_META[m.estado] ?? { label: m.estado, tone: "neutral" as const };
               return (
                 <tr key={m.id} className="hover:bg-beige-light">
                   <td className="border-t border-border px-[14px] py-3 text-[12.5px] text-ink-secondary">{fecha(m.fecha)}</td>
@@ -429,7 +430,7 @@ export function TesoreriaClient({
                       <span className="text-ink-muted">{m.cliente?.nombre ?? "—"}</span>
                     )}
                   </td>
-                  <td className="border-t border-border px-[14px] py-3"><Badge tone={em.tone}>{em.label}</Badge></td>
+                  <td className="border-t border-border px-[14px] py-3"><EstadoMovSelect mov={m} hoy={hoy} /></td>
                   <td className={`border-t border-border px-[14px] py-3 text-right text-[13px] tabular font-semibold ${m.tipo === "ingreso" ? "text-ok" : "text-error"}`}>
                     {m.tipo === "ingreso" ? "+" : "−"}{eur(Number(m.importe))}
                   </td>
@@ -449,7 +450,6 @@ export function TesoreriaClient({
       {/* Tarjetas móvil */}
       <div className="space-y-2 md:hidden">
         {visibles.map((m) => {
-          const em = ESTADO_MOV_META[m.estado] ?? { label: m.estado, tone: "neutral" as const };
           return (
             <Card key={m.id} className="p-3">
               <div className="flex items-start justify-between">
@@ -473,7 +473,7 @@ export function TesoreriaClient({
                 </Link>
               )}
               <div className="mt-2 flex items-center justify-between">
-                <Badge tone={em.tone}>{em.label}</Badge>
+                <EstadoMovSelect mov={m} hoy={hoy} />
                 <span className="inline-flex items-center">
                   <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
                   <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} categoriasExtra={categoriasUsadas} />
@@ -484,5 +484,48 @@ export function TesoreriaClient({
         })}
       </div>
     </div>
+  );
+}
+
+// Desplegable de estado del movimiento: cambia entre Previsto y Cobrado
+// (ingresos) o Pagado (gastos). Si la fecha ya venció y sigue previsto, se
+// muestra en rojo como "Vencido" automáticamente.
+function EstadoMovSelect({ mov, hoy }: { mov: Tesoreria; hoy: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = React.useState(false);
+  const realizado = mov.tipo === "ingreso" ? "cobrado" : "pagado";
+  const realizadoLabel = mov.tipo === "ingreso" ? "Cobrado" : "Pagado";
+  const vencida = mov.estado === "previsto" && Boolean(mov.fecha) && Boolean(hoy) && (mov.fecha as string) < hoy;
+  const valor = mov.estado === realizado ? realizado : "previsto";
+  const tono = vencida ? "error" : ESTADO_MOV_META[valor]?.tone ?? "neutral";
+  const cls: Record<string, string> = {
+    error: "border-error/40 bg-error-tint text-error",
+    ok: "border-ok/40 bg-ok-tint text-ok",
+    sage: "border-sage/40 bg-sage-tint text-sage",
+    warn: "border-[#e7d3a6] bg-warn-tint text-[#7a5a1a]",
+    neutral: "border-border bg-white text-ink-secondary",
+  };
+
+  async function set(v: string) {
+    setBusy(true);
+    try {
+      await cambiarEstadoMovimiento(mov.id, v);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <select
+      value={valor}
+      disabled={busy}
+      onChange={(e) => set(e.target.value)}
+      title={vencida ? "Vencido: la fecha ya pasó y sigue sin cobrarse/pagarse" : "Cambiar estado"}
+      className={`cursor-pointer rounded-pill border-med px-2.5 py-1 text-[11.5px] font-semibold focus:outline-none disabled:opacity-60 ${cls[tono]}`}
+    >
+      <option value="previsto">{vencida ? "Vencido" : "Previsto"}</option>
+      <option value={realizado}>{realizadoLabel}</option>
+    </select>
   );
 }
