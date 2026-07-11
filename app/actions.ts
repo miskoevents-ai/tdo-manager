@@ -600,10 +600,11 @@ export async function crearTarea(input: {
   prioridad: string;
   fechaLimite: string | null;
   oportunidadId: string | null;
+  horasEstimadas?: number | null;
 }) {
   const sb = createAdminClient();
   if (!input.asignadaA.trim()) throw new Error("Di para quién es la tarea.");
-  const { error } = await sb.from("tareas").insert({
+  const fila: Record<string, unknown> = {
     titulo: input.titulo.trim(),
     descripcion: input.descripcion?.trim() || null,
     asignada_a: input.asignadaA.trim(),
@@ -611,7 +612,14 @@ export async function crearTarea(input: {
     prioridad: ["baja", "normal", "alta", "urgente"].includes(input.prioridad) ? input.prioridad : "normal",
     fecha_limite: input.fechaLimite || null,
     oportunidad_id: input.oportunidadId || null,
-  });
+    horas_estimadas: input.horasEstimadas && input.horasEstimadas > 0 ? input.horasEstimadas : null,
+  };
+  let { error } = await sb.from("tareas").insert(fila);
+  // La columna horas_estimadas es de la migración 030: si no está, se omite.
+  if (error && /horas_estimadas/.test(error.message) && /column/i.test(error.message)) {
+    const { horas_estimadas: _h, ...sinHoras } = fila;
+    ({ error } = await sb.from("tareas").insert(sinHoras));
+  }
   if (error) throw new Error(error.message);
   revalidatePath("/tareas");
   revalidatePath("/");
@@ -626,6 +634,7 @@ export async function actualizarTarea(
     fechaLimite?: string | null;
     estado?: string;
     comentario?: string | null;
+    horasEstimadas?: number | null;
   },
 ) {
   const sb = createAdminClient();
@@ -635,11 +644,18 @@ export async function actualizarTarea(
   if (patch.prioridad !== undefined) upd.prioridad = patch.prioridad;
   if (patch.fechaLimite !== undefined) upd.fecha_limite = patch.fechaLimite || null;
   if (patch.comentario !== undefined) upd.comentario = patch.comentario?.trim() || null;
+  if (patch.horasEstimadas !== undefined) {
+    upd.horas_estimadas = patch.horasEstimadas && patch.horasEstimadas > 0 ? patch.horasEstimadas : null;
+  }
   if (patch.estado !== undefined) {
     upd.estado = patch.estado;
     upd.completada_en = patch.estado === "hecha" ? new Date().toISOString() : null;
   }
-  const { error } = await sb.from("tareas").update(upd).eq("id", id);
+  let { error } = await sb.from("tareas").update(upd).eq("id", id);
+  if (error && /horas_estimadas/.test(error.message) && /column/i.test(error.message)) {
+    const { horas_estimadas: _h, ...sinHoras } = upd;
+    ({ error } = await sb.from("tareas").update(sinHoras).eq("id", id));
+  }
   if (error) throw new Error(error.message);
   revalidatePath("/tareas");
   revalidatePath("/");

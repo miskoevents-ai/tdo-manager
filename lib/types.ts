@@ -387,6 +387,7 @@ export type Tarea = {
   oportunidad_id: string | null;
   comentario: string | null;
   completada_en: string | null;
+  horas_estimadas?: number | null;
   created_at: string;
   oportunidad?: { id: string; titulo: string } | null;
 };

@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { crearTarea, actualizarTarea, borrarTarea } from "@/app/actions";
-import { fecha as fmtFecha } from "@/lib/format";
+import { fecha as fmtFecha, num } from "@/lib/format";
 import type { Tarea, TareaEstado, TareaPrioridad } from "@/lib/types";
 
 const PRIORIDAD: Record<TareaPrioridad, { label: string; clase: string; punto: string }> = {
@@ -225,6 +225,7 @@ function Tablero({
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {COLUMNAS.map((col) => {
         const items = tareas.filter((t) => t.estado === col.estado).sort(orden);
+        const horasCol = items.reduce((s, t) => s + Number(t.horas_estimadas ?? 0), 0);
         return (
           <div
             key={col.estado}
@@ -248,6 +249,11 @@ function Tablero({
               <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-secondary">
                 {col.titulo}
               </span>
+              {horasCol > 0 && (
+                <span className="rounded-pill bg-sage-tint px-2 py-0.5 text-[10.5px] font-semibold text-sage">
+                  ~{num(horasCol, 1)} h
+                </span>
+              )}
               <span className="ml-auto rounded-pill bg-white px-2 py-0.5 text-[11px] tabular text-ink-muted">
                 {items.length}
               </span>
@@ -293,6 +299,7 @@ function NuevaTarea({
   const [de, setDe] = React.useState(yo);
   const [prioridad, setPrioridad] = React.useState("normal");
   const [fechaLimite, setFechaLimite] = React.useState("");
+  const [horas, setHoras] = React.useState("");
   const [opId, setOpId] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -312,9 +319,10 @@ function NuevaTarea({
         prioridad,
         fechaLimite: fechaLimite || null,
         oportunidadId: opId || null,
+        horasEstimadas: horas ? Number(horas.replace(",", ".")) : null,
       });
       setOpen(false);
-      setTitulo(""); setDescripcion(""); setPara(""); setPrioridad("normal"); setFechaLimite(""); setOpId("");
+      setTitulo(""); setDescripcion(""); setPara(""); setPrioridad("normal"); setFechaLimite(""); setHoras(""); setOpId("");
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -340,7 +348,7 @@ function NuevaTarea({
           <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Cómo, dónde, con qué…" />
         </Field>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Field label="Para *">
           <Select value={para} onChange={(e) => setPara(e.target.value)}>
             <option value="">—</option>
@@ -357,6 +365,9 @@ function NuevaTarea({
           <Select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
             {ORDEN_PRIORIDAD.map((p) => <option key={p} value={p}>{PRIORIDAD[p].label}</option>)}
           </Select>
+        </Field>
+        <Field label="Horas estim.">
+          <Input type="number" step="0.5" min="0" value={horas} onChange={(e) => setHoras(e.target.value)} placeholder="p. ej. 2" className="text-right tabular" />
         </Field>
         <Field label="Fecha límite">
           <Input type="date" value={fechaLimite} onChange={(e) => setFechaLimite(e.target.value)} />
@@ -401,6 +412,7 @@ function TarjetaTarea({
   const [descripcion, setDescripcion] = React.useState(t.descripcion ?? "");
   const [prioridad, setPrioridad] = React.useState<string>(t.prioridad);
   const [fechaLimite, setFechaLimite] = React.useState(t.fecha_limite ?? "");
+  const [horas, setHoras] = React.useState(t.horas_estimadas != null ? String(t.horas_estimadas) : "");
 
   const hecha = t.estado === "hecha";
   const vencida = !hecha && Boolean(t.fecha_limite) && t.fecha_limite! < hoy;
@@ -433,11 +445,12 @@ function TarjetaTarea({
                   {ORDEN_PRIORIDAD.map((x) => <option key={x} value={x}>{PRIORIDAD[x].label}</option>)}
                 </Select>
                 <Input type="date" value={fechaLimite} onChange={(e) => setFechaLimite(e.target.value)} className="w-auto" />
+                <Input type="number" step="0.5" min="0" value={horas} onChange={(e) => setHoras(e.target.value)} placeholder="h estim." className="w-[90px] text-right tabular" />
                 <Button
                   size="sm"
                   disabled={busy}
                   onClick={async () => {
-                    await act({ titulo, descripcion, prioridad, fechaLimite });
+                    await act({ titulo, descripcion, prioridad, fechaLimite, horasEstimadas: horas ? Number(horas.replace(",", ".")) : null });
                     setEditando(false);
                   }}
                 >
@@ -468,6 +481,11 @@ function TarjetaTarea({
                 {t.fecha_limite && (
                   <span className={`inline-flex items-center gap-1 ${vencida ? "font-semibold text-error" : ""}`}>
                     <CalendarClock size={12} /> {fmtFecha(t.fecha_limite)}
+                  </span>
+                )}
+                {t.horas_estimadas != null && t.horas_estimadas > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-pill bg-sage-tint px-1.5 py-0.5 text-[10.5px] font-semibold text-sage">
+                    ~{num(Number(t.horas_estimadas), 1)} h
                   </span>
                 )}
                 {t.oportunidad && (
