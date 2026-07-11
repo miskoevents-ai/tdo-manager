@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { Donut, DONUT_COLORS } from "@/components/ui/Donut";
-import { marcarMovimientoPagado, cambiarEstadoMovimiento, marcarMovimientoLiquidado } from "@/app/actions";
+import { marcarMovimientoPagado, cambiarEstadoMovimiento, marcarMovimientoLiquidado, reembolsarMovimiento } from "@/app/actions";
 import { eur, fecha } from "@/lib/format";
 import {
   NATURALEZA_LABEL,
@@ -33,6 +33,7 @@ export function TesoreriaClient({
   oportunidades,
   proveedores = [],
   responsables = [],
+  planPorOportunidad = {},
   hoy = "",
 }: {
   movimientos: Tesoreria[];
@@ -40,6 +41,7 @@ export function TesoreriaClient({
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
   proveedores?: Pick<Proveedor, "id" | "nombre">[];
   responsables?: string[];
+  planPorOportunidad?: Record<string, { id: string; concepto: string; importe: number }[]>;
   hoy?: string;
 }) {
   const router = useRouter();
@@ -258,6 +260,7 @@ export function TesoreriaClient({
                     oportunidades={oportunidades}
                     proveedores={proveedores}
                     responsables={responsables}
+                    planPorOportunidad={planPorOportunidad}
                     movimiento={m}
                     categoriasExtra={categoriasUsadas}
                   />
@@ -494,8 +497,8 @@ export function TesoreriaClient({
                   </td>
                   <td className="border-t border-border px-[14px] py-3 text-right">
                     <span className="inline-flex items-center">
-                      <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
-                      <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} categoriasExtra={categoriasUsadas} />
+                      <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} planPorOportunidad={planPorOportunidad} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
+                      <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} planPorOportunidad={planPorOportunidad} movimiento={m} categoriasExtra={categoriasUsadas} />
                     </span>
                   </td>
                 </tr>
@@ -533,8 +536,8 @@ export function TesoreriaClient({
               <div className="mt-2 flex items-center justify-between">
                 <EstadoMovSelect mov={m} hoy={hoy} />
                 <span className="inline-flex items-center">
-                  <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
-                  <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} categoriasExtra={categoriasUsadas} />
+                  <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} planPorOportunidad={planPorOportunidad} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
+                  <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} planPorOportunidad={planPorOportunidad} movimiento={m} categoriasExtra={categoriasUsadas} />
                 </span>
               </div>
             </Card>
@@ -573,6 +576,15 @@ function PersonaDetalle({
       setBusy(null);
     }
   }
+  async function reembolsar(id: string, caja: "oficial" | "amigos") {
+    setBusy(id);
+    try {
+      await reembolsarMovimiento(id, caja);
+      onDone();
+    } finally {
+      setBusy(null);
+    }
+  }
 
   const fila = (m: Tesoreria, tipoLado: "reembolso" | "cobro") => (
     <div key={m.id} className="flex items-center justify-between gap-2 border-b border-[#f0eae1] py-2 text-[12.5px]">
@@ -589,9 +601,15 @@ function PersonaDetalle({
           <button onClick={() => saldar(m.id, false)} disabled={busy === m.id} className="rounded-sm bg-ok-tint px-2 py-1 text-[10.5px] font-semibold text-ok">
             {tipoLado === "reembolso" ? "reembolsado" : "entregado"} ✓
           </button>
+        ) : tipoLado === "reembolso" ? (
+          <span className="inline-flex items-center gap-1" title="Reembolsar desde…">
+            <span className="text-[10px] text-ink-muted">reembolsar:</span>
+            <button onClick={() => reembolsar(m.id, "oficial")} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-1.5 py-1 text-[11px] hover:bg-sage-tint" title="Desde la caja oficial">🏦</button>
+            <button onClick={() => reembolsar(m.id, "amigos")} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-1.5 py-1 text-[11px] hover:bg-clay-tint" title="Desde la caja de amigos">🤝</button>
+          </span>
         ) : (
           <button onClick={() => saldar(m.id, true)} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-2 py-1 text-[10.5px] font-semibold text-ink-secondary hover:bg-beige-warm">
-            {busy === m.id ? "…" : tipoLado === "reembolso" ? "Marcar reembolsado" : "Marcar entregado"}
+            {busy === m.id ? "…" : "Marcar entregado"}
           </button>
         )}
       </div>
