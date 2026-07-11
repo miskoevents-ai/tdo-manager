@@ -48,7 +48,15 @@ export default async function TesoreriaPage() {
           <Link href="/comisiones" className={linkCls}>
             <Percent size={14} /> Comisiones
           </Link>
-          <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={provs} responsables={responsables} />
+          <MovimientoDialog
+            clientes={clientes}
+            oportunidades={oportunidades}
+            proveedores={provs}
+            responsables={responsables}
+            categoriasExtra={Array.from(
+              new Set(movimientos.map((m) => m.categoria).filter((c): c is string => Boolean(c))),
+            )}
+          />
         </div>
       </div>
       <TesoreriaClient

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Input, Select, Textarea, Field } from "@/components/ui/input";
@@ -25,6 +25,8 @@ export function MovimientoDialog({
   responsables = [],
   movimiento,
   tipoInicial = "gasto",
+  duplicar = false,
+  categoriasExtra = [],
 }: {
   clientes: Cliente[];
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
@@ -32,12 +34,23 @@ export function MovimientoDialog({
   responsables?: string[];
   movimiento?: Tesoreria;
   tipoInicial?: "ingreso" | "gasto";
+  // Duplicar: abre el formulario precargado con los datos del movimiento
+  // pero crea uno NUEVO (para no teclear de cero los gastos repetidos).
+  duplicar?: boolean;
+  // Categorías ya usadas en tesorería: se suman a las habituales para que
+  // una categoría nueva aparezca en la lista a partir de entonces.
+  categoriasExtra?: string[];
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const editar = Boolean(movimiento);
+  const editar = Boolean(movimiento) && !duplicar;
+
+  const listaCategorias = React.useMemo(() => {
+    const set = new Set<string>([...CATEGORIAS_MOV, ...categoriasExtra.filter(Boolean)]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
+  }, [categoriasExtra]);
 
   const [tipo, setTipo] = React.useState<string>(movimiento?.tipo ?? tipoInicial);
   const [naturaleza, setNaturaleza] = React.useState<string>(
@@ -46,6 +59,23 @@ export function MovimientoDialog({
   const [computa, setComputa] = React.useState(
     movimiento?.computa_contabilidad ?? computaPorNaturaleza(naturaleza),
   );
+  // Caja: de qué contabilidad sale/entra el dinero. Amigos → naturaleza
+  // 'amigos' y no computa en la oficial; se ve en la vista Amigos.
+  const [caja, setCaja] = React.useState<"oficial" | "amigos">(
+    movimiento?.naturaleza === "amigos" ? "amigos" : "oficial",
+  );
+
+  function onCaja(v: "oficial" | "amigos") {
+    setCaja(v);
+    if (v === "amigos") {
+      setNaturaleza("amigos");
+      setComputa(false);
+    } else {
+      const nat = tipo === "ingreso" ? "ingreso_factura" : "gasto_fijo";
+      setNaturaleza(nat);
+      setComputa(computaPorNaturaleza(nat));
+    }
+  }
 
   // Pagado por: desplegable del equipo o escribir uno externo (sirve para
   // saber a quién reembolsar si alguien adelanta el dinero).
@@ -53,9 +83,9 @@ export function MovimientoDialog({
   const pagadoEnLista = responsables.includes(pagadoPor);
   const [pagadoExterno, setPagadoExterno] = React.useState(Boolean(pagadoPor) && !pagadoEnLista);
 
-  // Categoría: desplegable de las habituales o escribir una a mano.
+  // Categoría: desplegable de las habituales + las ya usadas, o una a mano.
   const [categoria, setCategoria] = React.useState(movimiento?.categoria ?? "");
-  const categoriaEnLista = (CATEGORIAS_MOV as readonly string[]).includes(categoria);
+  const categoriaEnLista = listaCategorias.includes(categoria);
   const [categoriaManual, setCategoriaManual] = React.useState(Boolean(categoria) && !categoriaEnLista);
 
   function onNaturaleza(v: string) {
@@ -81,7 +111,14 @@ export function MovimientoDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {editar ? (
+        {duplicar ? (
+          <button
+            title="Duplicar este movimiento (se abre precargado para editarlo)"
+            className="rounded-sm p-1.5 text-ink-muted hover:bg-beige-warm hover:text-clay"
+          >
+            <Copy size={15} />
+          </button>
+        ) : editar ? (
           <button className="rounded-sm p-1.5 text-ink-muted hover:bg-beige-warm hover:text-sage">
             <Pencil size={15} />
           </button>
@@ -91,9 +128,9 @@ export function MovimientoDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent title={editar ? "Editar movimiento" : "Nuevo movimiento"}>
+      <DialogContent title={duplicar ? "Duplicar movimiento" : editar ? "Editar movimiento" : "Nuevo movimiento"}>
         <form onSubmit={onSubmit} className="space-y-4">
-          {movimiento && <input type="hidden" name="id" value={movimiento.id} />}
+          {editar && movimiento && <input type="hidden" name="id" value={movimiento.id} />}
 
           {/* Tipo (da el signo) */}
           <div className="grid grid-cols-2 gap-2">
@@ -151,14 +188,55 @@ export function MovimientoDialog({
             </Field>
           </div>
 
+          {/* Caja: contabilidad oficial o circuito de amigos */}
+          <div>
+            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+              ¿De qué caja?
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onCaja("oficial")}
+                className={`rounded-md border-med px-4 py-2.5 text-center text-[12.5px] font-semibold ${
+                  caja === "oficial"
+                    ? "border-sage bg-sage-tint text-sage"
+                    : "border-border bg-white text-ink-muted"
+                }`}
+              >
+                🏦 Oficial
+              </button>
+              <button
+                type="button"
+                onClick={() => onCaja("amigos")}
+                className={`rounded-md border-med px-4 py-2.5 text-center text-[12.5px] font-semibold ${
+                  caja === "amigos"
+                    ? "border-clay bg-clay-tint text-clay"
+                    : "border-border bg-white text-ink-muted"
+                }`}
+              >
+                🤝 Amigos (sin factura)
+              </button>
+            </div>
+            {caja === "amigos" && (
+              <p className="mt-1.5 text-[11px] text-ink-muted">
+                Entra/sale de la contabilidad de <b>Amigos</b>: actualiza su saldo y sus
+                movimientos, y no computa en la oficial.
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Naturaleza">
-              <Select name="naturaleza" value={naturaleza} onChange={(e) => onNaturaleza(e.target.value)}>
-                {NATURALEZAS_MOV.map((n) => (
-                  <option key={n} value={n}>{NATURALEZA_LABEL[n]}</option>
-                ))}
-              </Select>
-            </Field>
+            {caja === "amigos" ? (
+              <input type="hidden" name="naturaleza" value="amigos" />
+            ) : (
+              <Field label="Naturaleza">
+                <Select name="naturaleza" value={naturaleza} onChange={(e) => onNaturaleza(e.target.value)}>
+                  {NATURALEZAS_MOV.filter((n) => n !== "amigos").map((n) => (
+                    <option key={n} value={n}>{NATURALEZA_LABEL[n]}</option>
+                  ))}
+                </Select>
+              </Field>
+            )}
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
@@ -188,7 +266,7 @@ export function MovimientoDialog({
               ) : (
                 <Select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
                   <option value="">— Sin categoría —</option>
-                  {CATEGORIAS_MOV.map((c) => (
+                  {listaCategorias.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </Select>

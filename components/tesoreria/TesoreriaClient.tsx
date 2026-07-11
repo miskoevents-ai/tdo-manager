@@ -46,6 +46,9 @@ export function TesoreriaClient({
   const [tipo, setTipo] = React.useState("");
   const [naturaleza, setNaturaleza] = React.useState("");
   const [estado, setEstado] = React.useState("");
+  // Caja: todo · oficial (todo menos amigos) · amigos. Filtra la lista y
+  // recalcula los saldos de arriba.
+  const [caja, setCaja] = React.useState<"" | "oficial" | "amigos">("");
   // Panel de deudas: marcar pagado en un clic y ver solo unas pocas por defecto.
   const [pagando, setPagando] = React.useState<string | null>(null);
   const [verTodasDeudas, setVerTodasDeudas] = React.useState(false);
@@ -66,7 +69,17 @@ export function TesoreriaClient({
     return Array.from(set).sort().reverse();
   }, [movimientos]);
 
+  // Categorías ya usadas: se pasan al diálogo para que las nuevas escritas a
+  // mano aparezcan en la lista a partir de entonces.
+  const categoriasUsadas = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const m of movimientos) if (m.categoria) set.add(m.categoria);
+    return Array.from(set);
+  }, [movimientos]);
+
   const visibles = movimientos.filter((m) => {
+    if (caja === "amigos" && m.naturaleza !== "amigos") return false;
+    if (caja === "oficial" && m.naturaleza === "amigos") return false;
     if (mes && m.fecha.slice(0, 7) !== mes) return false;
     if (tipo && m.tipo !== tipo) return false;
     if (naturaleza && m.naturaleza !== naturaleza) return false;
@@ -199,6 +212,7 @@ export function TesoreriaClient({
                     proveedores={proveedores}
                     responsables={responsables}
                     movimiento={m}
+                    categoriasExtra={categoriasUsadas}
                   />
                 </div>
               ))}
@@ -220,18 +234,54 @@ export function TesoreriaClient({
         </Card>
       )}
 
+      {/* Caja: los saldos y la lista se recalculan según la caja elegida */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            ["", "Todo"],
+            ["oficial", "🏦 Caja oficial"],
+            ["amigos", "🤝 Caja amigos"],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setCaja(k)}
+            className={`rounded-pill border-med px-[14px] py-[7px] text-[12px] transition-colors ${
+              caja === k
+                ? k === "amigos"
+                  ? "border-clay bg-clay text-cream"
+                  : "border-sage bg-sage text-cream"
+                : "border-border bg-white text-ink-secondary hover:border-sage-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        {caja === "amigos" && (
+          <span className="text-[11.5px] text-ink-muted">
+            Solo el dinero del circuito de amigos (sin factura, no computa en la oficial).
+          </span>
+        )}
+      </div>
+
       {/* Resumen del filtro */}
       <div className="grid grid-cols-3 gap-3">
         <Card className="p-4">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">Ingresos</div>
+          <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+            Ingresos{caja === "amigos" ? " (amigos)" : caja === "oficial" ? " (oficial)" : ""}
+          </div>
           <div className="mt-1 font-display text-[20px] tabular text-ok">{eur(ingresos)}</div>
         </Card>
         <Card className="p-4">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">Gastos</div>
+          <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+            Gastos{caja === "amigos" ? " (amigos)" : caja === "oficial" ? " (oficial)" : ""}
+          </div>
           <div className="mt-1 font-display text-[20px] tabular text-error">{eur(gastos)}</div>
         </Card>
         <Card className="p-4">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">Balance</div>
+          <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+            Balance{caja === "amigos" ? " (amigos)" : caja === "oficial" ? " (oficial)" : ""}
+          </div>
           <div className={`mt-1 font-display text-[20px] tabular ${ingresos - gastos >= 0 ? "text-sage" : "text-error"}`}>
             {eur(ingresos - gastos)}
           </div>
@@ -324,7 +374,10 @@ export function TesoreriaClient({
                     {m.tipo === "ingreso" ? "+" : "−"}{eur(Number(m.importe))}
                   </td>
                   <td className="border-t border-border px-[14px] py-3 text-right">
-                    <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} />
+                    <span className="inline-flex items-center">
+                      <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
+                      <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} categoriasExtra={categoriasUsadas} />
+                    </span>
                   </td>
                 </tr>
               );
@@ -361,7 +414,10 @@ export function TesoreriaClient({
               )}
               <div className="mt-2 flex items-center justify-between">
                 <Badge tone={em.tone}>{em.label}</Badge>
-                <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} />
+                <span className="inline-flex items-center">
+                  <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
+                  <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} categoriasExtra={categoriasUsadas} />
+                </span>
               </div>
             </Card>
           );
