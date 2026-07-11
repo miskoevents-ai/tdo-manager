@@ -669,6 +669,30 @@ export async function borrarTarea(id: string) {
   revalidatePath("/");
 }
 
+// Reordena (y, si hace falta, cambia de columna) una tarea del tablero: la
+// tarjeta 'id' pasa a 'estado' y toda la columna queda en el orden 'ids'.
+export async function ordenarTareas(estado: string, ids: string[], id: string) {
+  const sb = createAdminClient();
+  // La tarjeta arrastrada actualiza su estado (por si cambió de columna).
+  {
+    const upd: Record<string, unknown> = { estado };
+    upd.completada_en = estado === "hecha" ? new Date().toISOString() : null;
+    const { error } = await sb.from("tareas").update(upd).eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+  // Persistir el orden: orden = posición dentro de la columna.
+  for (let i = 0; i < ids.length; i++) {
+    const { error } = await sb.from("tareas").update({ orden: i }).eq("id", ids[i]);
+    // La columna orden es de la migración 031: si no está, se ignora el orden.
+    if (error) {
+      if (/orden/.test(error.message) && /column/i.test(error.message)) break;
+      throw new Error(error.message);
+    }
+  }
+  revalidatePath("/tareas");
+  revalidatePath("/");
+}
+
 // Desplazamiento: calcula gasolina y crea el gasto en Tesorería (gasto de evento).
 export async function crearDesplazamiento(input: {
   oportunidadId: string;

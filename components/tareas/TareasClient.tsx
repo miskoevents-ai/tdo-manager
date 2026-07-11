@@ -7,7 +7,7 @@ import { Plus, Trash2, Check, Pencil, MessageCircle, CalendarClock, Link2 } from
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
-import { crearTarea, actualizarTarea, borrarTarea } from "@/app/actions";
+import { crearTarea, actualizarTarea, borrarTarea, ordenarTareas } from "@/app/actions";
 import { fecha as fmtFecha, num } from "@/lib/format";
 import type { Tarea, TareaEstado, TareaPrioridad } from "@/lib/types";
 
@@ -70,9 +70,9 @@ export function TareasClient({
     setVista(v);
     localStorage.setItem("tdo_tareas_vista", v);
   }
-  // Mover una tarea a otra columna (cambia su estado) — arrastrar y soltar.
-  async function moverTarea(id: string, estado: TareaEstado) {
-    await actualizarTarea(id, { estado });
+  // Reordenar / mover una tarea en el tablero (arrastrar y soltar).
+  async function ordenar(estado: TareaEstado, ids: string[], id: string) {
+    await ordenarTareas(estado, ids, id);
     r();
   }
 
@@ -167,7 +167,7 @@ export function TareasClient({
       <NuevaTarea personas={personas} oportunidades={oportunidades} yo={yo} onDone={r} />
 
       {vista === "tablero" ? (
-        <Tablero tareas={visiblesPersona} hoy={hoy} personas={personas} onMover={moverTarea} onDone={r} />
+        <Tablero tareas={visiblesPersona} hoy={hoy} personas={personas} onOrdenar={ordenar} onDone={r} />
       ) : (
         <>
           {/* Abiertas */}
@@ -204,21 +204,40 @@ function Tablero({
   tareas,
   hoy,
   personas,
-  onMover,
+  onOrdenar,
   onDone,
 }: {
   tareas: Tarea[];
   hoy: string;
   personas: string[];
-  onMover: (id: string, estado: TareaEstado) => void;
+  onOrdenar: (estado: TareaEstado, ids: string[], id: string) => void;
   onDone: () => void;
 }) {
-  const [sobre, setSobre] = React.useState<TareaEstado | null>(null);
+  // Tarjeta que se arrastra y dónde se soltaría (columna + antes de qué id).
+  const [dragId, setDragId] = React.useState<string | null>(null);
+  const [over, setOver] = React.useState<{ estado: TareaEstado; antesDe: string | null } | null>(null);
 
+  // Orden dentro de la columna: primero el orden manual (arrastrado); si no lo
+  // hay, por prioridad y fecha.
   function orden(a: Tarea, b: Tarea) {
+    const oa = a.orden, ob = b.orden;
+    if (oa != null && ob != null && oa !== ob) return oa - ob;
+    if (oa != null && ob == null) return -1;
+    if (oa == null && ob != null) return 1;
     const p = ORDEN_PRIORIDAD.indexOf(a.prioridad) - ORDEN_PRIORIDAD.indexOf(b.prioridad);
     if (p !== 0) return p;
     return (a.fecha_limite ?? "9999") < (b.fecha_limite ?? "9999") ? -1 : 1;
+  }
+
+  function soltar(estado: TareaEstado, itemsCol: Tarea[], antesDe: string | null) {
+    setOver(null);
+    const id = dragId;
+    setDragId(null);
+    if (!id) return;
+    const ids = itemsCol.map((t) => t.id).filter((x) => x !== id);
+    const idx = antesDe ? ids.indexOf(antesDe) : -1;
+    ids.splice(idx < 0 ? ids.length : idx, 0, id);
+    onOrdenar(estado, ids, id);
   }
 
   return (
@@ -226,22 +245,20 @@ function Tablero({
       {COLUMNAS.map((col) => {
         const items = tareas.filter((t) => t.estado === col.estado).sort(orden);
         const horasCol = items.reduce((s, t) => s + Number(t.horas_estimadas ?? 0), 0);
+        const activa = over?.estado === col.estado;
         return (
           <div
             key={col.estado}
             onDragOver={(e) => {
               e.preventDefault();
-              setSobre(col.estado);
+              if (over?.estado !== col.estado || over?.antesDe !== null) setOver({ estado: col.estado, antesDe: null });
             }}
-            onDragLeave={() => setSobre((s) => (s === col.estado ? null : s))}
             onDrop={(e) => {
               e.preventDefault();
-              const id = e.dataTransfer.getData("text/plain");
-              setSobre(null);
-              if (id) onMover(id, col.estado);
+              soltar(col.estado, items, null);
             }}
             className={`rounded-lg border-hair p-2 transition-colors ${
-              sobre === col.estado ? "border-sage bg-sage-tint/40" : "border-border bg-beige-light/50"
+              activa ? "border-sage bg-sage-tint/40" : "border-border bg-beige-light/50"
             }`}
           >
             <div className="mb-2 flex items-center gap-2 px-1 pt-1">
@@ -258,19 +275,34 @@ function Tablero({
                 {items.length}
               </span>
             </div>
-            <div className="space-y-2">
+            <div className="min-h-[40px] space-y-2">
               {items.map((t) => (
                 <div
                   key={t.id}
                   draggable
-                  onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
-                  className="cursor-grab active:cursor-grabbing"
+                  onDragStart={() => setDragId(t.id)}
+                  onDragEnd={() => { setDragId(null); setOver(null); }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (t.id !== dragId && (over?.antesDe !== t.id || over?.estado !== col.estado)) {
+                      setOver({ estado: col.estado, antesDe: t.id });
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    soltar(col.estado, items, t.id);
+                  }}
+                  className={`cursor-grab rounded-md active:cursor-grabbing ${
+                    dragId === t.id ? "opacity-40" : ""
+                  } ${activa && over?.antesDe === t.id ? "border-t-2 border-sage pt-1" : ""}`}
                 >
                   <TarjetaTarea t={t} hoy={hoy} personas={personas} onDone={onDone} compacta />
                 </div>
               ))}
               {items.length === 0 && (
-                <p className="px-1 py-3 text-center text-[11px] text-ink-muted">— vacío —</p>
+                <p className="px-1 py-3 text-center text-[11px] text-ink-muted">— suéltala aquí —</p>
               )}
             </div>
           </div>
