@@ -26,6 +26,14 @@ const ESTADO: Record<TareaEstado, string> = {
   no_puedo: "No puedo 🙋",
 };
 
+// Columnas del tablero (estilo Trello), en orden de flujo.
+const COLUMNAS: { estado: TareaEstado; titulo: string; barra: string }[] = [
+  { estado: "pendiente", titulo: "Pendiente", barra: "bg-ink-muted" },
+  { estado: "en_curso", titulo: "En curso", barra: "bg-clay" },
+  { estado: "no_puedo", titulo: "No puedo 🙋", barra: "bg-warn" },
+  { estado: "hecha", titulo: "Hecha ✓", barra: "bg-ok" },
+];
+
 type OpLite = { id: string; titulo: string };
 
 export function TareasClient({
@@ -46,14 +54,27 @@ export function TareasClient({
   const [yo, setYo] = React.useState<string>("");
   const [filtroPersona, setFiltroPersona] = React.useState<string>("");
   const [filtroEstado, setFiltroEstado] = React.useState<"abiertas" | "hechas" | "todas">("abiertas");
+  const [vista, setVista] = React.useState<"lista" | "tablero">("tablero");
   const [cargado, setCargado] = React.useState(false);
 
   React.useEffect(() => {
     const guardado = localStorage.getItem("tdo_quien_soy") ?? "";
     setYo(guardado);
     setFiltroPersona(guardado);
+    const v = localStorage.getItem("tdo_tareas_vista");
+    if (v === "lista" || v === "tablero") setVista(v);
     setCargado(true);
   }, []);
+
+  function cambiaVista(v: "lista" | "tablero") {
+    setVista(v);
+    localStorage.setItem("tdo_tareas_vista", v);
+  }
+  // Mover una tarea a otra columna (cambia su estado) — arrastrar y soltar.
+  async function moverTarea(id: string, estado: TareaEstado) {
+    await actualizarTarea(id, { estado });
+    r();
+  }
 
   function cambiaYo(v: string) {
     setYo(v);
@@ -61,8 +82,8 @@ export function TareasClient({
     setFiltroPersona(v);
   }
 
-  const visibles = tareas.filter((t) => {
-    if (filtroPersona && t.asignada_a !== filtroPersona) return false;
+  const visiblesPersona = tareas.filter((t) => !filtroPersona || t.asignada_a === filtroPersona);
+  const visibles = visiblesPersona.filter((t) => {
     if (filtroEstado === "abiertas" && t.estado === "hecha") return false;
     if (filtroEstado === "hechas" && t.estado !== "hecha") return false;
     return true;
@@ -102,13 +123,31 @@ export function TareasClient({
               ))}
             </Select>
           </Field>
-          <div className="flex gap-2 pb-0.5">
-            {([["abiertas", "Abiertas"], ["hechas", "Hechas"], ["todas", "Todas"]] as const).map(([k, l]) => (
+          {vista === "lista" && (
+            <div className="flex gap-2 pb-0.5">
+              {([["abiertas", "Abiertas"], ["hechas", "Hechas"], ["todas", "Todas"]] as const).map(([k, l]) => (
+                <button
+                  key={k}
+                  onClick={() => setFiltroEstado(k)}
+                  className={`rounded-pill border-med px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                    filtroEstado === k
+                      ? "border-sage bg-sage text-cream"
+                      : "border-border bg-white text-ink-secondary hover:border-sage-300"
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Vista: lista o tablero (Trello) */}
+          <div className="ml-auto flex gap-2 pb-0.5">
+            {([["tablero", "Tablero"], ["lista", "Lista"]] as const).map(([k, l]) => (
               <button
                 key={k}
-                onClick={() => setFiltroEstado(k)}
+                onClick={() => cambiaVista(k)}
                 className={`rounded-pill border-med px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                  filtroEstado === k
+                  vista === k
                     ? "border-sage bg-sage text-cream"
                     : "border-border bg-white text-ink-secondary hover:border-sage-300"
                 }`}
@@ -127,29 +166,110 @@ export function TareasClient({
 
       <NuevaTarea personas={personas} oportunidades={oportunidades} yo={yo} onDone={r} />
 
-      {/* Abiertas */}
-      {abiertas.length === 0 && filtroEstado !== "hechas" && (
-        <p className="py-2 text-small text-ink-muted">
-          {filtroPersona ? `${filtroPersona} no tiene tareas abiertas. 🎉` : "No hay tareas abiertas. 🎉"}
-        </p>
-      )}
-      <div className="space-y-2.5">
-        {abiertas.map((t) => (
-          <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} onDone={r} />
-        ))}
-      </div>
+      {vista === "tablero" ? (
+        <Tablero tareas={visiblesPersona} hoy={hoy} personas={personas} onMover={moverTarea} onDone={r} />
+      ) : (
+        <>
+          {/* Abiertas */}
+          {abiertas.length === 0 && filtroEstado !== "hechas" && (
+            <p className="py-2 text-small text-ink-muted">
+              {filtroPersona ? `${filtroPersona} no tiene tareas abiertas. 🎉` : "No hay tareas abiertas. 🎉"}
+            </p>
+          )}
+          <div className="space-y-2.5">
+            {abiertas.map((t) => (
+              <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} onDone={r} />
+            ))}
+          </div>
 
-      {/* Hechas */}
-      {filtroEstado !== "abiertas" && hechas.length > 0 && (
-        <div className="space-y-2.5">
-          <p className="pt-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
-            Hechas recientemente
-          </p>
-          {hechas.map((t) => (
-            <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} onDone={r} />
-          ))}
-        </div>
+          {/* Hechas */}
+          {filtroEstado !== "abiertas" && hechas.length > 0 && (
+            <div className="space-y-2.5">
+              <p className="pt-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+                Hechas recientemente
+              </p>
+              {hechas.map((t) => (
+                <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} onDone={r} />
+              ))}
+            </div>
+          )}
+        </>
       )}
+    </div>
+  );
+}
+
+// ---------- Tablero (Trello): columnas por estado, arrastrar y soltar ----------
+function Tablero({
+  tareas,
+  hoy,
+  personas,
+  onMover,
+  onDone,
+}: {
+  tareas: Tarea[];
+  hoy: string;
+  personas: string[];
+  onMover: (id: string, estado: TareaEstado) => void;
+  onDone: () => void;
+}) {
+  const [sobre, setSobre] = React.useState<TareaEstado | null>(null);
+
+  function orden(a: Tarea, b: Tarea) {
+    const p = ORDEN_PRIORIDAD.indexOf(a.prioridad) - ORDEN_PRIORIDAD.indexOf(b.prioridad);
+    if (p !== 0) return p;
+    return (a.fecha_limite ?? "9999") < (b.fecha_limite ?? "9999") ? -1 : 1;
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {COLUMNAS.map((col) => {
+        const items = tareas.filter((t) => t.estado === col.estado).sort(orden);
+        return (
+          <div
+            key={col.estado}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setSobre(col.estado);
+            }}
+            onDragLeave={() => setSobre((s) => (s === col.estado ? null : s))}
+            onDrop={(e) => {
+              e.preventDefault();
+              const id = e.dataTransfer.getData("text/plain");
+              setSobre(null);
+              if (id) onMover(id, col.estado);
+            }}
+            className={`rounded-lg border-hair p-2 transition-colors ${
+              sobre === col.estado ? "border-sage bg-sage-tint/40" : "border-border bg-beige-light/50"
+            }`}
+          >
+            <div className="mb-2 flex items-center gap-2 px-1 pt-1">
+              <span className={`h-2.5 w-2.5 rounded-full ${col.barra}`} />
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-secondary">
+                {col.titulo}
+              </span>
+              <span className="ml-auto rounded-pill bg-white px-2 py-0.5 text-[11px] tabular text-ink-muted">
+                {items.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {items.map((t) => (
+                <div
+                  key={t.id}
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
+                  className="cursor-grab active:cursor-grabbing"
+                >
+                  <TarjetaTarea t={t} hoy={hoy} personas={personas} onDone={onDone} compacta />
+                </div>
+              ))}
+              {items.length === 0 && (
+                <p className="px-1 py-3 text-center text-[11px] text-ink-muted">— vacío —</p>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -265,11 +385,13 @@ function TarjetaTarea({
   hoy,
   personas,
   onDone,
+  compacta = false,
 }: {
   t: Tarea;
   hoy: string;
   personas: string[];
   onDone: () => void;
+  compacta?: boolean;
 }) {
   const [busy, setBusy] = React.useState(false);
   const [editando, setEditando] = React.useState(false);
@@ -359,18 +481,20 @@ function TarjetaTarea({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <select
-            value={t.estado}
-            disabled={busy}
-            onChange={(e) => act({ estado: e.target.value })}
-            className={`rounded-sm border-hair border-border px-2 py-1.5 text-[12px] font-medium ${
-              hecha ? "bg-ok-tint text-ok" : t.estado === "no_puedo" ? "bg-warn-tint text-warn" : "bg-beige-light"
-            }`}
-          >
-            {(Object.keys(ESTADO) as TareaEstado[]).map((e) => (
-              <option key={e} value={e}>{ESTADO[e]}</option>
-            ))}
-          </select>
+          {!compacta && (
+            <select
+              value={t.estado}
+              disabled={busy}
+              onChange={(e) => act({ estado: e.target.value })}
+              className={`rounded-sm border-hair border-border px-2 py-1.5 text-[12px] font-medium ${
+                hecha ? "bg-ok-tint text-ok" : t.estado === "no_puedo" ? "bg-warn-tint text-warn" : "bg-beige-light"
+              }`}
+            >
+              {(Object.keys(ESTADO) as TareaEstado[]).map((e) => (
+                <option key={e} value={e}>{ESTADO[e]}</option>
+              ))}
+            </select>
+          )}
           {!hecha && (
             <button
               title="Marcar como hecha"
