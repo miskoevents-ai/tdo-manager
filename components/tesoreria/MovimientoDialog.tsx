@@ -14,7 +14,6 @@ import {
   ESTADOS_MOV,
   ESTADO_MOV_META,
   CATEGORIAS_MOV,
-  computaPorNaturaleza,
 } from "@/lib/estados";
 import type { Cliente, Oportunidad, Tesoreria, Proveedor } from "@/lib/types";
 
@@ -56,8 +55,10 @@ export function MovimientoDialog({
   const [naturaleza, setNaturaleza] = React.useState<string>(
     movimiento?.naturaleza ?? (tipoInicial === "ingreso" ? "ingreso_factura" : "gasto_fijo"),
   );
+  // Por defecto siempre marcado (computa en la contabilidad); el usuario puede
+  // desmarcarlo, y la caja Amigos lo pone en false automáticamente.
   const [computa, setComputa] = React.useState(
-    movimiento?.computa_contabilidad ?? computaPorNaturaleza(naturaleza),
+    movimiento?.computa_contabilidad ?? true,
   );
   // Caja: de qué contabilidad sale/entra el dinero. Amigos → naturaleza
   // 'amigos' y no computa en la oficial; se ve en la vista Amigos.
@@ -73,7 +74,7 @@ export function MovimientoDialog({
     } else {
       const nat = tipo === "ingreso" ? "ingreso_factura" : "gasto_fijo";
       setNaturaleza(nat);
-      setComputa(computaPorNaturaleza(nat));
+      setComputa(true);
     }
   }
 
@@ -90,7 +91,8 @@ export function MovimientoDialog({
 
   function onNaturaleza(v: string) {
     setNaturaleza(v);
-    setComputa(computaPorNaturaleza(v)); // se ajusta solo; el usuario puede cambiarlo
+    // Marcado por defecto salvo naturaleza 'amigos' (que nunca computa).
+    setComputa(v !== "amigos");
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
