@@ -6,6 +6,7 @@ import { Check, Undo2 } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { pagarComision, desmarcarComision } from "@/app/actions";
+import { PersonaCajaModal } from "@/components/ui/PersonaCajaModal";
 import { eur, num } from "@/lib/format";
 import { TIPO_EVENTO_LABEL } from "@/lib/estados";
 import type { Devengo } from "@/lib/comisiones";
@@ -13,6 +14,8 @@ import type { Devengo } from "@/lib/comisiones";
 export function ComisionesClient({ devengos }: { devengos: Devengo[] }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
+  // Devengo pendiente de confirmar la caja de la que sale el pago.
+  const [pagando, setPagando] = React.useState<Devengo | null>(null);
 
   // Resumen por persona
   const personas = new Map<string, { persona: string; devengado: number; pagado: number }>();
@@ -24,7 +27,7 @@ export function ComisionesClient({ devengos }: { devengos: Devengo[] }) {
   }
   const resumen = Array.from(personas.values());
 
-  async function pagar(d: Devengo) {
+  async function pagar(d: Devengo, caja: "oficial" | "amigos") {
     setBusy(d.key);
     try {
       await pagarComision({
@@ -35,10 +38,12 @@ export function ComisionesClient({ devengos }: { devengos: Devengo[] }) {
         base: d.base,
         porcentaje: d.porcentaje,
         importe: d.importe,
+        caja,
       });
       router.refresh();
     } finally {
       setBusy(null);
+      setPagando(null);
     }
   }
 
@@ -58,7 +63,7 @@ export function ComisionesClient({ devengos }: { devengos: Devengo[] }) {
       <Card className="max-w-container-narrow">
         <p className="text-small text-ink-secondary">
           Todavía no hay comisiones devengadas. Define arriba una <b>regla de %</b> (persona · tipo
-          de evento · %) y aparecerán aquí las comisiones de las oportunidades confirmadas.
+          de evento · %) y aparecerán aquí las comisiones cuando las oportunidades estén cobradas.
         </p>
       </Card>
     );
@@ -127,7 +132,7 @@ export function ComisionesClient({ devengos }: { devengos: Devengo[] }) {
                     </button>
                   ) : (
                     <button
-                      onClick={() => pagar(d)}
+                      onClick={() => setPagando(d)}
                       disabled={busy === d.key}
                       className="inline-flex items-center gap-1 rounded-sm border-med border-ok bg-ok px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-cream hover:opacity-90"
                     >
@@ -140,10 +145,24 @@ export function ComisionesClient({ devengos }: { devengos: Devengo[] }) {
           </tbody>
         </table>
         <p className="mt-3 text-[10.5px] text-ink-muted">
-          Al pagar se crea el gasto en Tesorería (naturaleza «comisión»), que <b>no computa</b> en
-          la contabilidad mensual (§5.4).
+          Al pagar eliges la caja (🏦 oficial / 🤝 amigos) y se crea el gasto en Tesorería, que{" "}
+          <b>no computa</b> en la contabilidad mensual (§5.4).
         </p>
       </Card>
+
+      {pagando && (
+        <PersonaCajaModal
+          titulo={`Pagar comisión a ${pagando.persona}`}
+          descripcion={`${pagando.evento} · ${eur(pagando.importe)}`}
+          responsables={[]}
+          askPersona={false}
+          askCaja
+          busy={busy === pagando.key}
+          confirmLabel="Pagar"
+          onConfirm={({ caja }) => pagar(pagando, caja)}
+          onClose={() => setPagando(null)}
+        />
+      )}
     </div>
   );
 }

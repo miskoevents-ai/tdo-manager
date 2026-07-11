@@ -7,6 +7,7 @@ import { Check, Undo2, FileDown, Ban } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { marcarFacturaCobrada, anularFactura } from "@/app/actions";
+import { PersonaCajaModal } from "@/components/ui/PersonaCajaModal";
 import { eur, fecha } from "@/lib/format";
 import { FACTURA_META } from "@/lib/estados";
 import type { Factura, FacturaEstado } from "@/lib/types";
@@ -19,7 +20,7 @@ const FILTROS: { key: "todas" | FacturaEstado; label: string }[] = [
   { key: "anulada", label: "Anuladas" },
 ];
 
-export function FacturasList({ facturas }: { facturas: Factura[] }) {
+export function FacturasList({ facturas, responsables = [] }: { facturas: Factura[]; responsables?: string[] }) {
   const router = useRouter();
   const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
   const vencidaSinCobrar = (f: Factura) =>
@@ -48,13 +49,22 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
     .filter((f) => f.estado === "emitida" || f.estado === "vencida")
     .reduce((s, f) => s + Number(f.total), 0);
 
-  async function toggle(f: Factura) {
+  // Al marcar cobrada se pregunta quién recibió el dinero (equipo o caja).
+  const [cobrando, setCobrando] = React.useState<Factura | null>(null);
+
+  async function toggle(f: Factura, cobradoPor?: string | null) {
+    const cobrar = f.estado !== "cobrada";
+    if (cobrar && cobradoPor === undefined && responsables.length > 0) {
+      setCobrando(f);
+      return;
+    }
     setBusy(f.id);
     try {
-      await marcarFacturaCobrada(f.id, f.estado !== "cobrada");
+      await marcarFacturaCobrada(f.id, cobrar, cobradoPor ?? null);
       router.refresh();
     } finally {
       setBusy(null);
+      setCobrando(null);
     }
   }
 
@@ -328,6 +338,18 @@ export function FacturasList({ facturas }: { facturas: Factura[] }) {
           );
         })}
       </div>
+
+      {cobrando && (
+        <PersonaCajaModal
+          titulo={`Cobrar factura ${cobrando.numero}`}
+          descripcion={`${cobrando.cliente?.nombre ?? ""} · ${eur(Number(cobrando.total))}`}
+          responsables={responsables}
+          busy={busy === cobrando.id}
+          confirmLabel="Marcar cobrada"
+          onConfirm={({ persona }) => toggle(cobrando, persona)}
+          onClose={() => setCobrando(null)}
+        />
+      )}
     </div>
   );
 }

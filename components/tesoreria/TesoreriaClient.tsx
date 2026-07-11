@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { Donut, DONUT_COLORS } from "@/components/ui/Donut";
 import { marcarMovimientoPagado, cambiarEstadoMovimiento, marcarMovimientoLiquidado, reembolsarMovimiento } from "@/app/actions";
+import { PersonaCajaModal } from "@/components/ui/PersonaCajaModal";
 import { eur, fecha } from "@/lib/format";
 import {
   NATURALEZA_LABEL,
@@ -491,7 +492,7 @@ export function TesoreriaClient({
                       <span className="text-ink-muted">{m.cliente?.nombre ?? "—"}</span>
                     )}
                   </td>
-                  <td className="border-t border-border px-[14px] py-3"><EstadoMovSelect mov={m} hoy={hoy} /></td>
+                  <td className="border-t border-border px-[14px] py-3"><EstadoMovSelect mov={m} hoy={hoy} responsables={responsables} /></td>
                   <td className={`border-t border-border px-[14px] py-3 text-right text-[13px] tabular font-semibold ${m.tipo === "ingreso" ? "text-ok" : "text-error"}`}>
                     {m.tipo === "ingreso" ? "+" : "−"}{eur(Number(m.importe))}
                   </td>
@@ -534,7 +535,7 @@ export function TesoreriaClient({
                 </Link>
               )}
               <div className="mt-2 flex items-center justify-between">
-                <EstadoMovSelect mov={m} hoy={hoy} />
+                <EstadoMovSelect mov={m} hoy={hoy} responsables={responsables} />
                 <span className="inline-flex items-center">
                   <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} planPorOportunidad={planPorOportunidad} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
                   <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} planPorOportunidad={planPorOportunidad} movimiento={m} categoriasExtra={categoriasUsadas} />
@@ -661,10 +662,12 @@ function CajaDetalle({ oficial, amigos }: { oficial: number; amigos: number }) {
 
 // Desplegable de estado del movimiento: cambia entre Previsto y Cobrado
 // (ingresos) o Pagado (gastos). Si la fecha ya venció y sigue previsto, se
-// muestra en rojo como "Vencido" automáticamente.
-function EstadoMovSelect({ mov, hoy }: { mov: Tesoreria; hoy: string }) {
+// muestra en rojo como "Vencido" automáticamente. Al dar por COBRADO un
+// ingreso pregunta quién recibió el dinero (equipo o directo a la caja).
+function EstadoMovSelect({ mov, hoy, responsables = [] }: { mov: Tesoreria; hoy: string; responsables?: string[] }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
+  const [preguntando, setPreguntando] = React.useState(false);
   const realizado = mov.tipo === "ingreso" ? "cobrado" : "pagado";
   const realizadoLabel = mov.tipo === "ingreso" ? "Cobrado" : "Pagado";
   const vencida = mov.estado === "previsto" && Boolean(mov.fecha) && Boolean(hoy) && (mov.fecha as string) < hoy;
@@ -678,26 +681,47 @@ function EstadoMovSelect({ mov, hoy }: { mov: Tesoreria; hoy: string }) {
     neutral: "border-border bg-white text-ink-secondary",
   };
 
-  async function set(v: string) {
+  async function set(v: string, cobradoPor?: string | null) {
     setBusy(true);
     try {
-      await cambiarEstadoMovimiento(mov.id, v);
+      await cambiarEstadoMovimiento(mov.id, v, cobradoPor);
       router.refresh();
     } finally {
       setBusy(false);
+      setPreguntando(false);
     }
   }
 
   return (
-    <select
-      value={valor}
-      disabled={busy}
-      onChange={(e) => set(e.target.value)}
-      title={vencida ? "Vencido: la fecha ya pasó y sigue sin cobrarse/pagarse" : "Cambiar estado"}
-      className={`cursor-pointer rounded-pill border-med px-2.5 py-1 text-[11.5px] font-semibold focus:outline-none disabled:opacity-60 ${cls[tono]}`}
-    >
-      <option value="previsto">{vencida ? "Vencido" : "Previsto"}</option>
-      <option value={realizado}>{realizadoLabel}</option>
-    </select>
+    <>
+      <select
+        value={valor}
+        disabled={busy}
+        onChange={(e) => {
+          // Cobrar un ingreso: primero se pregunta quién lo recibió.
+          if (e.target.value === "cobrado" && mov.tipo === "ingreso" && responsables.length > 0) {
+            setPreguntando(true);
+          } else {
+            set(e.target.value);
+          }
+        }}
+        title={vencida ? "Vencido: la fecha ya pasó y sigue sin cobrarse/pagarse" : "Cambiar estado"}
+        className={`cursor-pointer rounded-pill border-med px-2.5 py-1 text-[11.5px] font-semibold focus:outline-none disabled:opacity-60 ${cls[tono]}`}
+      >
+        <option value="previsto">{vencida ? "Vencido" : "Previsto"}</option>
+        <option value={realizado}>{realizadoLabel}</option>
+      </select>
+      {preguntando && (
+        <PersonaCajaModal
+          titulo="Dar por cobrado"
+          descripcion={`${mov.concepto} · ${eur(Number(mov.importe))}`}
+          responsables={responsables}
+          busy={busy}
+          confirmLabel="Cobrado"
+          onConfirm={({ persona }) => set("cobrado", persona)}
+          onClose={() => setPreguntando(false)}
+        />
+      )}
+    </>
   );
 }

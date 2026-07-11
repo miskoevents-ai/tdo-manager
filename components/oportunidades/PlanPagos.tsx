@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
-import { crearCobroPrevisto, borrarMovimiento } from "@/app/actions";
+import { crearCobroPrevisto, borrarMovimiento, cambiarEstadoMovimiento } from "@/app/actions";
+import { PersonaCajaModal } from "@/components/ui/PersonaCajaModal";
+import { eur } from "@/lib/format";
 
 // Plan de pagos: añade cobros previstos con fecha e importe, eligiendo la vía
 // (con factura → contabilidad oficial · efectivo → vista amigos, sin IVA).
@@ -74,6 +76,59 @@ export function PlanPagos({ oportunidadId }: { oportunidadId: string }) {
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cerrar</Button>
       </div>
     </div>
+  );
+}
+
+// Check para dar por cobrado un previsto desde la ficha, preguntando quién
+// recibió el dinero (desplegable del equipo; vacío = directo a la caja).
+export function MarcarCobradoBtn({
+  id,
+  concepto,
+  importe,
+  responsables = [],
+}: {
+  id: string;
+  concepto: string;
+  importe: number;
+  responsables?: string[];
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = React.useState(false);
+  const [preguntando, setPreguntando] = React.useState(false);
+
+  async function cobrar(cobradoPor: string | null) {
+    setBusy(true);
+    try {
+      await cambiarEstadoMovimiento(id, "cobrado", cobradoPor);
+      router.refresh();
+    } finally {
+      setBusy(false);
+      setPreguntando(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        title="Marcar como cobrado"
+        disabled={busy}
+        onClick={() => (responsables.length > 0 ? setPreguntando(true) : cobrar(null))}
+        className="rounded-sm p-1 text-ink-muted hover:bg-ok-tint hover:text-ok"
+      >
+        <Check size={13} />
+      </button>
+      {preguntando && (
+        <PersonaCajaModal
+          titulo="Dar por cobrado"
+          descripcion={`${concepto} · ${eur(importe)}`}
+          responsables={responsables}
+          busy={busy}
+          confirmLabel="Cobrado"
+          onConfirm={({ persona }) => cobrar(persona)}
+          onClose={() => setPreguntando(false)}
+        />
+      )}
+    </>
   );
 }
 

@@ -100,11 +100,16 @@ export function MovimientoDialog({
     }
   }
 
-  // Pagado por: desplegable del equipo o escribir uno externo (sirve para
-  // saber a quién reembolsar si alguien adelanta el dinero).
+  // Pagado/cobrado por: SIEMPRE desplegable del equipo (sin texto libre, para
+  // no crear duplicados tipo "Jero" vs "Jero (Jerónimo Alonso Marcos)"). Si el
+  // movimiento trae un nombre antiguo que no está en la lista, se ofrece como
+  // opción para no perderlo al editar.
   const [pagadoPor, setPagadoPor] = React.useState(movimiento?.quien_lo_paga ?? movimiento?.cobrado_por ?? "");
-  const pagadoEnLista = responsables.includes(pagadoPor);
-  const [pagadoExterno, setPagadoExterno] = React.useState(Boolean(pagadoPor) && !pagadoEnLista);
+  const opcionesPersona = React.useMemo(() => {
+    const set = new Set(responsables);
+    if (pagadoPor) set.add(pagadoPor);
+    return Array.from(set);
+  }, [responsables, pagadoPor]);
 
   // Categoría: desplegable de las habituales + las ya usadas, o una a mano.
   const [categoria, setCategoria] = React.useState(movimiento?.categoria ?? "");
@@ -405,39 +410,17 @@ export function MovimientoDialog({
               </Field>
             )}
             <div>
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-                  {tipo === "ingreso" ? "Cobrado por (equipo)" : "Pagado por"}
+                  {tipo === "ingreso" ? "Cobrado por (equipo)" : "Pagado por (equipo)"}
                 </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPagadoExterno((v) => {
-                      setPagadoPor("");
-                      return !v;
-                    })
-                  }
-                  className="text-[11px] font-semibold text-clay hover:text-clay-600"
-                >
-                  {pagadoExterno ? "Elegir del equipo" : "+ Externo"}
-                </button>
               </div>
-              {pagadoExterno ? (
-                <Input
-                  autoFocus
-                  value={pagadoPor}
-                  onChange={(e) => setPagadoPor(e.target.value)}
-                  placeholder="Nombre de quien lo pagó"
-                  autoComplete="off"
-                />
-              ) : (
-                <Select value={pagadoPor} onChange={(e) => setPagadoPor(e.target.value)}>
-                  <option value="">{tipo === "ingreso" ? "— TDO (a la caja) —" : "— Sin especificar —"}</option>
-                  {responsables.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </Select>
-              )}
+              <Select value={pagadoPor} onChange={(e) => setPagadoPor(e.target.value)}>
+                <option value="">{tipo === "ingreso" ? "— TDO (a la caja) —" : "— TDO (la caja) —"}</option>
+                {opcionesPersona.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </Select>
               {tipo === "ingreso" ? (
                 <>
                   <input type="hidden" name="cobrado_por" value={pagadoPor} />

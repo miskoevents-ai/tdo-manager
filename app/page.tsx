@@ -8,7 +8,7 @@ import { AvisosPanel } from "@/components/home/AvisosPanel";
 import { EstaSemana } from "@/components/home/EstaSemana";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getReservas, getTesoreria, getReuniones, getTareas } from "@/lib/data";
+import { getOportunidades, getReservas, getTesoreria, getReuniones, getTareas, getEquipo } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { calcularAvisos } from "@/lib/avisos";
 import { construirEventos } from "@/lib/calendario";
@@ -63,18 +63,20 @@ export default async function Home() {
     timeZone: "Europe/Madrid",
   }).format(new Date());
 
-  let ops, reservas, tesoreria, reuniones, tareas;
+  let ops, reservas, tesoreria, reuniones, tareas, equipo;
   try {
-    [ops, reservas, tesoreria, reuniones, tareas] = await Promise.all([
+    [ops, reservas, tesoreria, reuniones, tareas, equipo] = await Promise.all([
       getOportunidades(),
       getReservas(),
       getTesoreria(),
       getReuniones(),
       getTareas(),
+      getEquipo(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
+  const responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
 
   const contratadas = ops.filter((o) =>
     ["confirmada", "realizada", "facturada"].includes(o.estado),
@@ -118,7 +120,7 @@ export default async function Home() {
         2026 (regla §5.4).
       </div>
 
-      <AvisosPanel avisos={avisos} />
+      <AvisosPanel avisos={avisos} responsables={responsables} />
 
       <EstaSemana eventos={eventosCal} hoy={HOY_ISO} />
 
@@ -173,6 +175,7 @@ export default async function Home() {
               cliente={o.cliente?.nombre ?? null}
               fechaEvento={o.fecha_evento}
               pendiente={pendiente}
+              responsables={responsables}
             />
           ))}
         </Card>

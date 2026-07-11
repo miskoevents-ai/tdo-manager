@@ -44,11 +44,13 @@ export function NuevaFacturaForm({
   presupuestos,
   numeroSugerido,
   hoy,
+  responsables = [],
 }: {
   clientes: ClienteLite[];
   presupuestos: PresupuestoOrigen[];
   numeroSugerido: string;
   hoy: string;
+  responsables?: string[];
 }) {
   const router = useRouter();
   const [origenId, setOrigenId] = React.useState("");
@@ -71,6 +73,9 @@ export function NuevaFacturaForm({
   const [lineas, setLineas] = React.useState<Linea[]>([{ ...LINEA_VACIA }]);
   const [cobradaFactura, setCobradaFactura] = React.useState(false);
   const [cobradoEfectivo, setCobradoEfectivo] = React.useState(false);
+  // Quién recibió cada cobro (equipo; vacío = directo a la caja de TDO).
+  const [cobradoPorFactura, setCobradoPorFactura] = React.useState("");
+  const [cobradoPorEfectivo, setCobradoPorEfectivo] = React.useState("");
   const [notas, setNotas] = React.useState("");
   // Datos fiscales completados a mano para un cliente existente sin NIF.
   const [fiscal, setFiscal] = React.useState({ nif: "", direccion: "", localidad: "" });
@@ -117,6 +122,8 @@ export function NuevaFacturaForm({
         lineas,
         cobradaFactura,
         cobradoEfectivo,
+        cobradoPorFactura: cobradaFactura ? cobradoPorFactura || null : null,
+        cobradoPorEfectivo: cobradoEfectivo ? cobradoPorEfectivo || null : null,
         notas: notas || null,
       });
       if (res.error || !res.id) {
@@ -447,6 +454,18 @@ export function NuevaFacturaForm({
             />
             La factura ya está cobrada (si no, queda como cobro previsto en el vencimiento)
           </label>
+          {cobradaFactura && responsables.length > 0 && (
+            <div className="ml-6 max-w-[340px]">
+              <Field label="Cobrada por (equipo)">
+                <Select value={cobradoPorFactura} onChange={(e) => setCobradoPorFactura(e.target.value)}>
+                  <option value="">🏦 TDO (directo a la caja)</option>
+                  {responsables.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          )}
           {t.efectivo > 0 && (
             <label className="flex items-center gap-2">
               <input
@@ -457,6 +476,18 @@ export function NuevaFacturaForm({
               />
               El efectivo ya está cobrado (si no, queda como cobro previsto de amigos)
             </label>
+          )}
+          {t.efectivo > 0 && cobradoEfectivo && responsables.length > 0 && (
+            <div className="ml-6 max-w-[340px]">
+              <Field label="Efectivo cobrado por (equipo)">
+                <Select value={cobradoPorEfectivo} onChange={(e) => setCobradoPorEfectivo(e.target.value)}>
+                  <option value="">🏦 TDO (directo a la caja)</option>
+                  {responsables.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
           )}
         </div>
         <div className="mt-4">
