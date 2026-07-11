@@ -46,8 +46,9 @@ export default async function ComisionesPage() {
           <ComisionConfigDialog equipo={equipoLite} />
         </div>
         <p className="mb-3 mt-1 text-[11.5px] text-ink-muted">
-          Define el % por persona y tipo de evento (o «Todos»). Se devenga sobre la base imponible
-          de las oportunidades confirmadas.
+          Define el % por persona y tipo de evento (o «Todos»). Se devenga sobre la base imponible y
+          aparece a pagar <b>cuando la oportunidad ya está cobrada</b>. Cuenta como coste del evento
+          (afecta al margen).
         </p>
         {config.length === 0 ? (
           <p className="text-small text-ink-muted">Sin reglas todavía. Crea la primera con «Nueva regla de %».</p>
