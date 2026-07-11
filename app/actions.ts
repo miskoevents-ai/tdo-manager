@@ -463,9 +463,12 @@ export async function crearParteHoras(input: {
   // (pagadoPor), queda como reembolso pendiente en las deudas.
   personaExterna?: string | null;
   pagadoPor?: string | null;
+  // Caja de la que sale el efectivo del externo: oficial o amigos.
+  caja?: string | null;
 }) {
   const sb = createAdminClient();
   const externo = input.personaExterna?.trim() || null;
+  const esAmigos = input.caja === "amigos";
   const fila: Record<string, unknown> = {
     oportunidad_id: input.oportunidadId,
     equipo_id: externo ? null : input.equipoId,
@@ -499,7 +502,7 @@ export async function crearParteHoras(input: {
         .insert({
           concepto: `Ayuda externa: ${externo}${input.tarea ? ` · ${input.tarea}` : ""}`,
           tipo: "gasto",
-          naturaleza: "gasto_de_evento",
+          naturaleza: esAmigos ? "amigos" : "gasto_de_evento",
           categoria: "Personal externo",
           importe,
           fecha: input.fecha || new Date().toISOString().slice(0, 10),
@@ -652,6 +655,7 @@ export async function crearDesplazamiento(input: {
   parking: number;
   fecha: string | null;
   quienLoPaga?: string | null;
+  caja?: string | null;
 }) {
   const sb = createAdminClient();
   const kmPrecio = await getKmPrecio();
@@ -670,7 +674,7 @@ export async function crearDesplazamiento(input: {
     .insert({
       concepto: `Desplazamiento${input.trayecto ? ` · ${input.trayecto}` : ""}`,
       tipo: "gasto",
-      naturaleza: "gasto_de_evento",
+      naturaleza: input.caja === "amigos" ? "amigos" : "gasto_de_evento",
       categoria: "Desplazamiento",
       importe: total,
       fecha: input.fecha || new Date().toISOString().slice(0, 10),
@@ -715,6 +719,7 @@ export async function crearCompra(input: {
   proveedorNuevo?: string | null;
   quienLoPaga?: string | null;
   fecha: string | null;
+  caja?: string | null;
 }) {
   const sb = createAdminClient();
 
@@ -748,7 +753,7 @@ export async function crearCompra(input: {
     .insert({
       concepto: input.concepto,
       tipo: "gasto",
-      naturaleza: "gasto_de_evento",
+      naturaleza: input.caja === "amigos" ? "amigos" : "gasto_de_evento",
       categoria: "Material",
       importe: Math.abs(input.importe),
       fecha: input.fecha || new Date().toISOString().slice(0, 10),
@@ -1139,6 +1144,7 @@ export async function crearCosteEstimado(input: {
   equipoId?: string | null; // persona prevista (horas)
   personaExterna?: string | null; // ayudante externo previsto
   pagador?: string | null; // quién pagará (reembolso al cuadrar)
+  caja?: string | null; // caja de la que saldrá (oficial / amigos)
   importe?: number; // si no se pasa, cantidad × precio unitario
 }) {
   const sb = createAdminClient();
@@ -1146,7 +1152,7 @@ export async function crearCosteEstimado(input: {
   const precio = Number(input.precioUnitario ?? 0);
   const importe = input.importe ?? cantidad * precio;
   if (!input.concepto.trim() || !(importe > 0)) throw new Error("Falta concepto o importe.");
-  const { error } = await sb.from("costes_estimados").insert({
+  const fila: Record<string, unknown> = {
     oportunidad_id: input.oportunidadId,
     concepto: input.concepto.trim(),
     cantidad,
@@ -1155,8 +1161,15 @@ export async function crearCosteEstimado(input: {
     equipo_id: input.equipoId || null,
     persona_externa: input.personaExterna?.trim() || null,
     pagador: input.pagador?.trim() || null,
+    caja: input.caja === "amigos" ? "amigos" : null,
     importe,
-  });
+  };
+  let { error } = await sb.from("costes_estimados").insert(fila);
+  // La columna caja es de la migración 028: si no está, se guarda sin ella.
+  if (error && /caja/.test(error.message) && /column/i.test(error.message)) {
+    const { caja: _c, ...sinCaja } = fila;
+    ({ error } = await sb.from("costes_estimados").insert(sinCaja));
+  }
   if (error) {
     if (error.code === "42P01" || /does not exist/i.test(error.message)) {
       throw new Error("Falta ejecutar la migración 020 (costes estimados) en Supabase.");
@@ -1204,6 +1217,7 @@ export async function cuadrarEstimado(input: {
 
   // La persona y el pagador previstos en el plan se trasladan al coste real.
   const cat = (e.categoria as string | null) ?? "material";
+  const caja = (e.caja as string | null) ?? null;
   if (cat === "personal") {
     const horas = Number(e.cantidad ?? 1) || 1;
     await crearParteHoras({
@@ -1215,6 +1229,7 @@ export async function cuadrarEstimado(input: {
       fecha: null,
       personaExterna: (e.persona_externa as string | null) ?? null,
       pagadoPor: (e.pagador as string | null) ?? null,
+      caja,
     });
   } else if (cat === "desplazamiento") {
     await crearDesplazamiento({
@@ -1227,6 +1242,7 @@ export async function cuadrarEstimado(input: {
       parking: 0,
       fecha: null,
       quienLoPaga: (e.pagador as string | null) ?? null,
+      caja,
     });
   } else {
     await crearCompra({
@@ -1236,6 +1252,7 @@ export async function cuadrarEstimado(input: {
       fecha: null,
       proveedorId: null,
       quienLoPaga: (e.pagador as string | null) ?? null,
+      caja,
     });
   }
 

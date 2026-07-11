@@ -84,8 +84,13 @@ export default async function Page({
   // desplazamiento ni del pago a un ayudante externo (esos viven en su sección)
   const desplTesoIds = new Set(desplazamientos.map((d) => d.tesoreria_id).filter(Boolean));
   for (const p of partes) if (p.tesoreria_id) desplTesoIds.add(p.tesoreria_id);
+  // Incluye también los gastos del evento que se pagaron por la caja de amigos
+  // (naturaleza 'amigos'): siguen siendo coste del evento, aunque no computen
+  // en la contabilidad oficial.
   const compras = cobros.filter(
-    (m) => m.naturaleza === "gasto_de_evento" && !desplTesoIds.has(m.id),
+    (m) =>
+      (m.naturaleza === "gasto_de_evento" || (m.naturaleza === "amigos" && m.tipo === "gasto")) &&
+      !desplTesoIds.has(m.id),
   );
   const equipoLite = equipo.map((e) => ({ id: e.id, nombre: e.nombre, precio_hora: e.precio_hora }));
   const provLite = proveedores.map((p) => ({ id: p.id, nombre: p.nombre }));
