@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SetupNotice } from "@/components/SetupNotice";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
-import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn } from "@/components/oportunidades/FichaAcciones";
+import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn, ValidarOportunidadBtn } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { PlanPagos, BorrarPrevistoBtn } from "@/components/oportunidades/PlanPagos";
 import { VersionesPresupuesto } from "@/components/oportunidades/VersionesPresupuesto";
@@ -162,8 +162,12 @@ export default async function Page({
             clienteNombre={op.cliente?.nombre ?? null}
             total={eur(t.total)}
           />
+          {["confirmada", "realizada"].includes(op.estado) && !op.cerrada && (
+            <ValidarOportunidadBtn oportunidadId={op.id} yaFacturada={Boolean(factura)} />
+          )}
           {["confirmada", "realizada"].includes(op.estado) &&
-            op.tipo_operacion === "normal" && <EmitirFacturaBtn oportunidadId={op.id} />}
+            op.tipo_operacion === "normal" &&
+            !factura && <EmitirFacturaBtn oportunidadId={op.id} />}
           {factura && (
             <Link
               href={`/facturas/${factura.id}`}

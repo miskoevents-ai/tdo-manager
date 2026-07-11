@@ -1779,6 +1779,68 @@ export async function emitirFactura(oportunidadId: string) {
   revalidatePath("/contabilidad");
   revalidatePath(`/oportunidades/${op.id}`);
   revalidatePath("/oportunidades");
+  return facturaId;
+}
+
+// Valida una oportunidad: la da por cerrada y, si es normal, genera su factura
+// (si no la tenía ya). Un solo clic para pasar de "realizada" a facturada +
+// costes congelados.
+export async function validarOportunidad(
+  oportunidadId: string,
+): Promise<{ facturaId: string | null; aviso: string | null }> {
+  const sb = createAdminClient();
+  const { data: op, error } = await sb
+    .from("oportunidades")
+    .select("id, tipo_operacion, estado")
+    .eq("id", oportunidadId)
+    .single();
+  if (error) throw new Error(error.message);
+
+  let facturaId: string | null = null;
+  let aviso: string | null = null;
+
+  if (op.tipo_operacion === "normal") {
+    // ¿Ya tiene factura? Entonces no se duplica.
+    const { data: existente } = await sb
+      .from("facturas")
+      .select("id")
+      .eq("oportunidad_id", oportunidadId)
+      .limit(1)
+      .maybeSingle();
+    if (existente) {
+      facturaId = existente.id as string;
+    } else {
+      try {
+        facturaId = await emitirFactura(oportunidadId);
+      } catch (e) {
+        // Si todo va en efectivo no hay factura que emitir: se cierra igual.
+        if (/facturables|todo va por efectivo/i.test((e as Error).message)) {
+          aviso = "No se generó factura (todo el trato va en efectivo). La oportunidad queda cerrada.";
+        } else {
+          throw e;
+        }
+      }
+    }
+  }
+
+  // Marcar cerrada (costes congelados). Si es amigos o no se facturó, al menos
+  // deja el estado como facturada/realizada cerrada.
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const patch: Record<string, unknown> = { cerrada: true, cerrada_fecha: hoy };
+  if (op.tipo_operacion !== "normal") patch.estado = "facturada";
+  let { error: updErr } = await sb.from("oportunidades").update(patch).eq("id", oportunidadId);
+  // La columna cerrada es de la migración 020: si no está, cerramos sin ella.
+  if (updErr && /cerrada/.test(updErr.message) && /column/i.test(updErr.message)) {
+    const patch2 = op.tipo_operacion !== "normal" ? { estado: "facturada" } : {};
+    ({ error: updErr } = await sb.from("oportunidades").update(patch2).eq("id", oportunidadId));
+  }
+  if (updErr) throw new Error(updErr.message);
+
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/oportunidades");
+  revalidatePath("/facturas");
+  revalidatePath("/");
+  return { facturaId, aviso };
 }
 
 export async function marcarFacturaCobrada(id: string, cobrada: boolean) {
