@@ -31,11 +31,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const suyas = ops
     .filter((o) => o.cliente_id === id)
     .map((o) => {
-      const total = calcularTotales(
-        (o.presupuesto_lineas ?? []).map((l) => ({ cantidad: l.cantidad, precio_unitario: l.precio_unitario })),
-        o.iva_pct,
-        o.retencion_pct,
-      ).total;
+      const total = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).total;
       return { o, total, pendiente: Math.max(0, total - (o.cobrado ?? 0)) };
     })
     .sort((a, b) => (b.o.fecha_evento ?? "").localeCompare(a.o.fecha_evento ?? ""));

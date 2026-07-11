@@ -226,7 +226,14 @@ export async function toggleFianzaDevuelta(id: string, devuelta: boolean) {
   revalidatePath("/");
 }
 
-type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null };
+type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null; descuento_pct?: number | null };
+
+// % de descuento saneado: número entre 0 y 100, o null si no hay.
+function dtoPct(v: unknown): number | null {
+  const n = Number(v);
+  if (!isFinite(n) || n <= 0) return null;
+  return Math.min(100, Math.round(n * 100) / 100);
+}
 
 // Reemplaza todas las líneas de la oportunidad (borrar + insertar) y guarda IVA/retención.
 export async function guardarLineas(
@@ -234,6 +241,7 @@ export async function guardarLineas(
   lineas: LineaInput[],
   ivaPct?: number,
   retPct?: number,
+  descuentoPct?: number | null,
 ) {
   const sb = createAdminClient();
 
@@ -244,6 +252,18 @@ export async function guardarLineas(
     if (typeof retPct === "number") patch.retencion_pct = Math.round(retPct);
     const { error } = await sb.from("oportunidades").update(patch).eq("id", oportunidadId);
     if (error) throw new Error(error.message);
+  }
+
+  // Descuento global (columna de la migración 027): mejor por separado para
+  // que un esquema sin migrar no bloquee el guardado del resto.
+  if (descuentoPct !== undefined) {
+    const { error } = await sb
+      .from("oportunidades")
+      .update({ descuento_pct: dtoPct(descuentoPct) })
+      .eq("id", oportunidadId);
+    if (error && dtoPct(descuentoPct) != null) {
+      throw new Error("Falta ejecutar la migración 027 (descuentos) en Supabase.");
+    }
   }
 
   const { error: delErr } = await sb
@@ -264,8 +284,17 @@ export async function guardarLineas(
       bloque: l.bloque?.trim() || null,
       via: l.via === "efectivo" ? "efectivo" : "factura",
       foto: l.foto?.trim() || null,
+      descuento_pct: dtoPct(l.descuento_pct),
     }));
-    const { error } = await sb.from("presupuesto_lineas").insert(rows);
+    let { error } = await sb.from("presupuesto_lineas").insert(rows);
+    if (error && /descuento/.test(error.message) && /column/i.test(error.message)) {
+      if (rows.some((r) => r.descuento_pct != null)) {
+        throw new Error("Falta ejecutar la migración 027 (descuentos) en Supabase.");
+      }
+      ({ error } = await sb
+        .from("presupuesto_lineas")
+        .insert(rows.map(({ descuento_pct: _d, ...r }) => r)));
+    }
     if (error) {
       if (/foto/.test(error.message) && /column/i.test(error.message)) {
         throw new Error("Falta ejecutar la migración 022 (foto por línea) en Supabase.");
@@ -1331,7 +1360,7 @@ export async function guardarVersionPresupuesto(oportunidadId: string, notas: st
   const sb = createAdminClient();
   const { data: op, error } = await sb
     .from("oportunidades")
-    .select("id, iva_pct, retencion_pct, presupuesto_lineas(*)")
+    .select("*, presupuesto_lineas(*)")
     .eq("id", oportunidadId)
     .single();
   if (error) throw new Error(error.message);
@@ -1346,10 +1375,11 @@ export async function guardarVersionPresupuesto(oportunidadId: string, notas: st
       bloque: l.bloque ?? null,
       via: l.via === "efectivo" ? "efectivo" : "factura",
       foto: l.foto ?? null,
+      descuento_pct: dtoPct(l.descuento_pct),
     }));
   if (!lineas.length) throw new Error("El presupuesto no tiene líneas que guardar.");
 
-  const t = calcularTotales(lineas, op.iva_pct, op.retencion_pct);
+  const t = calcularTotales(lineas, op.iva_pct, op.retencion_pct, op.descuento_pct ?? 0);
   const { data: vers } = await sb
     .from("presupuesto_versiones")
     .select("version")
@@ -1359,15 +1389,21 @@ export async function guardarVersionPresupuesto(oportunidadId: string, notas: st
     .maybeSingle();
   const version = (vers?.version ?? 0) + 1;
 
-  const { error: insErr } = await sb.from("presupuesto_versiones").insert({
+  const versionRow = {
     oportunidad_id: oportunidadId,
     version,
     notas: notas?.trim() || null,
     iva_pct: op.iva_pct,
     retencion_pct: op.retencion_pct,
+    descuento_pct: dtoPct(op.descuento_pct),
     lineas,
     total: t.total,
-  });
+  };
+  let { error: insErr } = await sb.from("presupuesto_versiones").insert(versionRow);
+  if (insErr && /descuento/.test(insErr.message) && /column/i.test(insErr.message)) {
+    const { descuento_pct: _d, ...sinDto } = versionRow;
+    ({ error: insErr } = await sb.from("presupuesto_versiones").insert(sinDto));
+  }
   if (insErr) {
     if (insErr.code === "42P01" || /does not exist/i.test(insErr.message)) {
       throw new Error("Falta ejecutar la migración 019 (tabla presupuesto_versiones) en Supabase.");
@@ -1402,25 +1438,36 @@ export async function restaurarVersionPresupuesto(versionId: string) {
     bloque?: string | null;
     via?: string | null;
     foto?: string | null;
+    descuento_pct?: number | null;
   }[];
   if (lineas.length) {
-    const { error: insErr } = await sb.from("presupuesto_lineas").insert(
-      lineas.map((l, i) => ({
-        oportunidad_id: v.oportunidad_id,
-        concepto: l.concepto,
-        cantidad: l.cantidad,
-        precio_unitario: l.precio_unitario,
-        bloque: l.bloque ?? null,
-        via: l.via === "efectivo" ? "efectivo" : "factura",
-        foto: l.foto ?? null,
-        orden: i,
-      })),
-    );
+    const rows = lineas.map((l, i) => ({
+      oportunidad_id: v.oportunidad_id,
+      concepto: l.concepto,
+      cantidad: l.cantidad,
+      precio_unitario: l.precio_unitario,
+      bloque: l.bloque ?? null,
+      via: l.via === "efectivo" ? "efectivo" : "factura",
+      foto: l.foto ?? null,
+      descuento_pct: dtoPct(l.descuento_pct),
+      orden: i,
+    }));
+    let { error: insErr } = await sb.from("presupuesto_lineas").insert(rows);
+    if (insErr && /descuento/.test(insErr.message) && /column/i.test(insErr.message)) {
+      ({ error: insErr } = await sb
+        .from("presupuesto_lineas")
+        .insert(rows.map(({ descuento_pct: _d, ...r }) => r)));
+    }
     if (insErr) throw new Error(insErr.message);
   }
   await sb
     .from("oportunidades")
     .update({ iva_pct: v.iva_pct, retencion_pct: v.retencion_pct })
+    .eq("id", v.oportunidad_id);
+  // El descuento global de la versión también vuelve (si la columna existe).
+  await sb
+    .from("oportunidades")
+    .update({ descuento_pct: dtoPct(v.descuento_pct) })
     .eq("id", v.oportunidad_id);
   revalidatePath(`/oportunidades/${v.oportunidad_id}`);
 }
@@ -1454,9 +1501,11 @@ export async function emitirFactura(oportunidadId: string) {
       cantidad: l.cantidad,
       precio_unitario: l.precio_unitario,
       via: l.via ?? "factura",
+      descuento_pct: l.descuento_pct,
     })),
     op.iva_pct,
     op.retencion_pct,
+    op.descuento_pct ?? 0,
   );
 
   // Vencimiento según las condiciones de pago del cliente (pago a X días).
@@ -1495,26 +1544,33 @@ export async function emitirFactura(oportunidadId: string) {
       precio_unitario: Number(l.precio_unitario),
       bloque: l.bloque ?? null,
       via: l.via === "efectivo" ? "efectivo" : "factura",
+      descuento_pct: dtoPct(l.descuento_pct),
     }));
 
-  const { data: facNueva, error: insErr } = await sb
+  const facturaRow = {
+    numero: numeroFactura,
+    oportunidad_id: op.id,
+    cliente_id: op.cliente_id,
+    base_imponible: t.baseFactura,
+    iva: t.iva,
+    retencion: t.retencion,
+    total: t.totalFactura,
+    estado: "emitida",
+    fecha_vencimiento: fechaVencimiento,
+    lineas: lineasSnap,
+    descuento_pct: dtoPct(op.descuento_pct),
+  };
+  let { data: facNueva, error: insErr } = await sb
     .from("facturas")
-    .insert({
-      numero: numeroFactura,
-      oportunidad_id: op.id,
-      cliente_id: op.cliente_id,
-      base_imponible: t.baseFactura,
-      iva: t.iva,
-      retencion: t.retencion,
-      total: t.totalFactura,
-      estado: "emitida",
-      fecha_vencimiento: fechaVencimiento,
-      lineas: lineasSnap,
-    })
+    .insert(facturaRow)
     .select("id")
     .single();
+  if (insErr && /descuento/.test(insErr.message) && /column/i.test(insErr.message)) {
+    const { descuento_pct: _d, ...sinDto } = facturaRow;
+    ({ data: facNueva, error: insErr } = await sb.from("facturas").insert(sinDto).select("id").single());
+  }
   if (insErr) throw new Error(insErr.message);
-  const facturaId = facNueva.id as string;
+  const facturaId = facNueva!.id as string;
 
   // Círculo completo: la factura deja su cobro previsto en tesorería con
   // fecha del vencimiento (sale en Tesorería, Calendario y ficha → Cobros).
@@ -1639,7 +1695,8 @@ export async function crearFactura(input: {
   fechaVencimiento: string | null;
   ivaPct: number;
   retPct: number;
-  lineas: { concepto: string; cantidad: number; precio_unitario: number; via?: string | null }[];
+  lineas: { concepto: string; cantidad: number; precio_unitario: number; via?: string | null; descuento_pct?: number | null }[];
+  descuentoPct?: number | null;
   cobradaFactura: boolean;
   cobradoEfectivo: boolean;
   notas: string | null;
@@ -1654,11 +1711,12 @@ export async function crearFactura(input: {
       precio_unitario: Number(l.precio_unitario),
       bloque: null as string | null,
       via: l.via === "efectivo" ? "efectivo" : "factura",
+      descuento_pct: dtoPct(l.descuento_pct),
     }))
     .filter((l) => l.concepto && l.cantidad > 0);
   if (!lineas.length) throw new Error("Añade al menos una línea.");
 
-  const t = calcularTotales(lineas, input.ivaPct, input.retPct);
+  const t = calcularTotales(lineas, input.ivaPct, input.retPct, input.descuentoPct ?? 0);
   if (t.baseFactura <= 0) {
     throw new Error(
       "Una factura necesita al menos una línea con vía factura. Si todo va en efectivo, apúntalo en Tesorería (naturaleza amigos) o en el plan de pagos de la oportunidad.",
@@ -1719,26 +1777,28 @@ export async function crearFactura(input: {
     numero = `${yy}${String(maxFac + 1).padStart(3, "0")}`;
   }
 
-  const { data: fac, error: insErr } = await sb
-    .from("facturas")
-    .insert({
-      numero,
-      cliente_id: clienteId,
-      oportunidad_id: input.oportunidadId || null,
-      fecha_emision: input.fechaEmision,
-      fecha_vencimiento: input.fechaVencimiento || null,
-      base_imponible: t.baseFactura,
-      iva: t.iva,
-      retencion: t.retencion,
-      total: t.totalFactura,
-      estado: input.cobradaFactura ? "cobrada" : "emitida",
-      notas: input.notas?.trim() || null,
-      lineas,
-    })
-    .select("id")
-    .single();
+  const facturaRow = {
+    numero,
+    cliente_id: clienteId,
+    oportunidad_id: input.oportunidadId || null,
+    fecha_emision: input.fechaEmision,
+    fecha_vencimiento: input.fechaVencimiento || null,
+    base_imponible: t.baseFactura,
+    iva: t.iva,
+    retencion: t.retencion,
+    total: t.totalFactura,
+    estado: input.cobradaFactura ? "cobrada" : "emitida",
+    notas: input.notas?.trim() || null,
+    lineas,
+    descuento_pct: dtoPct(input.descuentoPct),
+  };
+  let { data: fac, error: insErr } = await sb.from("facturas").insert(facturaRow).select("id").single();
+  if (insErr && /descuento/.test(insErr.message) && /column/i.test(insErr.message)) {
+    const { descuento_pct: _d, ...sinDto } = facturaRow;
+    ({ data: fac, error: insErr } = await sb.from("facturas").insert(sinDto).select("id").single());
+  }
   if (insErr) throw new Error(insErr.message);
-  const facturaId = fac.id as string;
+  const facturaId = fac!.id as string;
 
   // Movimiento de la parte facturada (contabilidad oficial).
   const fechaCobroFactura = input.cobradaFactura
@@ -1880,9 +1940,11 @@ export async function marcarCobradoOportunidad(oportunidadId: string) {
       cantidad: l.cantidad,
       precio_unitario: l.precio_unitario,
       via: l.via ?? "factura",
+      descuento_pct: l.descuento_pct,
     })),
     op.iva_pct,
     op.retencion_pct,
+    op.descuento_pct ?? 0,
   );
 
   // Primero se dan por cobrados los ingresos previstos ya enlazados (p. ej.

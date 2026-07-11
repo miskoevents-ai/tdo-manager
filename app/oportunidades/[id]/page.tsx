@@ -102,15 +102,7 @@ export default async function Page({
   const salidaDef = op.fecha_montaje ?? op.fecha_evento ?? "";
   const devolucionDef = op.fecha_recogida ?? op.fecha_evento ?? "";
 
-  const t = calcularTotales(
-    (op.presupuesto_lineas ?? []).map((l) => ({
-      cantidad: l.cantidad,
-      precio_unitario: l.precio_unitario,
-      via: l.via ?? "factura",
-    })),
-    op.iva_pct,
-    op.retencion_pct,
-  );
+  const t = calcularTotales(op.presupuesto_lineas ?? [], op.iva_pct, op.retencion_pct, op.descuento_pct ?? 0);
   const cobrado = op.cobrado ?? 0;
   const pendiente = Math.max(0, t.total - cobrado);
   const esEmpresa = op.cliente?.tipo === "empresa";
@@ -261,6 +253,7 @@ export default async function Page({
               lineasIniciales={op.presupuesto_lineas ?? []}
               ivaPct={op.iva_pct}
               retPct={op.retencion_pct}
+              descuentoPct={op.descuento_pct ?? 0}
               esEmpresa={esEmpresa}
               catalogo={inventario.map((i) => ({
                 id: i.id,

@@ -39,12 +39,10 @@ export function computeDevengos(
   for (const o of oportunidades) {
     if (!ESTADOS_DEVENGAN.includes(o.estado)) continue;
     const base = calcularTotales(
-      (o.presupuesto_lineas ?? []).map((l) => ({
-        cantidad: l.cantidad,
-        precio_unitario: l.precio_unitario,
-      })),
+      o.presupuesto_lineas ?? [],
       o.iva_pct,
       o.retencion_pct,
+      o.descuento_pct ?? 0,
     ).base;
     if (base <= 0) continue;
 

@@ -13,15 +13,7 @@ export type Aviso = {
 };
 
 function totalOp(o: Oportunidad): number {
-  return calcularTotales(
-    (o.presupuesto_lineas ?? []).map((l) => ({
-      cantidad: l.cantidad,
-      precio_unitario: l.precio_unitario,
-      via: l.via ?? "factura",
-    })),
-    o.iva_pct,
-    o.retencion_pct,
-  ).total;
+  return calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).total;
 }
 
 // Días entre dos fechas ISO (b - a), redondeado hacia abajo.

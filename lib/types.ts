@@ -87,6 +87,7 @@ export type Oportunidad = {
   fianza_devuelta: boolean;
   fecha_devolucion_fianza: string | null;
   pago_a_dias?: number; // 0 = al momento; 30 = el cliente paga a 30 días
+  descuento_pct?: number | null; // % de descuento global del presupuesto (0–100)
   contingencia_pct?: number | null; // % de colchón sobre los costes estimados
   margen_objetivo_pct?: number | null; // % de margen mínimo para cuadrar el precio
   cerrada?: boolean; // evento cerrado: costes validados y congelados
@@ -117,6 +118,7 @@ export type PresupuestoLinea = {
   bloque?: string | null; // agrupación opcional ("Decoración", "Alquiler de material"…)
   via?: "factura" | "efectivo" | null; // con IVA (oficial) o sin IVA (amigos)
   foto?: string | null; // foto de la línea: URL o archivo del bucket (galería / IA)
+  descuento_pct?: number | null; // % de descuento de la línea (0–100)
 };
 
 // Coste estimado antes del presupuesto (escandallo previsto): sirve para
@@ -146,6 +148,7 @@ export type PresupuestoVersion = {
   notas: string | null;
   iva_pct: number;
   retencion_pct: number;
+  descuento_pct?: number | null; // % de descuento global congelado con la versión
   lineas: FacturaLinea[];
   total: number;
   created_at: string;
@@ -164,6 +167,7 @@ export type FacturaLinea = {
   bloque?: string | null;
   via?: "factura" | "efectivo" | null;
   foto?: string | null; // en versiones de presupuesto; las facturas la ignoran
+  descuento_pct?: number | null; // % de descuento de la línea (0–100)
 };
 
 export type Factura = {
@@ -179,6 +183,7 @@ export type Factura = {
   total: number;
   estado: FacturaEstado;
   notas: string | null;
+  descuento_pct?: number | null; // % de descuento global aplicado al emitirla
   lineas?: FacturaLinea[] | null;
   cliente?: Cliente | null;
   oportunidad?: {

@@ -15,11 +15,7 @@ export type TipoDigest = "semanal" | "mensual";
 type Item = { titulo: string; detalle: string };
 
 function totalOp(o: Oportunidad): number {
-  return calcularTotales(
-    (o.presupuesto_lineas ?? []).map((l) => ({ cantidad: l.cantidad, precio_unitario: l.precio_unitario })),
-    o.iva_pct,
-    o.retencion_pct,
-  ).total;
+  return calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).total;
 }
 
 // Construye el informe para los socios.

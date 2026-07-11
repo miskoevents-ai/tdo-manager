@@ -35,8 +35,9 @@ export default async function NuevaFacturaPage() {
           cantidad: Number(l.cantidad),
           precio_unitario: Number(l.precio_unitario),
           via: l.via === "efectivo" ? "efectivo" : "factura",
+          descuento_pct: l.descuento_pct ?? null,
         }));
-      const t = calcularTotales(lineas, o.iva_pct, o.retencion_pct);
+      const t = calcularTotales(lineas, o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0);
       return {
         oportunidadId: o.id,
         numero: o.numero,
@@ -45,6 +46,7 @@ export default async function NuevaFacturaPage() {
         clienteNombre: o.cliente?.nombre ?? null,
         ivaPct: o.iva_pct,
         retPct: o.retencion_pct,
+        descuentoPct: o.descuento_pct ?? null,
         total: t.total,
         lineas,
       };
