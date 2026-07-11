@@ -69,6 +69,14 @@ export function TesoreriaClient({
     return Array.from(set).sort().reverse();
   }, [movimientos]);
 
+  // Categorías ya usadas: se pasan al diálogo para que las nuevas escritas a
+  // mano aparezcan en la lista a partir de entonces.
+  const categoriasUsadas = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const m of movimientos) if (m.categoria) set.add(m.categoria);
+    return Array.from(set);
+  }, [movimientos]);
+
   const visibles = movimientos.filter((m) => {
     if (caja === "amigos" && m.naturaleza !== "amigos") return false;
     if (caja === "oficial" && m.naturaleza === "amigos") return false;
@@ -204,6 +212,7 @@ export function TesoreriaClient({
                     proveedores={proveedores}
                     responsables={responsables}
                     movimiento={m}
+                    categoriasExtra={categoriasUsadas}
                   />
                 </div>
               ))}
@@ -365,7 +374,10 @@ export function TesoreriaClient({
                     {m.tipo === "ingreso" ? "+" : "−"}{eur(Number(m.importe))}
                   </td>
                   <td className="border-t border-border px-[14px] py-3 text-right">
-                    <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} />
+                    <span className="inline-flex items-center">
+                      <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
+                      <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} categoriasExtra={categoriasUsadas} />
+                    </span>
                   </td>
                 </tr>
               );
@@ -402,7 +414,10 @@ export function TesoreriaClient({
               )}
               <div className="mt-2 flex items-center justify-between">
                 <Badge tone={em.tone}>{em.label}</Badge>
-                <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} />
+                <span className="inline-flex items-center">
+                  <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
+                  <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} movimiento={m} categoriasExtra={categoriasUsadas} />
+                </span>
               </div>
             </Card>
           );

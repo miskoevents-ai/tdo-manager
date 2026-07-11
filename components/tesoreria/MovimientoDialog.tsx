@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Input, Select, Textarea, Field } from "@/components/ui/input";
@@ -25,6 +25,8 @@ export function MovimientoDialog({
   responsables = [],
   movimiento,
   tipoInicial = "gasto",
+  duplicar = false,
+  categoriasExtra = [],
 }: {
   clientes: Cliente[];
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
@@ -32,12 +34,23 @@ export function MovimientoDialog({
   responsables?: string[];
   movimiento?: Tesoreria;
   tipoInicial?: "ingreso" | "gasto";
+  // Duplicar: abre el formulario precargado con los datos del movimiento
+  // pero crea uno NUEVO (para no teclear de cero los gastos repetidos).
+  duplicar?: boolean;
+  // Categorías ya usadas en tesorería: se suman a las habituales para que
+  // una categoría nueva aparezca en la lista a partir de entonces.
+  categoriasExtra?: string[];
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const editar = Boolean(movimiento);
+  const editar = Boolean(movimiento) && !duplicar;
+
+  const listaCategorias = React.useMemo(() => {
+    const set = new Set<string>([...CATEGORIAS_MOV, ...categoriasExtra.filter(Boolean)]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
+  }, [categoriasExtra]);
 
   const [tipo, setTipo] = React.useState<string>(movimiento?.tipo ?? tipoInicial);
   const [naturaleza, setNaturaleza] = React.useState<string>(
@@ -70,9 +83,9 @@ export function MovimientoDialog({
   const pagadoEnLista = responsables.includes(pagadoPor);
   const [pagadoExterno, setPagadoExterno] = React.useState(Boolean(pagadoPor) && !pagadoEnLista);
 
-  // Categoría: desplegable de las habituales o escribir una a mano.
+  // Categoría: desplegable de las habituales + las ya usadas, o una a mano.
   const [categoria, setCategoria] = React.useState(movimiento?.categoria ?? "");
-  const categoriaEnLista = (CATEGORIAS_MOV as readonly string[]).includes(categoria);
+  const categoriaEnLista = listaCategorias.includes(categoria);
   const [categoriaManual, setCategoriaManual] = React.useState(Boolean(categoria) && !categoriaEnLista);
 
   function onNaturaleza(v: string) {
@@ -98,7 +111,14 @@ export function MovimientoDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {editar ? (
+        {duplicar ? (
+          <button
+            title="Duplicar este movimiento (se abre precargado para editarlo)"
+            className="rounded-sm p-1.5 text-ink-muted hover:bg-beige-warm hover:text-clay"
+          >
+            <Copy size={15} />
+          </button>
+        ) : editar ? (
           <button className="rounded-sm p-1.5 text-ink-muted hover:bg-beige-warm hover:text-sage">
             <Pencil size={15} />
           </button>
@@ -108,9 +128,9 @@ export function MovimientoDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent title={editar ? "Editar movimiento" : "Nuevo movimiento"}>
+      <DialogContent title={duplicar ? "Duplicar movimiento" : editar ? "Editar movimiento" : "Nuevo movimiento"}>
         <form onSubmit={onSubmit} className="space-y-4">
-          {movimiento && <input type="hidden" name="id" value={movimiento.id} />}
+          {editar && movimiento && <input type="hidden" name="id" value={movimiento.id} />}
 
           {/* Tipo (da el signo) */}
           <div className="grid grid-cols-2 gap-2">
@@ -246,7 +266,7 @@ export function MovimientoDialog({
               ) : (
                 <Select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
                   <option value="">— Sin categoría —</option>
-                  {CATEGORIAS_MOV.map((c) => (
+                  {listaCategorias.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </Select>
