@@ -6,6 +6,7 @@ import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { CobroRow } from "@/components/home/CobroRow";
 import { AvisosPanel } from "@/components/home/AvisosPanel";
 import { EstaSemana } from "@/components/home/EstaSemana";
+import { RepasoJero } from "@/components/home/RepasoJero";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades, getReservas, getTesoreria, getReuniones, getTareas, getEquipo } from "@/lib/data";
@@ -96,6 +97,27 @@ export default async function Home() {
   const fianzas = ops.filter((o) => (o.fianza ?? 0) > 0 && !o.fianza_devuelta);
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
 
+  // Cuentas con el equipo (para el repaso a Jero): quién debe a TDO (cobros en
+  // mano sin entregar) y a quién debe TDO (gastos adelantados sin reembolsar).
+  const deudaMap = new Map<string, { debe: number; deben: number }>();
+  for (const m of tesoreria) {
+    if (m.tipo === "gasto" && m.quien_lo_paga?.trim() && !m.liquidado) {
+      const p = m.quien_lo_paga.trim();
+      const acc = deudaMap.get(p) ?? { debe: 0, deben: 0 };
+      acc.debe += Number(m.importe);
+      deudaMap.set(p, acc);
+    }
+    if (m.tipo === "ingreso" && m.cobrado_por?.trim() && !m.liquidado) {
+      const p = m.cobrado_por.trim();
+      const acc = deudaMap.get(p) ?? { debe: 0, deben: 0 };
+      acc.deben += Number(m.importe);
+      deudaMap.set(p, acc);
+    }
+  }
+  const deudasEquipo = Array.from(deudaMap.entries())
+    .map(([persona, v]) => ({ persona, ...v }))
+    .filter((v) => v.debe > 0.01 || v.deben > 0.01);
+
   const avisos = calcularAvisos(ops, HOY_ISO, reservas, tareas).slice(0, 10);
   const eventosCal = construirEventos(ops, reservas, tesoreria, reuniones);
 
@@ -118,6 +140,23 @@ export default async function Home() {
       <div className="rounded-md border-hair border-[#e7d3a6] bg-warn-tint px-[15px] py-[10px] text-[12.5px] text-[#7a5a1a]">
         Datos reales de TDO cargados (mayo–junio 2026). La contabilidad mensual arranca en junio
         2026 (regla §5.4).
+      </div>
+
+      <div className="flex justify-end">
+        <RepasoJero
+          cobros={cobrosPendientes.map(({ o, pendiente }) => ({
+            titulo: o.titulo,
+            cliente: o.cliente?.nombre ?? null,
+            importe: pendiente,
+            fechaEvento: o.fecha_evento,
+          }))}
+          fianzas={fianzas.map((o) => ({
+            titulo: o.titulo,
+            cliente: o.cliente?.nombre ?? null,
+            importe: o.fianza ?? 0,
+          }))}
+          deudas={deudasEquipo}
+        />
       </div>
 
       <AvisosPanel avisos={avisos} responsables={responsables} />
