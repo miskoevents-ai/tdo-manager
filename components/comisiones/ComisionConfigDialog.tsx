@@ -87,6 +87,13 @@ export function ComisionConfigDialog({
               <Input type="number" step="0.01" min="0" name="porcentaje" defaultValue={config?.porcentaje ?? ""} required />
             </Field>
           </div>
+          <Field label="Vigente desde (opcional)">
+            <Input type="date" name="desde" defaultValue={config?.desde ?? ""} />
+            <p className="mt-1 text-[11px] text-ink-muted">
+              Solo devenga en eventos de esta fecha en adelante. Útil si la persona se
+              incorporó a mitad de año: los eventos anteriores no le generan comisión.
+            </p>
+          </Field>
           <label className="flex items-center gap-2 text-[13px]">
             <input type="checkbox" name="activo" defaultChecked={config?.activo ?? true} className="h-4 w-4 accent-sage" />
             Activa

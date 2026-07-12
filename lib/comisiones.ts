@@ -19,6 +19,20 @@ export type Devengo = {
 const ESTADOS_VIVOS = ["confirmada", "realizada", "facturada"];
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+// Fecha de referencia de una oportunidad para la vigencia de comisiones: la
+// del evento y, en su defecto, la de confirmación o la de entrada.
+function fechaRefOportunidad(o: Oportunidad): string | null {
+  return o.fecha_evento || o.fecha_confirmacion || o.fecha_entrada || null;
+}
+
+// Una regla aplica a la oportunidad si no tiene "desde" o si el evento es de
+// esa fecha en adelante. Si la regla tiene "desde" pero la oportunidad no tiene
+// fecha, no aplica (no se puede confirmar que la persona ya estuviera).
+function reglaVigente(c: ComisionConfig, refDate: string | null): boolean {
+  if (!c.desde) return true;
+  return refDate != null && refDate >= c.desde;
+}
+
 // Una oportunidad está cobrada (pagada) cuando lo cobrado cubre su total.
 export function oportunidadCobrada(o: Oportunidad): boolean {
   if (!ESTADOS_VIVOS.includes(o.estado)) return false;
@@ -39,9 +53,11 @@ export function comisionDeOportunidad(o: Oportunidad, config: ComisionConfig[]):
     arr.push(c);
     porPersona.set(c.equipo_id!, arr);
   }
+  const refDate = fechaRefOportunidad(o);
   let total = 0;
   for (const [, cfgs] of porPersona) {
-    const cfg = cfgs.find((c) => c.tipo_evento === o.tipo_evento) ?? cfgs.find((c) => !c.tipo_evento);
+    const vigentes = cfgs.filter((c) => reglaVigente(c, refDate));
+    const cfg = vigentes.find((c) => c.tipo_evento === o.tipo_evento) ?? vigentes.find((c) => !c.tipo_evento);
     if (cfg) total += r2((base * cfg.porcentaje) / 100);
   }
   return r2(total);
@@ -77,10 +93,13 @@ export function computeDevengos(
     ).base;
     if (base <= 0) continue;
 
+    const refDate = fechaRefOportunidad(o);
     for (const [equipoId, cfgs] of porPersona) {
+      // Solo reglas vigentes para la fecha del evento (respeta el "desde").
+      const vigentes = cfgs.filter((c) => reglaVigente(c, refDate));
       // % aplicable: específico del tipo de evento, si no, el "todos" (tipo null)
-      const especifico = cfgs.find((c) => c.tipo_evento === o.tipo_evento);
-      const todos = cfgs.find((c) => !c.tipo_evento);
+      const especifico = vigentes.find((c) => c.tipo_evento === o.tipo_evento);
+      const todos = vigentes.find((c) => !c.tipo_evento);
       const cfg = especifico ?? todos;
       if (!cfg) continue;
 
