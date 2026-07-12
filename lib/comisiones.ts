@@ -40,27 +40,46 @@ export function oportunidadCobrada(o: Oportunidad): boolean {
   return t.total > 0 && (o.cobrado ?? 0) >= t.total - 0.01;
 }
 
-// Comisión total (todas las personas con regla) de UNA oportunidad, sobre su
-// base imponible. Sirve para el margen del evento (cuente o no como pagada).
-export function comisionDeOportunidad(o: Oportunidad, config: ComisionConfig[]): number {
-  if (!ESTADOS_VIVOS.includes(o.estado)) return 0;
-  const base = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).base;
-  if (base <= 0) return 0;
-  const activos = config.filter((c) => c.activo && c.equipo_id && c.porcentaje > 0);
-  const porPersona = new Map<string, ComisionConfig[]>();
-  for (const c of activos) {
-    const arr = porPersona.get(c.equipo_id!) ?? [];
-    arr.push(c);
-    porPersona.set(c.equipo_id!, arr);
-  }
+// Regla de comisión aplicable a una persona en una oportunidad: la específica
+// del tipo de evento, o la "todos" (tipo null), respetando la vigencia "desde".
+function reglaParaPersona(
+  o: Oportunidad,
+  config: ComisionConfig[],
+  equipoId: string,
+): ComisionConfig | null {
   const refDate = fechaRefOportunidad(o);
-  let total = 0;
-  for (const [, cfgs] of porPersona) {
-    const vigentes = cfgs.filter((c) => reglaVigente(c, refDate));
-    const cfg = vigentes.find((c) => c.tipo_evento === o.tipo_evento) ?? vigentes.find((c) => !c.tipo_evento);
-    if (cfg) total += r2((base * cfg.porcentaje) / 100);
-  }
-  return r2(total);
+  const cfgs = config.filter(
+    (c) => c.activo && c.equipo_id === equipoId && c.porcentaje > 0 && reglaVigente(c, refDate),
+  );
+  return cfgs.find((c) => c.tipo_evento === o.tipo_evento) ?? cfgs.find((c) => !c.tipo_evento) ?? null;
+}
+
+// Comisión de UNA oportunidad, sobre su base imponible: SOLO la de la persona
+// asignada a mano en la oportunidad (comision_equipo_id). Sin persona → 0.
+// Sirve para el margen del evento (cuente o no como pagada).
+export function comisionDeOportunidad(o: Oportunidad, config: ComisionConfig[]): number {
+  return comisionDetalleDeOportunidad(o, config).reduce((s, l) => s + l.importe, 0);
+}
+
+// Desglose de la comisión del evento (para explicar de dónde sale el coste en la
+// pestaña Costes: "Cristina · Boda 6% · 12 €"). Como máximo una línea: la de la
+// persona asignada en la oportunidad.
+export type ComisionLinea = { persona: string; tipoEvento: string | null; porcentaje: number; importe: number };
+export function comisionDetalleDeOportunidad(o: Oportunidad, config: ComisionConfig[]): ComisionLinea[] {
+  if (!ESTADOS_VIVOS.includes(o.estado)) return [];
+  if (!o.comision_equipo_id) return []; // sin persona asignada → sin comisión
+  const base = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).base;
+  if (base <= 0) return [];
+  const cfg = reglaParaPersona(o, config, o.comision_equipo_id);
+  if (!cfg) return [];
+  return [
+    {
+      persona: cfg.equipo?.nombre ?? "—",
+      tipoEvento: cfg.tipo_evento,
+      porcentaje: cfg.porcentaje,
+      importe: r2((base * cfg.porcentaje) / 100),
+    },
+  ];
 }
 
 // Calcula los devengos de comisión: por cada oportunidad ya COBRADA y cada
@@ -70,21 +89,12 @@ export function computeDevengos(
   config: ComisionConfig[],
   pagadas: Comision[],
 ): Devengo[] {
-  const activos = config.filter((c) => c.activo && c.equipo_id && c.porcentaje > 0);
-  // Config por persona
-  const porPersona = new Map<string, ComisionConfig[]>();
-  for (const c of activos) {
-    const arr = porPersona.get(c.equipo_id!) ?? [];
-    arr.push(c);
-    porPersona.set(c.equipo_id!, arr);
-  }
-
   const devengos: Devengo[] = [];
   for (const o of oportunidades) {
     // La comisión se devenga cuando la oportunidad está cobrada… salvo que ya
     // se pagara la comisión antes (para no hacer desaparecer un pago hecho).
-    const yaPagadaAlguna = pagadas.some((p) => p.oportunidad_id === o.id);
-    if (!oportunidadCobrada(o) && !yaPagadaAlguna) continue;
+    const pagadasOp = pagadas.filter((p) => p.oportunidad_id === o.id);
+    if (!oportunidadCobrada(o) && pagadasOp.length === 0) continue;
     const base = calcularTotales(
       o.presupuesto_lineas ?? [],
       o.iva_pct,
@@ -93,29 +103,29 @@ export function computeDevengos(
     ).base;
     if (base <= 0) continue;
 
-    const refDate = fechaRefOportunidad(o);
-    for (const [equipoId, cfgs] of porPersona) {
-      // Solo reglas vigentes para la fecha del evento (respeta el "desde").
-      const vigentes = cfgs.filter((c) => reglaVigente(c, refDate));
-      // % aplicable: específico del tipo de evento, si no, el "todos" (tipo null)
-      const especifico = vigentes.find((c) => c.tipo_evento === o.tipo_evento);
-      const todos = vigentes.find((c) => !c.tipo_evento);
-      const cfg = especifico ?? todos;
-      if (!cfg) continue;
+    // Solo la persona asignada a la oportunidad (comision_equipo_id), más las
+    // que ya tengan una comisión pagada aquí (para no perder ese historial).
+    const candidatos = new Set<string>();
+    if (o.comision_equipo_id) candidatos.add(o.comision_equipo_id);
+    for (const p of pagadasOp) if (p.equipo_id) candidatos.add(p.equipo_id);
 
-      const importe = r2((base * cfg.porcentaje) / 100);
-      const pago = pagadas.find(
-        (p) => p.oportunidad_id === o.id && p.equipo_id === equipoId,
-      );
+    for (const equipoId of candidatos) {
+      const cfg = reglaParaPersona(o, config, equipoId);
+      const pago = pagadasOp.find((p) => p.equipo_id === equipoId);
+      // Sin regla vigente: solo se muestra si ya estaba pagada (usa su importe).
+      if (!cfg && !pago) continue;
+      const porcentaje = cfg?.porcentaje ?? pago?.porcentaje ?? 0;
+      const importe = cfg ? r2((base * cfg.porcentaje) / 100) : r2(Number(pago?.importe ?? 0));
+      const persona = cfg?.equipo?.nombre ?? "—";
       devengos.push({
         key: `${o.id}:${equipoId}`,
         oportunidadId: o.id,
         evento: o.titulo,
         tipoEvento: o.tipo_evento,
         equipoId,
-        persona: cfg.equipo?.nombre ?? "—",
+        persona,
         base,
-        porcentaje: cfg.porcentaje,
+        porcentaje,
         importe,
         pagada: Boolean(pago),
         comisionId: pago?.id,

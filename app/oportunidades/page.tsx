@@ -24,7 +24,9 @@ export default async function OportunidadesPage() {
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
-  const responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
+  const activos = equipo.filter((e) => e.activo);
+  const responsables = activos.map((e) => e.nombre);
+  const equipoLite = activos.map((e) => ({ id: e.id, nombre: e.nombre }));
 
   // Nº de oportunidades por cliente → recurrente si tiene más de una.
   const opsPorCliente = new Map<string, number>();
@@ -59,7 +61,7 @@ export default async function OportunidadesPage() {
       <InfoNote id="oportunidades">Cada solicitud y evento, desde que entra el lead hasta que se factura. Aquí gestionas los estados, los presupuestos y el seguimiento del pipeline.</InfoNote>
       <div className="flex items-center justify-between">
         <Overline className="!mt-0">{activas.length} oportunidades activas</Overline>
-        <OportunidadDialog clientes={clientes} lugares={lugares} responsables={responsables} />
+        <OportunidadDialog clientes={clientes} lugares={lugares} responsables={responsables} equipo={equipoLite} />
       </div>
 
       <OportunidadesBoard cards={cards} />

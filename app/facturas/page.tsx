@@ -32,13 +32,16 @@ export default async function DocumentosPage({
 
   let facturas: Factura[], ops: Oportunidad[], responsables: string[] = [];
   let clientes: Cliente[] = [], lugares: Lugar[] = [];
+  let equipoLite: { id: string; nombre: string }[] = [];
   try {
     const [f, o, equipo, cl, lg] = await Promise.all([
       getFacturas(), getOportunidades(), getEquipo(), getClientes(), getLugares(),
     ]);
     facturas = f;
     ops = o;
-    responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
+    const activos = equipo.filter((e) => e.activo);
+    responsables = activos.map((e) => e.nombre);
+    equipoLite = activos.map((e) => ({ id: e.id, nombre: e.nombre }));
     clientes = cl;
     lugares = lg;
   } catch (e) {
@@ -107,6 +110,7 @@ export default async function DocumentosPage({
           clientes={clientes}
           lugares={lugares}
           responsables={responsables}
+          equipo={equipoLite}
           triggerLabel="Nuevo presupuesto"
         />
         <Link

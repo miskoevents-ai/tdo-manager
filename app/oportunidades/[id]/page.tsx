@@ -33,7 +33,7 @@ import {
   getComisionesConfig,
 } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
-import { comisionDeOportunidad } from "@/lib/comisiones";
+import { comisionDeOportunidad, comisionDetalleDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha } from "@/lib/format";
 import { TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
 
@@ -85,6 +85,7 @@ export default async function Page({
   if (!op) notFound();
   // Comisión del evento: cuenta como coste (afecta al margen).
   const comisionEvento = comisionDeOportunidad(op, comConfig);
+  const comisionDetalle = comisionDetalleDeOportunidad(op, comConfig);
 
   // Compras/material = gastos de evento en tesorería que NO vienen de un
   // desplazamiento ni del pago a un ayudante externo (esos viven en su sección)
@@ -148,6 +149,7 @@ export default async function Page({
             lugares={lugares}
             oportunidad={op}
             responsables={equipo.filter((e) => e.activo).map((e) => e.nombre)}
+            equipo={equipo.filter((e) => e.activo).map((e) => ({ id: e.id, nombre: e.nombre }))}
           />
           {op.tipo_operacion === "amigos_prestamo" ? (
             <Link
@@ -329,6 +331,7 @@ export default async function Page({
             cerradaFecha={op.cerrada_fecha ?? null}
             pendienteCobro={pendiente}
             comision={comisionEvento}
+            comisionDetalle={comisionDetalle}
             categoriasGasto={Array.from(
               new Set([
                 ...costesEstimados

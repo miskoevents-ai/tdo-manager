@@ -23,12 +23,14 @@ export function OportunidadDialog({
   lugares,
   oportunidad,
   responsables = [],
+  equipo = [],
   triggerLabel,
 }: {
   clientes: Cliente[];
   lugares: Lugar[];
   oportunidad?: Oportunidad;
   responsables?: string[];
+  equipo?: { id: string; nombre: string }[]; // para asignar comisión a una persona
   triggerLabel?: string; // texto del botón al crear (por defecto "Nueva oportunidad")
 }) {
   const router = useRouter();
@@ -394,14 +396,27 @@ export function OportunidadDialog({
             </Field>
           </div>
 
-          <Field label="Responsable">
-            <Select name="responsable" defaultValue={oportunidad?.responsable ?? ""}>
-              <option value="">— Sin asignar —</option>
-              {responsablesOpts.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </Select>
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Responsable">
+              <Select name="responsable" defaultValue={oportunidad?.responsable ?? ""}>
+                <option value="">— Sin asignar —</option>
+                {responsablesOpts.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Comisión para">
+              <Select name="comision_equipo_id" defaultValue={oportunidad?.comision_equipo_id ?? ""}>
+                <option value="">— Ninguna —</option>
+                {equipo.map((e) => (
+                  <option key={e.id} value={e.id}>{e.nombre}</option>
+                ))}
+              </Select>
+              <p className="mt-1 text-[10.5px] text-ink-muted">
+                Solo esta persona cobra comisión de esta venta, con su % por tipo de evento. Vacío = sin comisión.
+              </p>
+            </Field>
+          </div>
           <Field label="Notas">
             <Textarea name="notas" defaultValue={oportunidad?.notas ?? ""} />
           </Field>

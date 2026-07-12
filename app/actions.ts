@@ -162,19 +162,31 @@ export async function guardarOportunidad(formData: FormData) {
     fianza: numToNull(formData.get("fianza")),
     fecha_devolucion_fianza: (formData.get("fecha_devolucion_fianza") as string) || null,
     pago_a_dias: numToNull(formData.get("pago_a_dias")) ?? 0,
+    // Persona a la que se le paga comisión (vacío = ninguna). Migración 034.
+    comision_equipo_id: (formData.get("comision_equipo_id") as string) || null,
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.titulo) throw new Error("El título es obligatorio.");
   if (!payload.numero) throw new Error("No se pudo asignar el número; escríbelo a mano.");
 
+  // Reintento sin comision_equipo_id si la migración 034 aún no está aplicada.
+  const esColumnaComision = (msg: string) => /comision_equipo_id/.test(msg) && /column/i.test(msg);
   let opId = id;
   if (id) {
-    const { error } = await sb.from("oportunidades").update(payload).eq("id", id);
+    let { error } = await sb.from("oportunidades").update(payload).eq("id", id);
+    if (error && esColumnaComision(error.message)) {
+      const { comision_equipo_id: _c, ...sin } = payload;
+      ({ error } = await sb.from("oportunidades").update(sin).eq("id", id));
+    }
     if (error) throw new Error(error.message);
   } else {
-    const { data, error } = await sb.from("oportunidades").insert(payload).select("id").single();
-    if (error) throw new Error(error.message);
-    opId = data.id;
+    let res = await sb.from("oportunidades").insert(payload).select("id").single();
+    if (res.error && esColumnaComision(res.error.message)) {
+      const { comision_equipo_id: _c, ...sin } = payload;
+      res = await sb.from("oportunidades").insert(sin).select("id").single();
+    }
+    if (res.error) throw new Error(res.error.message);
+    opId = res.data.id;
   }
   revalidatePath("/oportunidades");
   if (opId) revalidatePath(`/oportunidades/${opId}`);
