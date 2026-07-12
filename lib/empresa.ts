@@ -4,15 +4,15 @@
 
 export const EMPRESA = {
   nombre: "Tu Decoración Original",
-  razon_social: "", // p. ej. "Álvaro Sarmiento — TDO" o la SL, si la hay
-  nif: "", // NIF/CIF — rellénalo para que salga en el presupuesto
-  direccion: "Av. del Guadarrama 10, Local 7 · Villanueva del Pardillo · 28229 Madrid",
+  razon_social: "Jerónimo Alonso Marcos", // titular (autónomo) de TDO
+  nif: "51094870W", // NIF fiscal — sale en facturas y presupuestos
+  direccion: "C/ Marroquina 24, 28030 Madrid",
   email: "info@tudecoracionoriginal.es",
   telefono: "675 75 87 83",
   web: "www.tudecoracionoriginal.es",
   // Datos de cobro (para la señal / transferencia)
-  iban: "", // IBAN — rellénalo para que aparezca en el documento
-  titular_cuenta: "",
+  iban: "ES49 0049 1349 3820 1001 3751",
+  titular_cuenta: "Jerónimo Alonso Marcos",
 };
 
 // Foto de portada de los presupuestos (idea de Cristina): una imagen de un
