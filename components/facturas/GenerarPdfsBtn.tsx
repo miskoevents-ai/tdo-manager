@@ -3,23 +3,24 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { FileStack } from "lucide-react";
-import { generarPdfsFacturasFaltantes } from "@/app/actions";
+import { regenerarPdfsFacturas } from "@/app/actions";
 
-// Genera el PDF de las facturas que aún no lo tienen (respeta las subidas a
-// mano). Útil para poner al día el histórico en un clic.
+// Regenera el PDF de todas las facturas con el diseño actual. Útil al cambiar
+// la plantilla: en un clic quedan todas con el mismo aspecto.
 export function GenerarPdfsBtn() {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
 
   async function run() {
+    if (!confirm("¿Regenerar el PDF de todas las facturas con el diseño actual? Reemplaza también las que hubieras subido a mano.")) return;
     setBusy(true);
     try {
-      const r = await generarPdfsFacturasFaltantes();
+      const r = await regenerarPdfsFacturas(false);
       router.refresh();
       alert(
         r.generadas === 0 && r.errores === 0
-          ? "Todas las facturas ya tienen su PDF."
-          : `PDF generados: ${r.generadas}${r.errores ? ` · con ${r.errores} error(es)` : ""}.`,
+          ? "No hay facturas que regenerar."
+          : `PDF regenerados: ${r.generadas}${r.errores ? ` · con ${r.errores} error(es)` : ""}.`,
       );
     } catch (e) {
       alert((e as Error).message);
@@ -32,10 +33,10 @@ export function GenerarPdfsBtn() {
     <button
       onClick={run}
       disabled={busy}
-      title="Generar el PDF de las facturas que aún no lo tienen"
+      title="Regenerar el PDF de todas las facturas con el diseño actual"
       className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
     >
-      <FileStack size={15} /> {busy ? "Generando…" : "Generar PDFs"}
+      <FileStack size={15} /> {busy ? "Regenerando…" : "Regenerar PDFs"}
     </button>
   );
 }

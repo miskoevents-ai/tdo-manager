@@ -58,7 +58,7 @@ const COL = {
 
 const s = StyleSheet.create({
   page: { paddingTop: 46, paddingBottom: 58, paddingHorizontal: 48, fontSize: 9, color: COL.ink, fontFamily: "Montserrat", lineHeight: 1.5 },
-  ribbon: { position: "absolute", top: 0, left: 0, right: 0, height: 6, backgroundColor: COL.clay },
+  ribbon: { position: "absolute", top: 0, left: 0, right: 0, height: 6, backgroundColor: COL.sage },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   logoWrap: { width: 250 },

@@ -1690,11 +1690,14 @@ export async function generarPdfFactura(facturaId: string): Promise<{ ok: boolea
   }
 }
 
-// Genera el PDF de todas las facturas que aún no tienen uno (respeta las
-// subidas a mano, que ya tienen pdf_url). Para poner al día el histórico.
-export async function generarPdfsFacturasFaltantes(): Promise<{ generadas: number; errores: number }> {
+// Regenera el PDF de TODAS las facturas con el diseño actual (sobrescribe,
+// incluidas las subidas a mano). Para poner al día el histórico al cambiar la
+// plantilla. Con soloFaltantes = true, solo las que aún no tienen PDF.
+export async function regenerarPdfsFacturas(soloFaltantes = false): Promise<{ generadas: number; errores: number }> {
   const sb = createAdminClient();
-  const { data } = await sb.from("facturas").select("id").is("pdf_url", null);
+  let q = sb.from("facturas").select("id");
+  if (soloFaltantes) q = q.is("pdf_url", null);
+  const { data } = await q;
   let generadas = 0;
   let errores = 0;
   for (const row of data ?? []) {
