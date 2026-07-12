@@ -134,20 +134,20 @@ export function TesoreriaClient({
   //    (cobrado_por, sin liquidar).
   // Los nombres se canonizan contra el equipo: "Jero" y "Jero (Jerónimo
   // Alonso Marcos)" son SIEMPRE la misma persona, aunque el dato guardado
-  // tenga la grafía corta. Quien actúa como caja de TDO (es_caja) se salta:
-  // sus cobros y pagos SON la caja, no cuentas pendientes.
+  // tenga la grafía corta. Quien actúa como caja de TDO (es_caja) también
+  // aparece, pero como caja: su fila es su balance (lo que la SL le deberá),
+  // sin reembolsos ni entregas que marcar.
   const cuentasEquipo = React.useMemo(() => {
     type Lado = { oficial: number; amigos: number };
     const map = new Map<string, { debeTDO: Lado; debenTDO: Lado }>();
     const get = (n: string) =>
       map.get(n) ?? { debeTDO: { oficial: 0, amigos: 0 }, debenTDO: { oficial: 0, amigos: 0 } };
-    const esCaja = (persona: string) => personasCaja.includes(persona);
     // TDO debe a la persona: cualquier gasto que adelantó de su bolsillo y aún
     // no se le ha reembolsado (liquidado). El estado del gasto (pagado al
     // proveedor o no) es indiferente para la deuda con la persona.
     for (const m of movimientos) {
       const persona = canonizarNombre(m.quien_lo_paga, responsables);
-      if (!persona || esCaja(persona)) continue;
+      if (!persona) continue;
       if (m.tipo !== "gasto" || m.liquidado) continue;
       const acc = get(persona);
       if (m.naturaleza === "amigos") acc.debeTDO.amigos += Number(m.importe);
@@ -157,7 +157,7 @@ export function TesoreriaClient({
     // La persona debe a TDO (cobros que tiene sin entregar)
     for (const m of movimientos) {
       const persona = canonizarNombre(m.cobrado_por, responsables);
-      if (!persona || esCaja(persona)) continue;
+      if (!persona) continue;
       if (m.tipo !== "ingreso" || m.liquidado) continue;
       const acc = get(persona);
       if (m.naturaleza === "amigos") acc.debenTDO.amigos += Number(m.importe);
@@ -168,9 +168,17 @@ export function TesoreriaClient({
       .map(([nombre, v]) => {
         const debeTotal = v.debeTDO.oficial + v.debeTDO.amigos;
         const debenTotal = v.debenTDO.oficial + v.debenTDO.amigos;
-        return { nombre, ...v, debeTotal, debenTotal, neto: debeTotal - debenTotal };
+        return {
+          nombre,
+          ...v,
+          debeTotal,
+          debenTotal,
+          neto: debeTotal - debenTotal,
+          esCaja: personasCaja.includes(nombre),
+        };
       })
-      .sort((a, b) => Math.abs(b.neto) - Math.abs(a.neto));
+      // La caja al final: primero las cuentas pendientes de verdad.
+      .sort((a, b) => Number(a.esCaja) - Number(b.esCaja) || Math.abs(b.neto) - Math.abs(a.neto));
   }, [movimientos, responsables, personasCaja]);
   const hayCuentasEquipo = cuentasEquipo.some((c) => c.debeTotal > 0 || c.debenTotal > 0);
 
@@ -321,6 +329,11 @@ export function TesoreriaClient({
                       <button onClick={() => setPersonaDetalle(c.nombre)} className="text-left text-sage hover:underline">
                         {c.nombre}
                       </button>
+                      {c.esCaja && (
+                        <span className="ml-1.5 rounded-pill bg-sage-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.05em] text-sage">
+                          🏦 caja
+                        </span>
+                      )}
                     </td>
                     <td className="border-b border-[#f0eae1] py-2 text-right">
                       {c.debeTotal > 0 ? (
@@ -343,7 +356,17 @@ export function TesoreriaClient({
                       )}
                     </td>
                     <td className={`border-b border-[#f0eae1] py-2 text-right tabular font-semibold ${c.neto > 0.01 ? "text-warn" : c.neto < -0.01 ? "text-ok" : "text-ink-muted"}`}>
-                      {c.neto > 0.01 ? `TDO paga ${eur(c.neto)}` : c.neto < -0.01 ? `${c.nombre.split(" ")[0]} paga ${eur(-c.neto)}` : "—"}
+                      {c.esCaja
+                        ? c.neto > 0.01
+                          ? `ha puesto ${eur(c.neto)} (para la SL)`
+                          : c.neto < -0.01
+                            ? `balance a favor de TDO ${eur(-c.neto)}`
+                            : "—"
+                        : c.neto > 0.01
+                          ? `TDO paga ${eur(c.neto)}`
+                          : c.neto < -0.01
+                            ? `${c.nombre.split(" ")[0]} paga ${eur(-c.neto)}`
+                            : "—"}
                     </td>
                   </tr>
                 ))}
@@ -359,7 +382,8 @@ export function TesoreriaClient({
               <>
                 {" "}
                 <b>{personasCaja.join(" y ")}</b> actúa como caja de TDO (hasta que exista la SL):
-                lo que cobra y paga ES el dinero de TDO, por eso no aparece aquí.
+                su fila es su balance como caja — lo que lleva puesto neto, que la SL le deberá —
+                sin reembolsos ni entregas que marcar.
               </>
             )}
           </p>
@@ -372,6 +396,7 @@ export function TesoreriaClient({
           persona={personaDetalle}
           movimientos={movimientos}
           responsables={responsables}
+          esCaja={personasCaja.includes(personaDetalle)}
           onClose={() => setPersonaDetalle(null)}
           onDone={() => router.refresh()}
         />
@@ -574,12 +599,15 @@ function PersonaDetalle({
   persona,
   movimientos,
   responsables,
+  esCaja = false,
   onClose,
   onDone,
 }: {
   persona: string;
   movimientos: Tesoreria[];
   responsables: string[];
+  // La caja de TDO: se ve el historial y el balance, sin nada que marcar.
+  esCaja?: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -629,21 +657,23 @@ function PersonaDetalle({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="tabular font-semibold">{eur(Number(m.importe))}</span>
-        {m.liquidado ? (
-          <button onClick={() => saldar(m.id, false)} disabled={busy === m.id} className="rounded-sm bg-ok-tint px-2 py-1 text-[10.5px] font-semibold text-ok">
-            {tipoLado === "reembolso" ? "reembolsado" : "entregado"} ✓
-          </button>
-        ) : tipoLado === "reembolso" ? (
-          <span className="inline-flex items-center gap-1" title="Reembolsar desde…">
-            <span className="text-[10px] text-ink-muted">reembolsar:</span>
-            <button onClick={() => reembolsar(m.id, "oficial")} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-1.5 py-1 text-[11px] hover:bg-sage-tint" title="Desde la caja oficial">🏦</button>
-            <button onClick={() => reembolsar(m.id, "amigos")} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-1.5 py-1 text-[11px] hover:bg-clay-tint" title="Desde la caja de amigos">🤝</button>
-          </span>
-        ) : (
-          <button onClick={() => saldar(m.id, true)} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-2 py-1 text-[10.5px] font-semibold text-ink-secondary hover:bg-beige-warm">
-            {busy === m.id ? "…" : "Marcar entregado"}
-          </button>
-        )}
+        {/* La caja no tiene nada que marcar: es su propio dinero operando. */}
+        {!esCaja &&
+          (m.liquidado ? (
+            <button onClick={() => saldar(m.id, false)} disabled={busy === m.id} className="rounded-sm bg-ok-tint px-2 py-1 text-[10.5px] font-semibold text-ok">
+              {tipoLado === "reembolso" ? "reembolsado" : "entregado"} ✓
+            </button>
+          ) : tipoLado === "reembolso" ? (
+            <span className="inline-flex items-center gap-1" title="Reembolsar desde…">
+              <span className="text-[10px] text-ink-muted">reembolsar:</span>
+              <button onClick={() => reembolsar(m.id, "oficial")} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-1.5 py-1 text-[11px] hover:bg-sage-tint" title="Desde la caja oficial">🏦</button>
+              <button onClick={() => reembolsar(m.id, "amigos")} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-1.5 py-1 text-[11px] hover:bg-clay-tint" title="Desde la caja de amigos">🤝</button>
+            </span>
+          ) : (
+            <button onClick={() => saldar(m.id, true)} disabled={busy === m.id} className="rounded-sm border-med border-border-strong px-2 py-1 text-[10.5px] font-semibold text-ink-secondary hover:bg-beige-warm">
+              {busy === m.id ? "…" : "Marcar entregado"}
+            </button>
+          ))}
       </div>
     </div>
   );
@@ -652,7 +682,14 @@ function PersonaDetalle({
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 p-4 pt-[6vh]" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-[560px] rounded-lg border-hair border-border bg-white p-5 shadow-xl">
         <div className="mb-3 flex items-start justify-between">
-          <div className="font-display text-[18px]">{persona}</div>
+          <div className="font-display text-[18px]">
+            {persona}
+            {esCaja && (
+              <span className="ml-2 rounded-pill bg-sage-tint px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-[0.05em] text-sage">
+                🏦 caja de TDO
+              </span>
+            )}
+          </div>
           <button onClick={onClose} className="rounded-sm px-2 py-1 text-[16px] leading-none text-ink-muted hover:bg-beige-warm">×</button>
         </div>
 
@@ -664,36 +701,58 @@ function PersonaDetalle({
           <div className="space-y-1 text-[12.5px]">
             <div className="flex items-center justify-between">
               <span className="text-ink-secondary">
-                TDO le debe <span className="text-ink-muted">({debePend.length} gasto{debePend.length === 1 ? "" : "s"} que adelantó)</span>
+                {esCaja ? "Ha puesto de su bolsillo" : "TDO le debe"}{" "}
+                <span className="text-ink-muted">({debePend.length} gasto{debePend.length === 1 ? "" : "s"}{esCaja ? "" : " que adelantó"})</span>
               </span>
               <span className="tabular font-semibold text-warn">+{eur(debe)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-ink-secondary">
-                Le debe a TDO <span className="text-ink-muted">({debenPend.length} cobro{debenPend.length === 1 ? "" : "s"} sin entregar)</span>
+                {esCaja ? "Ha cobrado en su cuenta" : "Le debe a TDO"}{" "}
+                <span className="text-ink-muted">({debenPend.length} cobro{debenPend.length === 1 ? "" : "s"}{esCaja ? "" : " sin entregar"})</span>
               </span>
               <span className="tabular font-semibold text-ok">−{eur(deben)}</span>
             </div>
             <div className="mt-1 flex items-center justify-between border-t border-border pt-1.5">
               <span className="font-semibold">
-                {Math.abs(neto) < 0.01 ? "En paz" : neto > 0 ? "TDO le paga a " + nombreCorto : nombreCorto + " le entrega a TDO"}
+                {esCaja
+                  ? Math.abs(neto) < 0.01
+                    ? "En equilibrio"
+                    : neto > 0
+                      ? "Lleva puesto neto (la SL se lo deberá)"
+                      : "Balance a favor de TDO"
+                  : Math.abs(neto) < 0.01
+                    ? "En paz"
+                    : neto > 0
+                      ? "TDO le paga a " + nombreCorto
+                      : nombreCorto + " le entrega a TDO"}
               </span>
               <span className={`tabular font-display text-[16px] ${neto > 0.01 ? "text-warn" : neto < -0.01 ? "text-ok" : "text-ink-muted"}`}>
                 {Math.abs(neto) < 0.01 ? "—" : eur(Math.abs(neto))}
               </span>
             </div>
           </div>
+          {esCaja && (
+            <p className="mt-2 text-[11px] text-ink-muted">
+              {nombreCorto} actúa como caja de TDO hasta que exista la SL: aquí no hay nada que
+              marcar, es el histórico de su dinero operando como TDO.
+            </p>
+          )}
         </div>
 
         {reembolsos.length > 0 && (
           <div className="mb-3">
-            <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Gastos que adelantó (TDO le debe)</div>
+            <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+              {esCaja ? "Gastos que pagó (como caja)" : "Gastos que adelantó (TDO le debe)"}
+            </div>
             {reembolsos.map((m) => fila(m, "reembolso"))}
           </div>
         )}
         {cobros.length > 0 && (
           <div className="mb-3">
-            <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Cobros en mano (le debe a TDO)</div>
+            <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+              {esCaja ? "Cobros en su cuenta (como caja)" : "Cobros en mano (le debe a TDO)"}
+            </div>
             {cobros.map((m) => fila(m, "cobro"))}
           </div>
         )}
