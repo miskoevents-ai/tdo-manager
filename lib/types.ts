@@ -185,6 +185,7 @@ export type Factura = {
   total: number;
   estado: FacturaEstado;
   notas: string | null;
+  pdf_url?: string | null; // PDF real subido desde el ordenador (si lo hay)
   descuento_pct?: number | null; // % de descuento global aplicado al emitirla
   lineas?: FacturaLinea[] | null;
   cliente?: Cliente | null;
