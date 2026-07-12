@@ -272,6 +272,11 @@ export type Proveedor = {
   telefono: string | null;
   localidad: string | null;
   notas: string | null;
+  // Datos de facturación (migración 037).
+  razon_social?: string | null;
+  nif?: string | null;
+  direccion_fiscal?: string | null;
+  iban?: string | null;
   created_at: string;
 };
 

@@ -1292,7 +1292,7 @@ export async function desmarcarComision(comisionId: string, tesoreriaId: string 
 export async function guardarProveedor(formData: FormData) {
   const sb = createAdminClient();
   const id = (formData.get("id") as string) || null;
-  const payload = {
+  const payload: Record<string, unknown> = {
     nombre: (formData.get("nombre") as string)?.trim(),
     tipo_servicio: (formData.get("tipo_servicio") as string)?.trim() || null,
     contacto: (formData.get("contacto") as string)?.trim() || null,
@@ -1300,16 +1300,26 @@ export async function guardarProveedor(formData: FormData) {
     telefono: (formData.get("telefono") as string)?.trim() || null,
     localidad: (formData.get("localidad") as string)?.trim() || null,
     notas: (formData.get("notas") as string)?.trim() || null,
+    // Datos de facturación (migración 037).
+    razon_social: (formData.get("razon_social") as string)?.trim() || null,
+    nif: (formData.get("nif") as string)?.trim() || null,
+    direccion_fiscal: (formData.get("direccion_fiscal") as string)?.trim() || null,
+    iban: (formData.get("iban") as string)?.trim() || null,
   };
   if (!payload.nombre) throw new Error("El nombre es obligatorio.");
 
-  if (id) {
-    const { error } = await sb.from("proveedores").update(payload).eq("id", id);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await sb.from("proveedores").insert(payload);
-    if (error) throw new Error(error.message);
+  const guardar = async (fila: Record<string, unknown>) =>
+    id
+      ? await sb.from("proveedores").update(fila).eq("id", id)
+      : await sb.from("proveedores").insert(fila);
+
+  let { error } = await guardar(payload);
+  // Si la migración 037 aún no está aplicada, reintenta sin esas columnas.
+  if (error && /(razon_social|nif|direccion_fiscal|iban)/.test(error.message) && /column/i.test(error.message)) {
+    const { razon_social: _r, nif: _n, direccion_fiscal: _d, iban: _i, ...sinFact } = payload;
+    ({ error } = await guardar(sinFact));
   }
+  if (error) throw new Error(error.message);
   revalidatePath("/proveedores");
 }
 

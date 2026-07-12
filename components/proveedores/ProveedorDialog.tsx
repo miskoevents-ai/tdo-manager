@@ -103,6 +103,26 @@ export function ProveedorDialog({ proveedor }: { proveedor?: Proveedor }) {
               <Input name="telefono" defaultValue={proveedor?.telefono ?? ""} />
             </Field>
           </div>
+          {/* Datos de facturación: lo necesario para casar sus facturas y pagarles */}
+          <div className="space-y-3 rounded-md border-hair border-border bg-beige-light/60 p-3">
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+              Datos de facturación
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Razón social">
+                <Input name="razon_social" defaultValue={proveedor?.razon_social ?? ""} placeholder="Flores García S.L." />
+              </Field>
+              <Field label="NIF / CIF">
+                <Input name="nif" defaultValue={proveedor?.nif ?? ""} placeholder="B12345678" />
+              </Field>
+            </div>
+            <Field label="Dirección fiscal">
+              <Input name="direccion_fiscal" defaultValue={proveedor?.direccion_fiscal ?? ""} placeholder="C/ Mayor 1, 28001 Madrid" />
+            </Field>
+            <Field label="IBAN (para pagarle)">
+              <Input name="iban" defaultValue={proveedor?.iban ?? ""} placeholder="ES00 0000 0000 0000 0000 0000" />
+            </Field>
+          </div>
           <Field label="Notas">
             <Textarea name="notas" defaultValue={proveedor?.notas ?? ""} />
           </Field>

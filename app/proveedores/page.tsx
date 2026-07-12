@@ -69,7 +69,14 @@ export default async function ProveedoresPage() {
               <tbody>
                 {proveedores.map((p) => (
                   <tr key={p.id} className="hover:bg-beige-light">
-                    <td className="border-t border-border px-[15px] py-3 text-[13px] font-medium">{p.nombre}</td>
+                    <td className="border-t border-border px-[15px] py-3 text-[13px] font-medium">
+                      {p.nombre}
+                      {(p.razon_social || p.nif) && (
+                        <div className="mt-0.5 text-[11px] font-normal text-ink-muted">
+                          {[p.razon_social, p.nif].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
+                    </td>
                     <td className="border-t border-border px-[15px] py-3 text-[12px] text-ink-secondary">
                       {p.tipo_servicio ? (TIPO_SERVICIO_LABEL[p.tipo_servicio] ?? p.tipo_servicio) : "—"}
                     </td>
@@ -102,6 +109,11 @@ export default async function ProveedoresPage() {
                       {p.tipo_servicio ? (TIPO_SERVICIO_LABEL[p.tipo_servicio] ?? p.tipo_servicio) : "—"}
                       {p.localidad ? ` · ${p.localidad}` : ""}
                     </div>
+                    {(p.razon_social || p.nif) && (
+                      <div className="mt-0.5 text-[11px] text-ink-muted">
+                        {[p.razon_social, p.nif].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
                   </div>
                   <ProveedorDialog proveedor={p} />
                 </div>
