@@ -36,6 +36,9 @@ export default async function TesoreriaPage() {
   const oportunidades = ops.map((o) => ({ id: o.id, numero: o.numero, titulo: o.titulo }));
   const provs = proveedores.map((p) => ({ id: p.id, nombre: p.nombre }));
   const responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
+  // Quien actúa como caja de TDO (Jero hasta que exista la SL): sus cobros y
+  // pagos no generan cuentas pendientes con el equipo.
+  const personasCaja = equipo.filter((e) => e.activo && e.es_caja).map((e) => e.nombre);
   const resumenCom = resumenComisiones(computeDevengos(ops, comConfig, comPagadas));
 
   // Plan de cobros por solicitud: ingresos previstos enlazados a una oportunidad,
@@ -84,6 +87,7 @@ export default async function TesoreriaPage() {
         oportunidades={oportunidades}
         proveedores={provs}
         responsables={responsables}
+        personasCaja={personasCaja}
         planPorOportunidad={planPorOportunidad}
         hoy={new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date())}
       />

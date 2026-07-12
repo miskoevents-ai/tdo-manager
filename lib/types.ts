@@ -208,6 +208,9 @@ export type Equipo = {
   porcentaje: number | null;
   precio_hora: number | null;
   activo: boolean;
+  // Actúa como caja de TDO (hasta que exista la SL): sus cobros y pagos no
+  // generan cuentas pendientes con el equipo. Migración 038.
+  es_caja?: boolean | null;
   notas: string | null;
 };
 

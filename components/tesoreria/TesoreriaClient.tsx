@@ -35,6 +35,7 @@ export function TesoreriaClient({
   oportunidades,
   proveedores = [],
   responsables = [],
+  personasCaja = [],
   planPorOportunidad = {},
   hoy = "",
 }: {
@@ -43,6 +44,8 @@ export function TesoreriaClient({
   oportunidades: Pick<Oportunidad, "id" | "numero" | "titulo">[];
   proveedores?: Pick<Proveedor, "id" | "nombre">[];
   responsables?: string[];
+  // Quien actúa como caja de TDO: no aparece en "Cuentas con el equipo".
+  personasCaja?: string[];
   planPorOportunidad?: Record<string, { id: string; concepto: string; importe: number }[]>;
   hoy?: string;
 }) {
@@ -131,18 +134,20 @@ export function TesoreriaClient({
   //    (cobrado_por, sin liquidar).
   // Los nombres se canonizan contra el equipo: "Jero" y "Jero (Jerónimo
   // Alonso Marcos)" son SIEMPRE la misma persona, aunque el dato guardado
-  // tenga la grafía corta.
+  // tenga la grafía corta. Quien actúa como caja de TDO (es_caja) se salta:
+  // sus cobros y pagos SON la caja, no cuentas pendientes.
   const cuentasEquipo = React.useMemo(() => {
     type Lado = { oficial: number; amigos: number };
     const map = new Map<string, { debeTDO: Lado; debenTDO: Lado }>();
     const get = (n: string) =>
       map.get(n) ?? { debeTDO: { oficial: 0, amigos: 0 }, debenTDO: { oficial: 0, amigos: 0 } };
+    const esCaja = (persona: string) => personasCaja.includes(persona);
     // TDO debe a la persona: cualquier gasto que adelantó de su bolsillo y aún
     // no se le ha reembolsado (liquidado). El estado del gasto (pagado al
     // proveedor o no) es indiferente para la deuda con la persona.
     for (const m of movimientos) {
       const persona = canonizarNombre(m.quien_lo_paga, responsables);
-      if (!persona) continue;
+      if (!persona || esCaja(persona)) continue;
       if (m.tipo !== "gasto" || m.liquidado) continue;
       const acc = get(persona);
       if (m.naturaleza === "amigos") acc.debeTDO.amigos += Number(m.importe);
@@ -152,7 +157,7 @@ export function TesoreriaClient({
     // La persona debe a TDO (cobros que tiene sin entregar)
     for (const m of movimientos) {
       const persona = canonizarNombre(m.cobrado_por, responsables);
-      if (!persona) continue;
+      if (!persona || esCaja(persona)) continue;
       if (m.tipo !== "ingreso" || m.liquidado) continue;
       const acc = get(persona);
       if (m.naturaleza === "amigos") acc.debenTDO.amigos += Number(m.importe);
@@ -166,7 +171,7 @@ export function TesoreriaClient({
         return { nombre, ...v, debeTotal, debenTotal, neto: debeTotal - debenTotal };
       })
       .sort((a, b) => Math.abs(b.neto) - Math.abs(a.neto));
-  }, [movimientos, responsables]);
+  }, [movimientos, responsables, personasCaja]);
   const hayCuentasEquipo = cuentasEquipo.some((c) => c.debeTotal > 0 || c.debenTotal > 0);
 
   // Desglose de la deuda por acreedor (a quién se debe) para el donut. Se
@@ -350,6 +355,13 @@ export function TesoreriaClient({
             <b>Le debe a TDO</b>: cobros que recibió en mano y aún no ha entregado a la caja. Cada
             importe indica su caja (🏦 oficial / 🤝 amigos). Pincha en una persona para ver su
             historial y saldar cada movimiento.
+            {personasCaja.length > 0 && (
+              <>
+                {" "}
+                <b>{personasCaja.join(" y ")}</b> actúa como caja de TDO (hasta que exista la SL):
+                lo que cobra y paga ES el dinero de TDO, por eso no aparece aquí.
+              </>
+            )}
           </p>
         </Card>
       )}
