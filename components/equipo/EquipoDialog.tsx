@@ -80,6 +80,16 @@ export function EquipoDialog({ persona }: { persona?: Equipo }) {
             <input type="checkbox" name="activo" defaultChecked={persona?.activo ?? true} className="h-4 w-4 accent-sage" />
             Activo
           </label>
+          <div className="space-y-1 rounded-md bg-beige-light/70 p-3">
+            <label className="flex items-center gap-2 text-[13px]">
+              <input type="checkbox" name="es_caja" defaultChecked={persona?.es_caja ?? false} className="h-4 w-4 accent-sage" />
+              Es la caja de TDO (hasta que exista la SL)
+            </label>
+            <p className="pl-6 text-[11.5px] text-ink-muted">
+              Lo que esta persona cobra y paga ES el dinero de TDO: no genera reembolsos ni
+              entregas pendientes en «Cuentas con el equipo».
+            </p>
+          </div>
           <Field label="Notas">
             <Textarea name="notas" defaultValue={persona?.notas ?? ""} />
           </Field>

@@ -1116,7 +1116,7 @@ export async function guardarEquipo(formData: FormData) {
     const s = (v as string)?.trim();
     return s ? Number(s) : null;
   };
-  const payload = {
+  const payload: Record<string, unknown> = {
     nombre: (formData.get("nombre") as string)?.trim(),
     rol: (formData.get("rol") as string)?.trim() || null,
     email: (formData.get("email") as string)?.trim() || null,
@@ -1124,17 +1124,20 @@ export async function guardarEquipo(formData: FormData) {
     porcentaje: numOrNull(formData.get("porcentaje")),
     precio_hora: numOrNull(formData.get("precio_hora")),
     activo: formData.get("activo") === "on",
+    es_caja: formData.get("es_caja") === "on",
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.nombre) throw new Error("El nombre es obligatorio.");
 
-  if (id) {
-    const { error } = await sb.from("equipo").update(payload).eq("id", id);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await sb.from("equipo").insert(payload);
-    if (error) throw new Error(error.message);
+  const guardar = async (fila: Record<string, unknown>) =>
+    id ? await sb.from("equipo").update(fila).eq("id", id) : await sb.from("equipo").insert(fila);
+  let { error } = await guardar(payload);
+  // Si la migración 038 (es_caja) no está aplicada aún, reintenta sin ella.
+  if (error && /es_caja/.test(error.message) && /column/i.test(error.message)) {
+    const { es_caja: _c, ...sinCaja } = payload;
+    ({ error } = await guardar(sinCaja));
   }
+  if (error) throw new Error(error.message);
   revalidatePath("/equipo");
 }
 
