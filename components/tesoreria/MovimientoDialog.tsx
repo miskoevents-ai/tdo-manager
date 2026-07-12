@@ -446,17 +446,26 @@ export function MovimientoDialog({
             </div>
           </div>
 
-          <label className="flex items-center gap-2 rounded-md bg-beige-light px-3 py-2 text-[12px]">
+          <label
+            className={`flex items-center gap-2 rounded-md bg-beige-light px-3 py-2 text-[12px] ${
+              caja === "amigos" ? "opacity-60" : ""
+            }`}
+          >
             <input
               type="checkbox"
               name="computa_contabilidad"
               checked={computa}
+              disabled={caja === "amigos"}
               onChange={(e) => setComputa(e.target.checked)}
               className="h-4 w-4 accent-sage"
             />
             <span>
               Computa en la contabilidad mensual{" "}
-              <span className="text-ink-muted">(solo facturas propias y gastos fijos, §5.4)</span>
+              <span className="text-ink-muted">
+                {caja === "amigos"
+                  ? "(la caja de Amigos nunca computa, §5.4)"
+                  : "(solo facturas propias y gastos fijos, §5.4)"}
+              </span>
             </span>
           </label>
 
