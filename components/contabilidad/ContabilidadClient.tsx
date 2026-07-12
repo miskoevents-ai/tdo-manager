@@ -188,33 +188,57 @@ export function ContabilidadClient({
         </div>
       </div>
 
-      {/* KPIs del rango (pinchables → detalle) */}
+      {/* KPIs del rango (pinchables → detalle; el signo indica cómo afectan) */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi
           label="Ingresos cobrados"
           value={eur(stats.ingresosCobrados)}
           tone="text-ok"
+          signo="+"
+          hint="SUMA al resultado: dinero que ya ha entrado (ingresos cobrados)."
           onClick={() => abrir("Ingresos cobrados", enRango.filter(esCobrado))}
         />
         <Kpi
           label="Gastos"
           value={eur(stats.gastos)}
           tone="text-error"
+          signo="−"
+          hint="RESTA al resultado: todos los gastos (pagados y también los previstos/pendientes de pagar)."
           onClick={() => abrir("Gastos", enRango.filter(esGasto))}
         />
         <Kpi
           label="Resultado"
           value={eur(stats.resultado)}
           tone={stats.resultado >= 0 ? "text-sage" : "text-error"}
+          signo="="
+          hint="Ingresos cobrados − todos los gastos. NO incluye lo previsto por cobrar."
           onClick={() => abrir("Resultado (ingresos cobrados y gastos)", enRango.filter((m) => esCobrado(m) || esGasto(m)))}
         />
         <Kpi
           label="Previsto por cobrar"
           value={eur(stats.previsto)}
           tone="text-warn"
+          hint="Aún NO cuenta en el resultado: ingresos previstos que todavía no has cobrado. Sumarían al 'resultado proyectado'."
           onClick={() => abrir("Previsto por cobrar", enRango.filter(esPrevisto))}
         />
       </div>
+
+      {/* Resultado proyectado: simula cobrar todo lo previsto */}
+      <button
+        onClick={() => abrir("Resultado proyectado (cobrado + previsto − gastos)", enRango.filter((m) => esCobrado(m) || esPrevisto(m) || esGasto(m)))}
+        title="Resultado + todo lo previsto por cobrar. Simula cómo quedaría el resultado si cobras todo lo pendiente."
+        className="flex w-full items-center justify-between rounded-md border-med border-sage-300 bg-sage-tint/40 px-4 py-3 text-left hover:bg-sage-tint/70"
+      >
+        <span className="text-[12.5px]">
+          🔮 <b>Resultado proyectado</b>{" "}
+          <span className="text-ink-muted">
+            (si cobras los {eur(stats.previsto)} previstos): {eur(stats.resultado)} + {eur(stats.previsto)} =
+          </span>
+        </span>
+        <span className={`font-display text-[20px] tabular ${stats.resultado + stats.previsto >= 0 ? "text-sage" : "text-error"}`}>
+          {eur(stats.resultado + stats.previsto)}
+        </span>
+      </button>
 
       {/* Inversión: incluida en el resultado; se señala cuánto es (solo Global) */}
       {vista === "global" && movsInversion.length > 0 && (
@@ -396,20 +420,31 @@ function Kpi({
   value,
   tone,
   onClick,
+  hint,
+  signo,
 }: {
   label: string;
   value: string;
   tone: string;
   onClick?: () => void;
+  hint?: string; // explicación al pasar por encima
+  signo?: "+" | "−" | "="; // cómo afecta al resultado
 }) {
   const bar = tone.replace("text-", "bg-");
+  const signoColor = signo === "+" ? "bg-ok/15 text-ok" : signo === "−" ? "bg-error/15 text-error" : "bg-beige-warm text-ink-muted";
   return (
     <Card
       onClick={onClick}
+      title={hint}
       className={`relative overflow-hidden p-4 pl-[18px] ${onClick ? "cursor-pointer transition-shadow hover:shadow-md" : ""}`}
     >
       <span className={`absolute left-0 top-0 h-full w-[3px] ${bar}`} />
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">{label}</div>
+      <div className="flex items-center justify-between">
+        <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">{label}</div>
+        {signo && (
+          <span className={`rounded-sm px-1.5 py-0.5 text-[10px] font-bold ${signoColor}`}>{signo}</span>
+        )}
+      </div>
       <div className={`mt-1 font-display text-[24px] tabular ${tone}`}>{value}</div>
     </Card>
   );
