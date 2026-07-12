@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Input, Select, Textarea, Field } from "@/components/ui/input";
 import { guardarMovimiento } from "@/app/actions";
+import { computaSegunNaturaleza } from "@/lib/computa";
 import { eur } from "@/lib/format";
 import {
   NATURALEZAS_MOV,
@@ -77,11 +78,9 @@ export function MovimientoDialog({
   const [naturaleza, setNaturaleza] = React.useState<string>(
     movimiento?.naturaleza ?? (tipoInicial === "ingreso" ? "ingreso_factura" : "gasto_fijo"),
   );
-  // Por defecto siempre marcado (computa en la contabilidad); el usuario puede
-  // desmarcarlo, y la caja Amigos lo pone en false automáticamente.
-  const [computa, setComputa] = React.useState(
-    movimiento?.computa_contabilidad ?? true,
-  );
+  // §5.4: computa se deriva SIEMPRE de la naturaleza (regla única, lib/computa);
+  // aquí solo se muestra, ya no se decide a mano.
+  const computa = computaSegunNaturaleza(naturaleza);
   // Caja: de qué contabilidad sale/entra el dinero. Amigos → naturaleza
   // 'amigos' y no computa en la oficial; se ve en la vista Amigos.
   const [caja, setCaja] = React.useState<"oficial" | "amigos">(
@@ -92,11 +91,9 @@ export function MovimientoDialog({
     setCaja(v);
     if (v === "amigos") {
       setNaturaleza("amigos");
-      setComputa(false);
     } else {
       const nat = tipo === "ingreso" ? "ingreso_factura" : "gasto_fijo";
       setNaturaleza(nat);
-      setComputa(true);
     }
   }
 
@@ -118,8 +115,6 @@ export function MovimientoDialog({
 
   function onNaturaleza(v: string) {
     setNaturaleza(v);
-    // Marcado por defecto salvo naturaleza 'amigos' (que nunca computa).
-    setComputa(v !== "amigos");
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -446,28 +441,27 @@ export function MovimientoDialog({
             </div>
           </div>
 
-          <label
-            className={`flex items-center gap-2 rounded-md bg-beige-light px-3 py-2 text-[12px] ${
-              caja === "amigos" ? "opacity-60" : ""
-            }`}
-          >
-            <input
-              type="checkbox"
-              name="computa_contabilidad"
-              checked={computa}
-              disabled={caja === "amigos"}
-              onChange={(e) => setComputa(e.target.checked)}
-              className="h-4 w-4 accent-sage"
-            />
+          {/* §5.4: computa se deriva de la naturaleza; solo se informa. */}
+          <div className="flex items-center gap-2 rounded-md bg-beige-light px-3 py-2 text-[12px]">
+            <span className={`inline-block h-2.5 w-2.5 rounded-full ${computa ? "bg-ok" : "bg-clay-300"}`} />
             <span>
-              Computa en la contabilidad mensual{" "}
-              <span className="text-ink-muted">
-                {caja === "amigos"
-                  ? "(la caja de Amigos nunca computa, §5.4)"
-                  : "(solo facturas propias y gastos fijos, §5.4)"}
-              </span>
+              {computa ? (
+                <>
+                  <b>Computa</b> en la contabilidad mensual{" "}
+                  <span className="text-ink-muted">(facturas propias, gastos fijos, gastos de evento y personal, §5.4)</span>
+                </>
+              ) : (
+                <>
+                  <b>No computa</b> en la contabilidad mensual{" "}
+                  <span className="text-ink-muted">
+                    {caja === "amigos"
+                      ? "(la caja de Amigos va aparte, §5.4)"
+                      : "(comisiones, inversión y ajustes internos van aparte, §5.4)"}
+                  </span>
+                </>
+              )}
             </span>
-          </label>
+          </div>
 
           <Field label="Notas">
             <Textarea name="notas" defaultValue={movimiento?.notas ?? ""} />

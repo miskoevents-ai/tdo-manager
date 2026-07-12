@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calcularTotales } from "@/lib/calc";
+import { computaSegunNaturaleza } from "@/lib/computa";
 import { runSeed, type SeedData } from "@/lib/seed-core";
 import { getKmPrecio } from "@/lib/data";
 
@@ -406,7 +407,9 @@ export async function guardarMovimiento(formData: FormData) {
     // ese dinero lo tiene ella hasta que lo entrega a la caja de TDO.
     cobrado_por: await canonizarPersonaEquipo(sb, formData.get("cobrado_por") as string),
     liquidado: formData.get("liquidado") === "on",
-    computa_contabilidad: formData.get("computa_contabilidad") === "on",
+    // §5.4: computa se deriva SIEMPRE de la naturaleza (regla única en
+    // lib/computa.ts); el usuario ya no lo decide a mano.
+    computa_contabilidad: computaSegunNaturaleza(formData.get("naturaleza") as string),
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.concepto) throw new Error("El concepto es obligatorio.");
@@ -631,7 +634,7 @@ export async function crearParteHoras(input: {
           estado: quien ? "previsto" : "pagado",
           quien_lo_paga: quien,
           oportunidad_id: input.oportunidadId,
-          computa_contabilidad: false,
+          computa_contabilidad: computaSegunNaturaleza(esAmigos ? "amigos" : "gasto_de_evento"),
         })
         .select("id")
         .single();
@@ -887,7 +890,7 @@ export async function crearDesplazamiento(input: {
       estado: quien ? "previsto" : "pagado",
       quien_lo_paga: quien,
       oportunidad_id: input.oportunidadId,
-      computa_contabilidad: false,
+      computa_contabilidad: computaSegunNaturaleza(input.caja === "amigos" ? "amigos" : "gasto_de_evento"),
     })
     .select("id")
     .single();
@@ -969,7 +972,7 @@ export async function crearCompra(input: {
       quien_lo_paga: quien,
       oportunidad_id: input.oportunidadId,
       proveedor_id: proveedorId,
-      computa_contabilidad: false,
+      computa_contabilidad: computaSegunNaturaleza(input.caja === "amigos" ? "amigos" : "gasto_de_evento"),
     })
     .select("id")
     .single();
