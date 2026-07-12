@@ -10,6 +10,7 @@ import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { Donut, DONUT_COLORS } from "@/components/ui/Donut";
 import { marcarMovimientoPagado, cambiarEstadoMovimiento, marcarMovimientoLiquidado, reembolsarMovimiento } from "@/app/actions";
 import { PersonaCajaModal } from "@/components/ui/PersonaCajaModal";
+import { canonizarNombre } from "@/lib/personas";
 import { eur, fecha } from "@/lib/format";
 import {
   NATURALEZA_LABEL,
@@ -120,12 +121,17 @@ export function TesoreriaClient({
   );
   const totalDeuda = deudas.reduce((s, m) => s + Number(m.importe), 0);
   const aQuien = (m: Tesoreria) =>
-    (m.proveedor_id ? provNombre[m.proveedor_id] : null) ?? m.quien_lo_paga ?? m.concepto;
+    (m.proveedor_id ? provNombre[m.proveedor_id] : null) ??
+    canonizarNombre(m.quien_lo_paga, responsables) ??
+    m.concepto;
 
   // Cuentas con el equipo, en los dos sentidos y por caja:
   //  · TDO le debe → gastos sin pagar que adelantó de su bolsillo (quien_lo_paga).
   //  · Le debe a TDO → cobros que recibió en mano y aún no ha entregado
   //    (cobrado_por, sin liquidar).
+  // Los nombres se canonizan contra el equipo: "Jero" y "Jero (Jerónimo
+  // Alonso Marcos)" son SIEMPRE la misma persona, aunque el dato guardado
+  // tenga la grafía corta.
   const cuentasEquipo = React.useMemo(() => {
     type Lado = { oficial: number; amigos: number };
     const map = new Map<string, { debeTDO: Lado; debenTDO: Lado }>();
@@ -135,7 +141,7 @@ export function TesoreriaClient({
     // no se le ha reembolsado (liquidado). El estado del gasto (pagado al
     // proveedor o no) es indiferente para la deuda con la persona.
     for (const m of movimientos) {
-      const persona = m.quien_lo_paga?.trim();
+      const persona = canonizarNombre(m.quien_lo_paga, responsables);
       if (!persona) continue;
       if (m.tipo !== "gasto" || m.liquidado) continue;
       const acc = get(persona);
@@ -145,7 +151,7 @@ export function TesoreriaClient({
     }
     // La persona debe a TDO (cobros que tiene sin entregar)
     for (const m of movimientos) {
-      const persona = m.cobrado_por?.trim();
+      const persona = canonizarNombre(m.cobrado_por, responsables);
       if (!persona) continue;
       if (m.tipo !== "ingreso" || m.liquidado) continue;
       const acc = get(persona);
@@ -160,7 +166,7 @@ export function TesoreriaClient({
         return { nombre, ...v, debeTotal, debenTotal, neto: debeTotal - debenTotal };
       })
       .sort((a, b) => Math.abs(b.neto) - Math.abs(a.neto));
-  }, [movimientos]);
+  }, [movimientos, responsables]);
   const hayCuentasEquipo = cuentasEquipo.some((c) => c.debeTotal > 0 || c.debenTotal > 0);
 
   // Desglose de la deuda por acreedor (a quién se debe) para el donut. Se
@@ -353,6 +359,7 @@ export function TesoreriaClient({
         <PersonaDetalle
           persona={personaDetalle}
           movimientos={movimientos}
+          responsables={responsables}
           onClose={() => setPersonaDetalle(null)}
           onDone={() => router.refresh()}
         />
@@ -554,17 +561,25 @@ export function TesoreriaClient({
 function PersonaDetalle({
   persona,
   movimientos,
+  responsables,
   onClose,
   onDone,
 }: {
   persona: string;
   movimientos: Tesoreria[];
+  responsables: string[];
   onClose: () => void;
   onDone: () => void;
 }) {
   const [busy, setBusy] = React.useState<string | null>(null);
-  const reembolsos = movimientos.filter((m) => m.tipo === "gasto" && m.quien_lo_paga?.trim() === persona);
-  const cobros = movimientos.filter((m) => m.tipo === "ingreso" && m.cobrado_por?.trim() === persona);
+  // Mismos criterios que la tabla: el nombre guardado se canoniza antes de
+  // comparar, para que "Jero" y "Jero (Jerónimo Alonso Marcos)" no se separen.
+  const reembolsos = movimientos.filter(
+    (m) => m.tipo === "gasto" && canonizarNombre(m.quien_lo_paga, responsables) === persona,
+  );
+  const cobros = movimientos.filter(
+    (m) => m.tipo === "ingreso" && canonizarNombre(m.cobrado_por, responsables) === persona,
+  );
   const debePend = reembolsos.filter((m) => !m.liquidado);
   const debenPend = cobros.filter((m) => !m.liquidado);
   const debe = debePend.reduce((s, m) => s + Number(m.importe), 0);
