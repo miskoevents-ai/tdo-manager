@@ -7,7 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { calcularTotales } from "@/lib/calc";
 import { computaSegunNaturaleza } from "@/lib/computa";
 import { runSeed, type SeedData } from "@/lib/seed-core";
-import { getKmPrecio } from "@/lib/data";
+import { getKmPrecio, getFactura } from "@/lib/data";
+import { renderFacturaPdf } from "@/lib/pdf/factura";
 
 // ---------------------------- Seed (setup) ----------------------------
 // Carga docs/seed-data.json en Supabase. Protegido por SEED_TOKEN.
@@ -1661,6 +1662,50 @@ export async function subirPdfFactura(formData: FormData) {
   revalidatePath("/facturas");
 }
 
+// Genera el PDF oficial de una factura (con react-pdf, sin navegador) y lo
+// guarda en Storage (bucket tickets, carpeta facturas/), enlazándolo en la
+// factura. A partir de ahí el botón "PDF" abre ese documento.
+export async function generarPdfFactura(facturaId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const sb = createAdminClient();
+    const f = await getFactura(facturaId);
+    if (!f) throw new Error("Factura no encontrada.");
+    const buf = await renderFacturaPdf(f);
+    const ruta = `facturas/${facturaId}.pdf`;
+    const { error: upErr } = await sb.storage
+      .from("tickets")
+      .upload(ruta, buf, { upsert: true, contentType: "application/pdf" });
+    if (upErr) {
+      if (/bucket/i.test(upErr.message)) throw new Error("Falta el bucket de archivos (migración 020).");
+      throw new Error(upErr.message);
+    }
+    const { data: pub } = sb.storage.from("tickets").getPublicUrl(ruta);
+    const url = `${pub.publicUrl}?v=${Date.now()}`;
+    const { error } = await sb.from("facturas").update({ pdf_url: url }).eq("id", facturaId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/facturas");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// Genera el PDF de todas las facturas que aún no tienen uno (respeta las
+// subidas a mano, que ya tienen pdf_url). Para poner al día el histórico.
+export async function generarPdfsFacturasFaltantes(): Promise<{ generadas: number; errores: number }> {
+  const sb = createAdminClient();
+  const { data } = await sb.from("facturas").select("id").is("pdf_url", null);
+  let generadas = 0;
+  let errores = 0;
+  for (const row of data ?? []) {
+    const r = await generarPdfFactura(row.id as string);
+    if (r.ok) generadas++;
+    else errores++;
+  }
+  revalidatePath("/facturas");
+  return { generadas, errores };
+}
+
 // Cierra (o reabre) un evento: valida los gastos post-evento y congela la
 // ficha de costes; el margen pasa a ser el definitivo.
 export async function cerrarEvento(oportunidadId: string, cerrar: boolean) {
@@ -1978,6 +2023,8 @@ export async function emitirFactura(oportunidadId: string) {
   }
 
   await sb.from("oportunidades").update({ estado: "facturada" }).eq("id", op.id);
+  // Genera y guarda su PDF oficial (no bloqueante: si falla, la factura queda igual).
+  await generarPdfFactura(facturaId).catch(() => {});
   revalidatePath("/facturas");
   revalidatePath("/tesoreria");
   revalidatePath("/contabilidad");
@@ -2301,6 +2348,8 @@ export async function crearFactura(input: {
     revalidatePath("/oportunidades");
   }
 
+  // Genera su PDF oficial (no bloqueante).
+  await generarPdfFactura(facturaId).catch(() => {});
   revalidatePath("/facturas");
   revalidatePath("/tesoreria");
   revalidatePath("/contabilidad");

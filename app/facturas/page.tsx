@@ -7,6 +7,7 @@ import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { FacturasList } from "@/components/facturas/FacturasList";
 import { PresupuestosList, type PresupuestoRow } from "@/components/facturas/PresupuestosList";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
+import { GenerarPdfsBtn } from "@/components/facturas/GenerarPdfsBtn";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getFacturas, getOportunidades, getEquipo, getClientes, getLugares } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
@@ -106,6 +107,7 @@ export default async function DocumentosPage({
       </InfoNote>
 
       <div className="flex flex-wrap justify-end gap-2">
+        <GenerarPdfsBtn />
         <a
           href="/api/descargar-todo"
           className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
