@@ -721,6 +721,33 @@ export async function borrarReunion(id: string, oportunidadId: string) {
 
 // ---------------------------- Tareas del equipo ----------------------------
 
+// Deja la checklist en forma canónica: pasos con texto no vacío y su estado.
+function normalizarChecklist(items?: { texto: string; hecho: boolean }[] | null) {
+  return (items ?? [])
+    .map((it) => ({ texto: (it.texto ?? "").trim(), hecho: Boolean(it.hecho) }))
+    .filter((it) => it.texto.length > 0);
+}
+
+// Inserta/actualiza una tarea reintentando sin las columnas que aún no estén
+// migradas (horas_estimadas 030, orden 031, checklist 035). Así la herramienta
+// sigue funcionando aunque falte una migración por aplicar.
+const COLUMNAS_TAREA_OPCIONALES = ["checklist", "horas_estimadas", "orden"];
+async function guardarTareaConFallback(
+  fn: (fila: Record<string, unknown>) => Promise<{ error: { message: string } | null }>,
+  fila: Record<string, unknown>,
+) {
+  const intento = { ...fila };
+  for (let i = 0; i <= COLUMNAS_TAREA_OPCIONALES.length; i++) {
+    const { error } = await fn(intento);
+    if (!error) return;
+    const faltante = COLUMNAS_TAREA_OPCIONALES.find(
+      (c) => c in intento && new RegExp(c).test(error.message) && /column/i.test(error.message),
+    );
+    if (!faltante) throw new Error(error.message);
+    delete intento[faltante];
+  }
+}
+
 export async function crearTarea(input: {
   titulo: string;
   descripcion: string | null;
@@ -730,6 +757,7 @@ export async function crearTarea(input: {
   fechaLimite: string | null;
   oportunidadId: string | null;
   horasEstimadas?: number | null;
+  checklist?: { texto: string; hecho: boolean }[] | null;
 }) {
   const sb = createAdminClient();
   if (!input.asignadaA.trim()) throw new Error("Di para quién es la tarea.");
@@ -742,14 +770,9 @@ export async function crearTarea(input: {
     fecha_limite: input.fechaLimite || null,
     oportunidad_id: input.oportunidadId || null,
     horas_estimadas: input.horasEstimadas && input.horasEstimadas > 0 ? input.horasEstimadas : null,
+    checklist: normalizarChecklist(input.checklist),
   };
-  let { error } = await sb.from("tareas").insert(fila);
-  // La columna horas_estimadas es de la migración 030: si no está, se omite.
-  if (error && /horas_estimadas/.test(error.message) && /column/i.test(error.message)) {
-    const { horas_estimadas: _h, ...sinHoras } = fila;
-    ({ error } = await sb.from("tareas").insert(sinHoras));
-  }
-  if (error) throw new Error(error.message);
+  await guardarTareaConFallback(async (f) => await sb.from("tareas").insert(f), fila);
   revalidatePath("/tareas");
   revalidatePath("/");
 }
@@ -767,6 +790,7 @@ export async function actualizarTarea(
     asignadaA?: string;
     creadaPor?: string | null;
     oportunidadId?: string | null;
+    checklist?: { texto: string; hecho: boolean }[] | null;
   },
 ) {
   const sb = createAdminClient();
@@ -779,6 +803,7 @@ export async function actualizarTarea(
   if (patch.asignadaA !== undefined) upd.asignada_a = patch.asignadaA;
   if (patch.creadaPor !== undefined) upd.creada_por = patch.creadaPor || null;
   if (patch.oportunidadId !== undefined) upd.oportunidad_id = patch.oportunidadId || null;
+  if (patch.checklist !== undefined) upd.checklist = normalizarChecklist(patch.checklist);
   if (patch.horasEstimadas !== undefined) {
     upd.horas_estimadas = patch.horasEstimadas && patch.horasEstimadas > 0 ? patch.horasEstimadas : null;
   }
@@ -786,12 +811,7 @@ export async function actualizarTarea(
     upd.estado = patch.estado;
     upd.completada_en = patch.estado === "hecha" ? new Date().toISOString() : null;
   }
-  let { error } = await sb.from("tareas").update(upd).eq("id", id);
-  if (error && /horas_estimadas/.test(error.message) && /column/i.test(error.message)) {
-    const { horas_estimadas: _h, ...sinHoras } = upd;
-    ({ error } = await sb.from("tareas").update(sinHoras).eq("id", id));
-  }
-  if (error) throw new Error(error.message);
+  await guardarTareaConFallback(async (f) => await sb.from("tareas").update(f).eq("id", id), upd);
   revalidatePath("/tareas");
   revalidatePath("/");
 }

@@ -3,16 +3,16 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Check, Pencil, MessageCircle, CalendarClock, Link2 } from "lucide-react";
+import { Plus, Trash2, Check, Pencil, MessageCircle, CalendarClock, Link2, X, ListChecks } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Field } from "@/components/ui/input";
+import { Input, Textarea, Select, Field } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { crearTarea, actualizarTarea, borrarTarea, ordenarTareas, crearTareasPlantilla, crearParteHoras } from "@/app/actions";
 import { fecha as fmtFecha, num } from "@/lib/format";
 import { plantillaPara } from "@/lib/plantillas-tareas";
 import { TIPO_EVENTO_LABEL } from "@/lib/estados";
-import type { Tarea, TareaEstado, TareaPrioridad } from "@/lib/types";
+import type { Tarea, TareaEstado, TareaPrioridad, ChecklistItem } from "@/lib/types";
 
 const PRIORIDAD: Record<TareaPrioridad, { label: string; clase: string; punto: string }> = {
   urgente: { label: "Urgente", clase: "bg-error-tint text-error", punto: "bg-error" },
@@ -40,6 +40,132 @@ const COLUMNAS: { estado: TareaEstado; titulo: string; barra: string }[] = [
 type OpLite = { id: string; titulo: string; tipoEvento?: string | null; fechaEvento?: string | null };
 
 type EquipoInfo = { nombre: string; id: string; precioHora: number };
+
+// ---------- Checklist (lista de pasos) ----------
+// Barra de progreso reutilizable: "3/5" + barra salvia.
+function ProgresoChecklist({ items, className = "" }: { items: ChecklistItem[]; className?: string }) {
+  const total = items.length;
+  const hechos = items.filter((i) => i.hecho).length;
+  const pct = total ? Math.round((hechos / total) * 100) : 0;
+  const completa = total > 0 && hechos === total;
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <ListChecks size={12} className={completa ? "text-ok" : "text-ink-muted"} />
+      <span className={`text-[10.5px] font-semibold tabular ${completa ? "text-ok" : "text-ink-muted"}`}>
+        {hechos}/{total}
+      </span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-beige-warm">
+        <div className={`h-full rounded-pill transition-all ${completa ? "bg-ok" : "bg-sage"}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// Lista marcable dentro de la tarjeta: cada paso se tacha al pincharlo y se
+// guarda al momento (como en Trello). onToggle recibe la lista ya actualizada.
+function ChecklistTarjeta({
+  items,
+  onToggle,
+  disabled,
+}: {
+  items: ChecklistItem[];
+  onToggle: (nueva: ChecklistItem[]) => void;
+  disabled?: boolean;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div className="space-y-1.5 rounded-md bg-beige-light/70 p-2.5">
+      <ProgresoChecklist items={items} />
+      <div className="space-y-0.5">
+        {items.map((it, i) => (
+          <button
+            key={i}
+            type="button"
+            disabled={disabled}
+            onClick={() => onToggle(items.map((x, j) => (j === i ? { ...x, hecho: !x.hecho } : x)))}
+            className="flex w-full items-start gap-2 rounded-sm px-1 py-1 text-left text-[12.5px] hover:bg-white/70 disabled:opacity-60"
+          >
+            <span
+              className={`mt-0.5 flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-[4px] border-med ${
+                it.hecho ? "border-ok bg-ok text-white" : "border-border-strong bg-white"
+              }`}
+            >
+              {it.hecho && <Check size={11} strokeWidth={3} />}
+            </span>
+            <span className={it.hecho ? "text-ink-muted line-through" : "text-ink-secondary"}>{it.texto}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Editor de checklist para los formularios (crear / editar): añadir, renombrar,
+// marcar y borrar pasos. La lista vive en el estado del formulario.
+function ChecklistEditor({
+  items,
+  onChange,
+}: {
+  items: ChecklistItem[];
+  onChange: (items: ChecklistItem[]) => void;
+}) {
+  const [nuevo, setNuevo] = React.useState("");
+  function anadir() {
+    const t = nuevo.trim();
+    if (!t) return;
+    onChange([...items, { texto: t, hecho: false }]);
+    setNuevo("");
+  }
+  return (
+    <div className="space-y-2">
+      {items.length > 0 && <ProgresoChecklist items={items} className="px-0.5" />}
+      {items.map((it, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onChange(items.map((x, j) => (j === i ? { ...x, hecho: !x.hecho } : x)))}
+            className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border-med ${
+              it.hecho ? "border-ok bg-ok text-white" : "border-border-strong bg-white"
+            }`}
+            title={it.hecho ? "Marcar sin hacer" : "Marcar hecho"}
+          >
+            {it.hecho && <Check size={12} strokeWidth={3} />}
+          </button>
+          <Input
+            value={it.texto}
+            onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, texto: e.target.value } : x)))}
+            className={`py-2 text-[13.5px] ${it.hecho ? "text-ink-muted line-through" : ""}`}
+          />
+          <button
+            type="button"
+            onClick={() => onChange(items.filter((_, j) => j !== i))}
+            className="rounded-sm p-1.5 text-ink-muted hover:bg-error-tint hover:text-error"
+            title="Quitar paso"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <Input
+          value={nuevo}
+          onChange={(e) => setNuevo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              anadir();
+            }
+          }}
+          placeholder="Añadir un paso y pulsar Enter…"
+          className="py-2 text-[13.5px]"
+        />
+        <Button size="sm" variant="outline" type="button" onClick={anadir} disabled={!nuevo.trim()}>
+          <Plus size={13} /> Paso
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function TareasClient({
   tareas,
@@ -347,6 +473,7 @@ function NuevaTarea({
   const [fechaLimite, setFechaLimite] = React.useState("");
   const [horas, setHoras] = React.useState("");
   const [opId, setOpId] = React.useState("");
+  const [checklist, setChecklist] = React.useState<ChecklistItem[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -366,9 +493,10 @@ function NuevaTarea({
         fechaLimite: fechaLimite || null,
         oportunidadId: opId || null,
         horasEstimadas: horas ? Number(horas.replace(",", ".")) : null,
+        checklist,
       });
       setOpen(false);
-      setTitulo(""); setDescripcion(""); setPara(""); setPrioridad("normal"); setFechaLimite(""); setHoras(""); setOpId("");
+      setTitulo(""); setDescripcion(""); setPara(""); setPrioridad("normal"); setFechaLimite(""); setHoras(""); setOpId(""); setChecklist([]);
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -386,14 +514,20 @@ function NuevaTarea({
   }
   return (
     <div className="w-full space-y-3 rounded-md border-hair border-sage-tint-deep bg-sage-tint/40 p-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Tarea *">
-          <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Preparar los centros de la boda…" autoFocus />
-        </Field>
-        <Field label="Detalles">
-          <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Cómo, dónde, con qué…" />
-        </Field>
-      </div>
+      <Field label="Tarea *">
+        <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Preparar los centros de la boda…" autoFocus />
+      </Field>
+      <Field label="Descripción">
+        <Textarea
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+          placeholder={"Explica la tarea: cómo, dónde, con qué…\nPuedes usar varias líneas o viñetas (- …)."}
+          rows={3}
+        />
+      </Field>
+      <Field label="Pasos (checklist)">
+        <ChecklistEditor items={checklist} onChange={setChecklist} />
+      </Field>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Field label="Para *">
           <Select value={para} onChange={(e) => setPara(e.target.value)}>
@@ -576,6 +710,9 @@ function TarjetaTarea({
   const [fechaLimite, setFechaLimite] = React.useState(t.fecha_limite ?? "");
   const [horas, setHoras] = React.useState(t.horas_estimadas != null ? String(t.horas_estimadas) : "");
   const [opId, setOpId] = React.useState(t.oportunidad?.id ?? "");
+  const [checklistEdit, setChecklistEdit] = React.useState<ChecklistItem[]>(t.checklist ?? []);
+
+  const checklist = t.checklist ?? [];
 
   // Al abrir el editor, refresca los campos con lo último de la tarea.
   function abrirEdicion() {
@@ -587,6 +724,7 @@ function TarjetaTarea({
     setFechaLimite(t.fecha_limite ?? "");
     setHoras(t.horas_estimadas != null ? String(t.horas_estimadas) : "");
     setOpId(t.oportunidad?.id ?? "");
+    setChecklistEdit(t.checklist ?? []);
     setEditando(true);
   }
 
@@ -601,6 +739,7 @@ function TarjetaTarea({
       fechaLimite: fechaLimite || null,
       horasEstimadas: horas ? Number(horas.replace(",", ".")) : null,
       oportunidadId: opId || null,
+      checklist: checklistEdit,
     });
     setEditando(false);
   }
@@ -674,9 +813,10 @@ function TarjetaTarea({
                 )}
               </div>
               {/* En el Tablero (compacta) la tarjeta va limpia: la descripción
-                  solo se ve en la vista Lista y al editar. */}
+                  solo se ve en la vista Lista y al editar. Se respetan los
+                  saltos de línea y viñetas del texto. */}
               {!compacta && t.descripcion && (
-                <p className="mt-0.5 text-[12.5px] text-ink-secondary">{t.descripcion}</p>
+                <p className="mt-0.5 whitespace-pre-line text-[12.5px] leading-relaxed text-ink-secondary">{t.descripcion}</p>
               )}
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-ink-muted">
                 <span>
@@ -691,6 +831,17 @@ function TarjetaTarea({
                 {t.horas_estimadas != null && t.horas_estimadas > 0 && (
                   <span className="inline-flex items-center gap-1 rounded-pill bg-sage-tint px-1.5 py-0.5 text-[10.5px] font-semibold text-sage">
                     ~{num(Number(t.horas_estimadas), 1)} h
+                  </span>
+                )}
+                {/* En el tablero, un contador compacto de pasos (la lista
+                    completa solo en la vista Lista para no recargar la tarjeta). */}
+                {compacta && checklist.length > 0 && (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-pill px-1.5 py-0.5 text-[10.5px] font-semibold ${
+                      checklist.every((i) => i.hecho) ? "bg-ok-tint text-ok" : "bg-beige-warm text-ink-muted"
+                    }`}
+                  >
+                    <ListChecks size={11} /> {checklist.filter((i) => i.hecho).length}/{checklist.length}
                   </span>
                 )}
                 {t.oportunidad && (
@@ -760,6 +911,11 @@ function TarjetaTarea({
         </div>
       </div>
 
+      {/* Checklist marcable (solo en la vista Lista; se guarda al momento) */}
+      {!compacta && checklist.length > 0 && (
+        <ChecklistTarjeta items={checklist} onToggle={(nueva) => act({ checklist: nueva })} disabled={busy} />
+      )}
+
       {/* Comentario / respuesta */}
       {(comentando || t.comentario) && (
         <div className="rounded-md bg-beige-light p-2.5">
@@ -793,14 +949,20 @@ function TarjetaTarea({
       <Dialog open={editando} onOpenChange={setEditando}>
         <DialogContent title="Editar tarea">
           <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Tarea *">
-                <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Preparar los centros de la boda…" autoFocus />
-              </Field>
-              <Field label="Detalles">
-                <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Cómo, dónde, con qué…" />
-              </Field>
-            </div>
+            <Field label="Tarea *">
+              <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Preparar los centros de la boda…" autoFocus />
+            </Field>
+            <Field label="Descripción">
+              <Textarea
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder={"Explica la tarea: cómo, dónde, con qué…\nPuedes usar varias líneas o viñetas (- …)."}
+                rows={3}
+              />
+            </Field>
+            <Field label="Pasos (checklist)">
+              <ChecklistEditor items={checklistEdit} onChange={setChecklistEdit} />
+            </Field>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               <Field label="Para *">
                 <Select value={para} onChange={(e) => setPara(e.target.value)}>

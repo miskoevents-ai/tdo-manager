@@ -385,6 +385,10 @@ export type Reunion = {
 export type TareaPrioridad = "baja" | "normal" | "alta" | "urgente";
 export type TareaEstado = "pendiente" | "en_curso" | "hecha" | "no_puedo";
 
+// Un paso de la lista de comprobación (checklist) de una tarea. Se guardan
+// como JSON en la columna `checklist` de tareas.
+export type ChecklistItem = { texto: string; hecho: boolean };
+
 export type Tarea = {
   id: string;
   titulo: string;
@@ -399,6 +403,7 @@ export type Tarea = {
   completada_en: string | null;
   horas_estimadas?: number | null;
   orden?: number | null;
+  checklist?: ChecklistItem[] | null;
   created_at: string;
   oportunidad?: { id: string; titulo: string } | null;
 };

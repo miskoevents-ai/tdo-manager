@@ -565,8 +565,12 @@ function PersonaDetalle({
   const [busy, setBusy] = React.useState<string | null>(null);
   const reembolsos = movimientos.filter((m) => m.tipo === "gasto" && m.quien_lo_paga?.trim() === persona);
   const cobros = movimientos.filter((m) => m.tipo === "ingreso" && m.cobrado_por?.trim() === persona);
-  const debe = reembolsos.filter((m) => !m.liquidado).reduce((s, m) => s + Number(m.importe), 0);
-  const deben = cobros.filter((m) => !m.liquidado).reduce((s, m) => s + Number(m.importe), 0);
+  const debePend = reembolsos.filter((m) => !m.liquidado);
+  const debenPend = cobros.filter((m) => !m.liquidado);
+  const debe = debePend.reduce((s, m) => s + Number(m.importe), 0);
+  const deben = debenPend.reduce((s, m) => s + Number(m.importe), 0);
+  const neto = debe - deben;
+  const nombreCorto = persona.split(" ")[0];
 
   async function saldar(id: string, liquidado: boolean) {
     setBusy(id);
@@ -621,14 +625,37 @@ function PersonaDetalle({
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/35 p-4 pt-[6vh]" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-[560px] rounded-lg border-hair border-border bg-white p-5 shadow-xl">
         <div className="mb-3 flex items-start justify-between">
-          <div>
-            <div className="font-display text-[18px]">{persona}</div>
-            <div className="mt-0.5 text-[12px] text-ink-muted">
-              TDO le debe <b className="text-warn">{eur(debe)}</b>
-              {deben > 0 && <> · Le debe a TDO <b className="text-ok">{eur(deben)}</b></>}
+          <div className="font-display text-[18px]">{persona}</div>
+          <button onClick={onClose} className="rounded-sm px-2 py-1 text-[16px] leading-none text-ink-muted hover:bg-beige-warm">×</button>
+        </div>
+
+        {/* De dónde sale el neto: la resta explicada paso a paso */}
+        <div className="mb-4 rounded-md border-hair border-border bg-beige-light/70 p-3">
+          <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+            De dónde sale el saldo
+          </div>
+          <div className="space-y-1 text-[12.5px]">
+            <div className="flex items-center justify-between">
+              <span className="text-ink-secondary">
+                TDO le debe <span className="text-ink-muted">({debePend.length} gasto{debePend.length === 1 ? "" : "s"} que adelantó)</span>
+              </span>
+              <span className="tabular font-semibold text-warn">+{eur(debe)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-ink-secondary">
+                Le debe a TDO <span className="text-ink-muted">({debenPend.length} cobro{debenPend.length === 1 ? "" : "s"} sin entregar)</span>
+              </span>
+              <span className="tabular font-semibold text-ok">−{eur(deben)}</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-border pt-1.5">
+              <span className="font-semibold">
+                {Math.abs(neto) < 0.01 ? "En paz" : neto > 0 ? "TDO le paga a " + nombreCorto : nombreCorto + " le entrega a TDO"}
+              </span>
+              <span className={`tabular font-display text-[16px] ${neto > 0.01 ? "text-warn" : neto < -0.01 ? "text-ok" : "text-ink-muted"}`}>
+                {Math.abs(neto) < 0.01 ? "—" : eur(Math.abs(neto))}
+              </span>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-sm px-2 py-1 text-[16px] leading-none text-ink-muted hover:bg-beige-warm">×</button>
         </div>
 
         {reembolsos.length > 0 && (
