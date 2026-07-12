@@ -6,10 +6,11 @@ import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { FacturasList } from "@/components/facturas/FacturasList";
 import { PresupuestosList, type PresupuestoRow } from "@/components/facturas/PresupuestosList";
+import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getFacturas, getOportunidades, getEquipo } from "@/lib/data";
+import { getFacturas, getOportunidades, getEquipo, getClientes, getLugares } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
-import type { Factura, Oportunidad } from "@/lib/types";
+import type { Factura, Oportunidad, Cliente, Lugar } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +31,16 @@ export default async function DocumentosPage({
   const { tab } = (await searchParams) ?? {};
 
   let facturas: Factura[], ops: Oportunidad[], responsables: string[] = [];
+  let clientes: Cliente[] = [], lugares: Lugar[] = [];
   try {
-    const [f, o, equipo] = await Promise.all([getFacturas(), getOportunidades(), getEquipo()]);
+    const [f, o, equipo, cl, lg] = await Promise.all([
+      getFacturas(), getOportunidades(), getEquipo(), getClientes(), getLugares(),
+    ]);
     facturas = f;
     ops = o;
     responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
+    clientes = cl;
+    lugares = lg;
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -96,7 +102,13 @@ export default async function DocumentosPage({
         estado y el documento listo para ver o imprimir — sin ir a buscarlos al OneDrive.
       </InfoNote>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <OportunidadDialog
+          clientes={clientes}
+          lugares={lugares}
+          responsables={responsables}
+          triggerLabel="Nuevo presupuesto"
+        />
         <Link
           href="/facturas/nueva"
           className="inline-flex items-center gap-2 rounded-sm bg-sage px-4 py-2 text-[13px] font-semibold text-cream hover:opacity-90"

@@ -23,11 +23,13 @@ export function OportunidadDialog({
   lugares,
   oportunidad,
   responsables = [],
+  triggerLabel,
 }: {
   clientes: Cliente[];
   lugares: Lugar[];
   oportunidad?: Oportunidad;
   responsables?: string[];
+  triggerLabel?: string; // texto del botón al crear (por defecto "Nueva oportunidad")
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -145,7 +147,7 @@ export function OportunidadDialog({
           </Button>
         ) : (
           <Button size="sm">
-            <Plus size={15} /> Nueva oportunidad
+            <Plus size={15} /> {triggerLabel ?? "Nueva oportunidad"}
           </Button>
         )}
       </DialogTrigger>
