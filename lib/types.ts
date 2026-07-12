@@ -385,15 +385,21 @@ export type Reunion = {
 export type TareaPrioridad = "baja" | "normal" | "alta" | "urgente";
 export type TareaEstado = "pendiente" | "en_curso" | "hecha" | "no_puedo";
 
-// Un paso de la lista de comprobación (checklist) de una tarea. Se guardan
-// como JSON en la columna `checklist` de tareas.
+// Un paso de una lista de comprobación (checklist) de una tarea.
 export type ChecklistItem = { texto: string; hecho: boolean };
+// Una checklist con nombre (estilo Trello: "Montaje", "Recogida"…). Se guardan
+// como JSON en la columna `checklist` de tareas: ChecklistGrupo[]. El formato
+// antiguo (lista plana de ChecklistItem) se sigue leyendo (ver lib/checklist).
+export type ChecklistGrupo = { titulo: string; items: ChecklistItem[] };
 
 export type Tarea = {
   id: string;
   titulo: string;
   descripcion: string | null;
   asignada_a: string;
+  // Todas las personas asignadas (la tarea puede compartirse). asignada_a es la
+  // principal (== asignados[0]) y se conserva para avisos/imputación de horas.
+  asignados?: string[] | null;
   creada_por: string | null;
   prioridad: TareaPrioridad;
   estado: TareaEstado;
@@ -403,7 +409,7 @@ export type Tarea = {
   completada_en: string | null;
   horas_estimadas?: number | null;
   orden?: number | null;
-  checklist?: ChecklistItem[] | null;
+  checklist?: ChecklistGrupo[] | ChecklistItem[] | null;
   created_at: string;
   oportunidad?: { id: string; titulo: string } | null;
 };
