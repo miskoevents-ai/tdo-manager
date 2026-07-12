@@ -764,6 +764,9 @@ export async function actualizarTarea(
     estado?: string;
     comentario?: string | null;
     horasEstimadas?: number | null;
+    asignadaA?: string;
+    creadaPor?: string | null;
+    oportunidadId?: string | null;
   },
 ) {
   const sb = createAdminClient();
@@ -773,6 +776,9 @@ export async function actualizarTarea(
   if (patch.prioridad !== undefined) upd.prioridad = patch.prioridad;
   if (patch.fechaLimite !== undefined) upd.fecha_limite = patch.fechaLimite || null;
   if (patch.comentario !== undefined) upd.comentario = patch.comentario?.trim() || null;
+  if (patch.asignadaA !== undefined) upd.asignada_a = patch.asignadaA;
+  if (patch.creadaPor !== undefined) upd.creada_por = patch.creadaPor || null;
+  if (patch.oportunidadId !== undefined) upd.oportunidad_id = patch.oportunidadId || null;
   if (patch.horasEstimadas !== undefined) {
     upd.horas_estimadas = patch.horasEstimadas && patch.horasEstimadas > 0 ? patch.horasEstimadas : null;
   }
