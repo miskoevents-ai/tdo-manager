@@ -65,10 +65,15 @@ export function ContabilidadClient({
         const esAmigos = m.naturaleza === "amigos";
         if (vista === "oficial") return m.computa_contabilidad && !esAmigos;
         if (vista === "amigos") return esAmigos;
-        // Global = todo el dinero real: oficial + amigos + comisiones pagadas
-        // (restan). Fuera solo inversión (se muestra aparte) y ajustes internos
-        // ('otro': reembolsos/traspasos, que duplicarían).
-        return m.computa_contabilidad || esAmigos || m.naturaleza === "comision";
+        // Global = todo el dinero real: oficial + amigos + comisiones + la
+        // inversión (para saber cómo vamos de verdad). Fuera solo los ajustes
+        // internos ('otro': reembolsos/traspasos, que duplicarían).
+        return (
+          m.computa_contabilidad ||
+          esAmigos ||
+          m.naturaleza === "comision" ||
+          m.naturaleza === "inversion"
+        );
       }),
     [movimientos, vista],
   );
@@ -211,16 +216,16 @@ export function ContabilidadClient({
         />
       </div>
 
-      {/* Inversión: capital aparte del resultado mensual (solo en Global) */}
+      {/* Inversión: incluida en el resultado; se señala cuánto es (solo Global) */}
       {vista === "global" && movsInversion.length > 0 && (
         <button
-          onClick={() => abrir("Inversión (aparte del resultado)", movsInversion)}
+          onClick={() => abrir("Inversión inicial (incluida en el resultado)", movsInversion)}
           className="flex w-full items-center justify-between rounded-md border-hair border-border bg-beige-light px-4 py-2.5 text-left text-[12.5px] hover:bg-beige-warm/70"
         >
           <span>
-            💼 <b>Inversión acumulada</b>{" "}
+            💼 <b>Incluye inversión inicial</b>{" "}
             <span className="text-ink-muted">
-              (capital, no cuenta en el resultado mensual · hasta {mesLabel(hasta)})
+              (compra del negocio, ya contada en el resultado · hasta {mesLabel(hasta)})
             </span>
           </span>
           <span className="tabular font-semibold text-clay-600">{eur(inversionAcum)}</span>
