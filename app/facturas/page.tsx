@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { InfoNote } from "@/components/ui/InfoNote";
@@ -105,7 +105,14 @@ export default async function DocumentosPage({
         estado y el documento listo para ver o imprimir — sin ir a buscarlos al OneDrive.
       </InfoNote>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
+        <a
+          href="/api/descargar-todo"
+          className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
+          title="Descargar un ZIP con las facturas subidas, los tickets y un índice con enlace a cada documento"
+        >
+          <Download size={15} /> Descargar todo
+        </a>
         <OportunidadDialog
           clientes={clientes}
           lugares={lugares}
