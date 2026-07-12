@@ -317,9 +317,15 @@ export function ContabilidadClient({
                             {m.fecha.slice(8, 10)}/{m.fecha.slice(5, 7)}
                           </td>
                           <td className="border-b border-[#f0eae1] py-1.5 pr-2">
-                            {m.concepto}
-                            <span className="ml-1.5 text-[10.5px] text-ink-muted">
+                            <div>{m.concepto}</div>
+                            {(m.cliente?.nombre || m.oportunidad?.titulo) && (
+                              <div className="text-[11px] text-ink-secondary">
+                                {[m.cliente?.nombre, m.oportunidad?.titulo].filter(Boolean).join(" · ")}
+                              </div>
+                            )}
+                            <span className="text-[10.5px] text-ink-muted">
                               {m.naturaleza === "amigos" ? "🤝 amigos" : "🏦 oficial"} · {m.estado}
+                              {m.categoria ? ` · ${m.categoria}` : ""}
                             </span>
                           </td>
                           <td className={`whitespace-nowrap border-b border-[#f0eae1] py-1.5 text-right tabular font-semibold ${m.tipo === "ingreso" ? "text-ok" : "text-error"}`}>
