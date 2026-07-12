@@ -38,13 +38,13 @@ function statsDe(movs: Tesoreria[]) {
 type Vista = "oficial" | "amigos" | "global";
 
 const VISTAS: { key: Vista; label: string; desc: string }[] = [
-  { key: "oficial", label: "Oficial", desc: "Solo facturas propias cobradas y gastos oficiales (regla §5.4): lo declarable." },
-  { key: "amigos", label: "Amigos", desc: "Aportaciones y gastos de préstamos a amigos, sin factura." },
   {
     key: "global",
     label: "Global",
     desc: "Todo el dinero real: oficial + amigos + comisiones pagadas (restan). La inversión se muestra aparte.",
   },
+  { key: "oficial", label: "Oficial", desc: "Solo facturas propias cobradas y gastos oficiales (regla §5.4): lo declarable." },
+  { key: "amigos", label: "Amigos", desc: "Aportaciones y gastos de préstamos a amigos, sin factura." },
 ];
 
 export function ContabilidadClient({
@@ -56,8 +56,8 @@ export function ContabilidadClient({
 }) {
   // Mes de arranque de la contabilidad (configurable en ajustes).
   const INICIO = inicio && /^\d{4}-\d{2}$/.test(inicio) ? inicio : "2026-05";
-  // Tres vistas: oficial (computa, §5.4), amigos (naturaleza amigos) y global.
-  const [vista, setVista] = React.useState<Vista>("oficial");
+  // Tres vistas: global por defecto (la foto real), luego oficial (§5.4) y amigos.
+  const [vista, setVista] = React.useState<Vista>("global");
   const contables = React.useMemo(
     () =>
       movimientos.filter((m) => {
