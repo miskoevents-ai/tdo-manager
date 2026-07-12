@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FileDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ export type PresupuestoRow = {
 // Archivo de presupuestos: todos los emitidos, con su número y acceso
 // directo al documento (sin ir a buscarlos al OneDrive).
 export function PresupuestosList({ presupuestos }: { presupuestos: PresupuestoRow[] }) {
+  const router = useRouter();
   const [q, setQ] = React.useState("");
 
   const visibles = presupuestos.filter((p) => {
@@ -72,11 +74,14 @@ export function PresupuestosList({ presupuestos }: { presupuestos: PresupuestoRo
             {visibles.map((p) => {
               const m = ESTADO_META[p.estado];
               return (
-                <tr key={p.id} className="hover:bg-beige-light">
-                  <td className="border-t border-border px-[15px] py-3 text-[13px] font-medium">
-                    <Link href={`/oportunidades/${p.id}`} className="hover:text-clay">
-                      {p.numero ?? "—"}
-                    </Link>
+                <tr
+                  key={p.id}
+                  onClick={() => router.push(`/oportunidades/${p.id}`)}
+                  className="cursor-pointer hover:bg-beige-light"
+                  title="Ir a la oportunidad"
+                >
+                  <td className="border-t border-border px-[15px] py-3 text-[13px] font-medium text-clay">
+                    {p.numero ?? "—"}
                   </td>
                   <td className="border-t border-border px-[15px] py-3 text-[13px]">{p.titulo}</td>
                   <td className="border-t border-border px-[15px] py-3 text-[13px] text-ink-secondary">
@@ -94,7 +99,7 @@ export function PresupuestosList({ presupuestos }: { presupuestos: PresupuestoRo
                   <td className="border-t border-border px-[15px] py-3">
                     <Badge tone={m.tone}>{m.label}</Badge>
                   </td>
-                  <td className="border-t border-border px-[15px] py-3 text-right">
+                  <td className="border-t border-border px-[15px] py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <Link
                       href={docHref(p)}
                       className="inline-flex items-center gap-1 rounded-sm border-med border-border-strong px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-secondary hover:bg-beige-warm"
@@ -117,12 +122,10 @@ export function PresupuestosList({ presupuestos }: { presupuestos: PresupuestoRo
         {visibles.map((p) => {
           const m = ESTADO_META[p.estado];
           return (
-            <Card key={p.id} className="p-4">
+            <Card key={p.id} className="cursor-pointer p-4" onClick={() => router.push(`/oportunidades/${p.id}`)}>
               <div className="flex items-start justify-between">
                 <div>
-                  <Link href={`/oportunidades/${p.id}`} className="text-[14px] font-semibold hover:text-clay">
-                    {p.numero ?? "—"}
-                  </Link>
+                  <div className="text-[14px] font-semibold text-clay">{p.numero ?? "—"}</div>
                   <div className="mt-0.5 text-[12px]">{p.titulo}</div>
                   <div className="mt-0.5 text-[11.5px] text-ink-muted">
                     {p.cliente ?? "—"}
@@ -131,7 +134,7 @@ export function PresupuestosList({ presupuestos }: { presupuestos: PresupuestoRo
                 </div>
                 <Badge tone={m.tone}>{m.label}</Badge>
               </div>
-              <div className="mt-3 flex items-center justify-between">
+              <div className="mt-3 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
                 <span className="tabular text-[15px] font-semibold text-sage">{eur(p.total)}</span>
                 <Link
                   href={docHref(p)}

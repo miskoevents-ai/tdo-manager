@@ -214,16 +214,16 @@ export function FacturasList({ facturas, responsables = [] }: { facturas: Factur
           <tbody>
             {visibles.map((f) => {
               const m = FACTURA_META[f.estado];
+              const destino = f.oportunidad_id ? `/oportunidades/${f.oportunidad_id}` : `/facturas/${f.id}`;
               return (
-                <tr key={f.id} className="hover:bg-beige-light">
-                  <td className="border-t border-border px-[15px] py-3 text-[13px] font-medium">
-                    {f.oportunidad_id ? (
-                      <Link href={`/oportunidades/${f.oportunidad_id}`} className="hover:text-clay">
-                        {f.numero}
-                      </Link>
-                    ) : (
-                      f.numero
-                    )}
+                <tr
+                  key={f.id}
+                  onClick={() => router.push(destino)}
+                  className="cursor-pointer hover:bg-beige-light"
+                  title={f.oportunidad_id ? "Ir a la oportunidad" : "Ver la factura"}
+                >
+                  <td className="border-t border-border px-[15px] py-3 text-[13px] font-medium text-clay">
+                    {f.numero}
                   </td>
                   <td className="border-t border-border px-[15px] py-3 text-[13px]">
                     {f.cliente?.nombre ?? "—"}
@@ -248,7 +248,10 @@ export function FacturasList({ facturas, responsables = [] }: { facturas: Factur
                   <td className="border-t border-border px-[15px] py-3">
                     <Badge tone={m.tone}>{m.label}</Badge>
                   </td>
-                  <td className="border-t border-border px-[15px] py-3 text-right">
+                  <td
+                    className="border-t border-border px-[15px] py-3 text-right"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="inline-flex items-center gap-1.5">
                       <Link
                         href={f.pdf_url || `/facturas/${f.id}`}
@@ -315,17 +318,12 @@ export function FacturasList({ facturas, responsables = [] }: { facturas: Factur
       <div className="space-y-3 md:hidden">
         {visibles.map((f) => {
           const m = FACTURA_META[f.estado];
+          const destino = f.oportunidad_id ? `/oportunidades/${f.oportunidad_id}` : `/facturas/${f.id}`;
           return (
-            <Card key={f.id} className="p-4">
+            <Card key={f.id} className="cursor-pointer p-4" onClick={() => router.push(destino)}>
               <div className="flex items-start justify-between">
                 <div>
-                  {f.oportunidad_id ? (
-                    <Link href={`/oportunidades/${f.oportunidad_id}`} className="text-[14px] font-semibold hover:text-clay">
-                      {f.numero}
-                    </Link>
-                  ) : (
-                    <div className="text-[14px] font-semibold">{f.numero}</div>
-                  )}
+                  <div className="text-[14px] font-semibold text-clay">{f.numero}</div>
                   <div className="mt-0.5 text-[12px] text-ink-muted">
                     {f.cliente?.nombre ?? "—"} · {fecha(f.fecha_emision)}
                   </div>
@@ -346,7 +344,7 @@ export function FacturasList({ facturas, responsables = [] }: { facturas: Factur
                 <span className="tabular text-[15px] font-semibold text-sage">
                   {eur(Number(f.total))}
                 </span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                   <Link
                     href={f.pdf_url || `/facturas/${f.id}`}
                     target={f.pdf_url ? "_blank" : undefined}
