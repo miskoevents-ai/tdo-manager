@@ -1624,6 +1624,43 @@ export async function adjuntarTicket(formData: FormData) {
   revalidatePath("/tesoreria");
 }
 
+// Sube el PDF real de una factura (el documento oficial que tengas en el
+// ordenador) al bucket "tickets" en la carpeta facturas/, y lo enlaza en la
+// factura. A partir de ahí, el botón "PDF" abre ese documento.
+export async function subirPdfFactura(formData: FormData) {
+  const sb = createAdminClient();
+  const facturaId = String(formData.get("facturaId") ?? "");
+  const file = formData.get("pdf") as File | null;
+  if (!facturaId) throw new Error("Falta la factura.");
+  if (!file || file.size === 0) throw new Error("Falta el archivo del PDF.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("El PDF no puede pesar más de 10 MB.");
+  if (file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    throw new Error("El archivo tiene que ser un PDF.");
+  }
+
+  const ruta = `facturas/${facturaId}.pdf`;
+  const { error: upErr } = await sb.storage
+    .from("tickets")
+    .upload(ruta, file, { upsert: true, contentType: "application/pdf" });
+  if (upErr) {
+    if (/bucket/i.test(upErr.message)) {
+      throw new Error("Falta ejecutar la migración 020 (bucket de archivos) en Supabase.");
+    }
+    throw new Error(upErr.message);
+  }
+  // Cache-busting para que se vea la última versión al reemplazar.
+  const { data: pub } = sb.storage.from("tickets").getPublicUrl(ruta);
+  const url = `${pub.publicUrl}?v=${Date.now()}`;
+  const { error } = await sb.from("facturas").update({ pdf_url: url }).eq("id", facturaId);
+  if (error) {
+    if (/pdf_url/.test(error.message) && /column/i.test(error.message)) {
+      throw new Error("Falta la columna pdf_url en facturas (ya existe en el esquema base; revisa Supabase).");
+    }
+    throw new Error(error.message);
+  }
+  revalidatePath("/facturas");
+}
+
 // Cierra (o reabre) un evento: valida los gastos post-evento y congela la
 // ficha de costes; el margen pasa a ser el definitivo.
 export async function cerrarEvento(oportunidadId: string, cerrar: boolean) {

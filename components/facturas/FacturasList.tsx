@@ -3,10 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Undo2, FileDown, Ban } from "lucide-react";
+import { Check, Undo2, FileDown, Ban, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { marcarFacturaCobrada, anularFactura } from "@/app/actions";
+import { marcarFacturaCobrada, anularFactura, subirPdfFactura } from "@/app/actions";
 import { PersonaCajaModal } from "@/components/ui/PersonaCajaModal";
 import { eur, fecha } from "@/lib/format";
 import { FACTURA_META } from "@/lib/estados";
@@ -19,6 +19,43 @@ const FILTROS: { key: "todas" | FacturaEstado; label: string }[] = [
   { key: "vencida", label: "Vencidas" },
   { key: "anulada", label: "Anuladas" },
 ];
+
+// Botón para subir/reemplazar el PDF real de una factura desde el ordenador.
+function SubirPdf({ facturaId }: { facturaId: string }) {
+  const router = useRouter();
+  const ref = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState(false);
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.set("facturaId", facturaId);
+      fd.set("pdf", file);
+      await subirPdfFactura(fd);
+      router.refresh();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = "";
+    }
+  }
+  return (
+    <>
+      <input ref={ref} type="file" accept="application/pdf,.pdf" onChange={onFile} className="hidden" />
+      <button
+        onClick={() => ref.current?.click()}
+        disabled={busy}
+        title="Subir el PDF real de esta factura desde el ordenador"
+        className="inline-flex items-center gap-1 rounded-sm border-med border-border-strong px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-secondary hover:bg-beige-warm"
+      >
+        <Upload size={12} /> {busy ? "Subiendo…" : "Subir PDF"}
+      </button>
+    </>
+  );
+}
 
 export function FacturasList({ facturas, responsables = [] }: { facturas: Factura[]; responsables?: string[] }) {
   const router = useRouter();
@@ -214,11 +251,14 @@ export function FacturasList({ facturas, responsables = [] }: { facturas: Factur
                   <td className="border-t border-border px-[15px] py-3 text-right">
                     <div className="inline-flex items-center gap-1.5">
                       <Link
-                        href={`/facturas/${f.id}`}
+                        href={f.pdf_url || `/facturas/${f.id}`}
+                        target={f.pdf_url ? "_blank" : undefined}
                         className="inline-flex items-center gap-1 rounded-sm border-med border-border-strong px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-secondary hover:bg-beige-warm"
+                        title={f.pdf_url ? "Abrir el PDF subido" : "Ver el PDF generado"}
                       >
-                        <FileDown size={12} /> PDF
+                        <FileDown size={12} /> PDF{f.pdf_url ? " ✓" : ""}
                       </Link>
+                      <SubirPdf facturaId={f.id} />
                       {f.estado !== "anulada" && (
                         <button
                           onClick={() => toggle(f)}
@@ -308,11 +348,13 @@ export function FacturasList({ facturas, responsables = [] }: { facturas: Factur
                 </span>
                 <div className="flex items-center gap-1.5">
                   <Link
-                    href={`/facturas/${f.id}`}
+                    href={f.pdf_url || `/facturas/${f.id}`}
+                    target={f.pdf_url ? "_blank" : undefined}
                     className="inline-flex items-center gap-1 rounded-sm border-med border-border-strong px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-secondary"
                   >
-                    <FileDown size={12} /> PDF
+                    <FileDown size={12} /> PDF{f.pdf_url ? " ✓" : ""}
                   </Link>
+                  <SubirPdf facturaId={f.id} />
                   <button
                     onClick={() => toggle(f)}
                     disabled={busy === f.id}
