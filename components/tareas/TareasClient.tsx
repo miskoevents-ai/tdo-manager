@@ -661,7 +661,11 @@ function TarjetaTarea({
                   </span>
                 )}
               </div>
-              {t.descripcion && <p className="mt-0.5 text-[12.5px] text-ink-secondary">{t.descripcion}</p>}
+              {/* En el Tablero (compacta) la tarjeta va limpia: la descripción
+                  solo se ve en la vista Lista y al editar. */}
+              {!compacta && t.descripcion && (
+                <p className="mt-0.5 text-[12.5px] text-ink-secondary">{t.descripcion}</p>
+              )}
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-ink-muted">
                 <span>
                   {t.creada_por ? `${t.creada_por} → ` : ""}
