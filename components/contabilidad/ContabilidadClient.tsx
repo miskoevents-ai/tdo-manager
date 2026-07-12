@@ -38,9 +38,13 @@ function statsDe(movs: Tesoreria[]) {
 type Vista = "oficial" | "amigos" | "global";
 
 const VISTAS: { key: Vista; label: string; desc: string }[] = [
-  { key: "oficial", label: "Oficial", desc: "Solo facturas propias cobradas y gastos fijos (regla §5.4)." },
+  { key: "oficial", label: "Oficial", desc: "Solo facturas propias cobradas y gastos oficiales (regla §5.4): lo declarable." },
   { key: "amigos", label: "Amigos", desc: "Aportaciones y gastos de préstamos a amigos, sin factura." },
-  { key: "global", label: "Global", desc: "Todo junto: la oficial más lo de amigos." },
+  {
+    key: "global",
+    label: "Global",
+    desc: "Todo el dinero real: oficial + amigos + comisiones pagadas (restan). La inversión se muestra aparte.",
+  },
 ];
 
 export function ContabilidadClient({
@@ -61,7 +65,10 @@ export function ContabilidadClient({
         const esAmigos = m.naturaleza === "amigos";
         if (vista === "oficial") return m.computa_contabilidad && !esAmigos;
         if (vista === "amigos") return esAmigos;
-        return m.computa_contabilidad || esAmigos;
+        // Global = todo el dinero real: oficial + amigos + comisiones pagadas
+        // (restan). Fuera solo inversión (se muestra aparte) y ajustes internos
+        // ('otro': reembolsos/traspasos, que duplicarían).
+        return m.computa_contabilidad || esAmigos || m.naturaleza === "comision";
       }),
     [movimientos, vista],
   );
@@ -86,6 +93,17 @@ export function ContabilidadClient({
   // Detalle: al pinchar una cifra, mostramos los movimientos que la componen.
   const [detalle, setDetalle] = React.useState<{ titulo: string; movs: Tesoreria[] } | null>(null);
   const abrir = (titulo: string, movs: Tesoreria[]) => setDetalle({ titulo, movs });
+
+  // Inversión acumulada hasta el final del rango: es capital, no gasto del mes,
+  // así que va fuera del resultado y se enseña como línea aparte en Global.
+  const movsInversion = React.useMemo(
+    () =>
+      movimientos.filter(
+        (m) => m.naturaleza === "inversion" && m.fecha.slice(0, 7) >= INICIO && m.fecha.slice(0, 7) <= hasta,
+      ),
+    [movimientos, hasta, INICIO],
+  );
+  const inversionAcum = totalConSigno(movsInversion);
 
   function exportarCSV() {
     const head = ["fecha", "concepto", "tipo", "naturaleza", "categoria", "importe", "estado"];
@@ -192,6 +210,22 @@ export function ContabilidadClient({
           onClick={() => abrir("Previsto por cobrar", enRango.filter(esPrevisto))}
         />
       </div>
+
+      {/* Inversión: capital aparte del resultado mensual (solo en Global) */}
+      {vista === "global" && movsInversion.length > 0 && (
+        <button
+          onClick={() => abrir("Inversión (aparte del resultado)", movsInversion)}
+          className="flex w-full items-center justify-between rounded-md border-hair border-border bg-beige-light px-4 py-2.5 text-left text-[12.5px] hover:bg-beige-warm/70"
+        >
+          <span>
+            💼 <b>Inversión acumulada</b>{" "}
+            <span className="text-ink-muted">
+              (capital, no cuenta en el resultado mensual · hasta {mesLabel(hasta)})
+            </span>
+          </span>
+          <span className="tabular font-semibold text-clay-600">{eur(inversionAcum)}</span>
+        </button>
+      )}
 
       {/* Tabla por mes */}
       <Card className="overflow-x-auto">
