@@ -230,6 +230,8 @@ export type TesoreriaNaturaleza =
   | "gasto_fijo"
   | "gasto_de_evento"
   | "inversion"
+  | "comision"
+  | "personal"
   | "amigos"
   | "otro";
 
