@@ -646,7 +646,7 @@ export async function crearParteHoras(input: {
           categoria: "Personal externo",
           importe,
           fecha: input.fecha || new Date().toISOString().slice(0, 10),
-          estado: quien ? "previsto" : "pagado",
+          estado: "pagado", // quien lo adelantó ya lo pagó; el reembolso vive en liquidado
           quien_lo_paga: quien,
           oportunidad_id: input.oportunidadId,
           computa_contabilidad: computaSegunNaturaleza(esAmigos ? "amigos" : "gasto_de_evento"),
@@ -947,7 +947,7 @@ export async function crearDesplazamiento(input: {
       categoria: "Desplazamiento",
       importe: total,
       fecha: input.fecha || new Date().toISOString().slice(0, 10),
-      estado: quien ? "previsto" : "pagado",
+      estado: "pagado", // quien lo adelantó ya lo pagó; el reembolso vive en liquidado
       quien_lo_paga: quien,
       oportunidad_id: input.oportunidadId,
       computa_contabilidad: computaSegunNaturaleza(input.caja === "amigos" ? "amigos" : "gasto_de_evento"),
@@ -1028,7 +1028,7 @@ export async function crearCompra(input: {
       categoria: input.categoria?.trim() || "Material",
       importe: Math.abs(input.importe),
       fecha: input.fecha || new Date().toISOString().slice(0, 10),
-      estado: quien ? "previsto" : "pagado",
+      estado: "pagado", // quien lo adelantó ya lo pagó; el reembolso vive en liquidado
       quien_lo_paga: quien,
       oportunidad_id: input.oportunidadId,
       proveedor_id: proveedorId,
@@ -1418,8 +1418,9 @@ export async function generarGastosDelMes(
         fecha: g.dia_cargo
           ? `${ym}-${String(Math.min(g.dia_cargo, finMes)).padStart(2, "0")}`
           : desde,
-        estado: "previsto",
-        // Si lo paga una persona concreta, queda como reembolso pendiente.
+        // Si lo paga una persona concreta, se da por pagado (lo carga ella);
+        // el reembolso pendiente vive en liquidado/Cuentas con el equipo.
+        estado: g.quien_lo_paga ? "pagado" : "previsto",
         quien_lo_paga: g.quien_lo_paga || null,
         gasto_fijo_id: g.id,
         computa_contabilidad: !esAmigos,

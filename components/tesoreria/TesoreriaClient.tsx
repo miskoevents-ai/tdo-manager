@@ -712,7 +712,13 @@ function EstadoMovSelect({ mov, hoy, responsables = [] }: { mov: Tesoreria; hoy:
   const [preguntando, setPreguntando] = React.useState(false);
   const realizado = mov.tipo === "ingreso" ? "cobrado" : "pagado";
   const realizadoLabel = mov.tipo === "ingreso" ? "Cobrado" : "Pagado";
-  const vencida = mov.estado === "previsto" && Boolean(mov.fecha) && Boolean(hoy) && (mov.fecha as string) < hoy;
+  // Si ya sabemos quién lo pagó/cobró, el movimiento está resuelto: nunca se
+  // enseña como "Vencido" pidiendo que alguien lo vuelva a marcar.
+  const conDueno =
+    (mov.tipo === "gasto" && Boolean(mov.quien_lo_paga)) ||
+    (mov.tipo === "ingreso" && Boolean(mov.cobrado_por));
+  const vencida =
+    mov.estado === "previsto" && !conDueno && Boolean(mov.fecha) && Boolean(hoy) && (mov.fecha as string) < hoy;
   const valor = mov.estado === realizado ? realizado : "previsto";
   const tono = vencida ? "error" : ESTADO_MOV_META[valor]?.tone ?? "neutral";
   const cls: Record<string, string> = {
