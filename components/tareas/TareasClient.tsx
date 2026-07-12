@@ -7,6 +7,7 @@ import { Plus, Trash2, Check, Pencil, MessageCircle, CalendarClock, Link2 } from
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { crearTarea, actualizarTarea, borrarTarea, ordenarTareas, crearTareasPlantilla, crearParteHoras } from "@/app/actions";
 import { fecha as fmtFecha, num } from "@/lib/format";
 import { plantillaPara } from "@/lib/plantillas-tareas";
@@ -176,7 +177,7 @@ export function TareasClient({
       </div>
 
       {vista === "tablero" ? (
-        <Tablero tareas={visiblesPersona} hoy={hoy} personas={personas} equipoInfo={equipoInfo} onOrdenar={ordenar} onDone={r} />
+        <Tablero tareas={visiblesPersona} hoy={hoy} personas={personas} oportunidades={oportunidades} equipoInfo={equipoInfo} onOrdenar={ordenar} onDone={r} />
       ) : (
         <>
           {/* Abiertas */}
@@ -187,7 +188,7 @@ export function TareasClient({
           )}
           <div className="space-y-2.5">
             {abiertas.map((t) => (
-              <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} equipoInfo={equipoInfo} onDone={r} />
+              <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} oportunidades={oportunidades} equipoInfo={equipoInfo} onDone={r} />
             ))}
           </div>
 
@@ -198,7 +199,7 @@ export function TareasClient({
                 Hechas recientemente
               </p>
               {hechas.map((t) => (
-                <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} equipoInfo={equipoInfo} onDone={r} />
+                <TarjetaTarea key={t.id} t={t} hoy={hoy} personas={personas} oportunidades={oportunidades} equipoInfo={equipoInfo} onDone={r} />
               ))}
             </div>
           )}
@@ -213,6 +214,7 @@ function Tablero({
   tareas,
   hoy,
   personas,
+  oportunidades,
   equipoInfo,
   onOrdenar,
   onDone,
@@ -220,6 +222,7 @@ function Tablero({
   tareas: Tarea[];
   hoy: string;
   personas: string[];
+  oportunidades: OpLite[];
   equipoInfo: EquipoInfo[];
   onOrdenar: (estado: TareaEstado, ids: string[], id: string) => void;
   onDone: () => void;
@@ -309,7 +312,7 @@ function Tablero({
                     dragId === t.id ? "opacity-40" : ""
                   } ${activa && over?.antesDe === t.id ? "border-t-2 border-sage pt-1" : ""}`}
                 >
-                  <TarjetaTarea t={t} hoy={hoy} personas={personas} equipoInfo={equipoInfo} onDone={onDone} compacta />
+                  <TarjetaTarea t={t} hoy={hoy} personas={personas} oportunidades={oportunidades} equipoInfo={equipoInfo} onDone={onDone} compacta />
                 </div>
               ))}
               {items.length === 0 && (
@@ -548,6 +551,7 @@ function TarjetaTarea({
   t,
   hoy,
   personas,
+  oportunidades,
   equipoInfo = [],
   onDone,
   compacta = false,
@@ -555,6 +559,7 @@ function TarjetaTarea({
   t: Tarea;
   hoy: string;
   personas: string[];
+  oportunidades: OpLite[];
   equipoInfo?: EquipoInfo[];
   onDone: () => void;
   compacta?: boolean;
@@ -565,9 +570,40 @@ function TarjetaTarea({
   const [comentario, setComentario] = React.useState(t.comentario ?? "");
   const [titulo, setTitulo] = React.useState(t.titulo);
   const [descripcion, setDescripcion] = React.useState(t.descripcion ?? "");
+  const [para, setPara] = React.useState(t.asignada_a ?? "");
+  const [de, setDe] = React.useState(t.creada_por ?? "");
   const [prioridad, setPrioridad] = React.useState<string>(t.prioridad);
   const [fechaLimite, setFechaLimite] = React.useState(t.fecha_limite ?? "");
   const [horas, setHoras] = React.useState(t.horas_estimadas != null ? String(t.horas_estimadas) : "");
+  const [opId, setOpId] = React.useState(t.oportunidad?.id ?? "");
+
+  // Al abrir el editor, refresca los campos con lo último de la tarea.
+  function abrirEdicion() {
+    setTitulo(t.titulo);
+    setDescripcion(t.descripcion ?? "");
+    setPara(t.asignada_a ?? "");
+    setDe(t.creada_por ?? "");
+    setPrioridad(t.prioridad);
+    setFechaLimite(t.fecha_limite ?? "");
+    setHoras(t.horas_estimadas != null ? String(t.horas_estimadas) : "");
+    setOpId(t.oportunidad?.id ?? "");
+    setEditando(true);
+  }
+
+  async function guardarEdicion() {
+    if (!titulo.trim() || !para) return;
+    await act({
+      titulo,
+      descripcion: descripcion || null,
+      asignadaA: para,
+      creadaPor: de || null,
+      prioridad,
+      fechaLimite: fechaLimite || null,
+      horasEstimadas: horas ? Number(horas.replace(",", ".")) : null,
+      oportunidadId: opId || null,
+    });
+    setEditando(false);
+  }
 
   const hecha = t.estado === "hecha";
   const vencida = !hecha && Boolean(t.fecha_limite) && t.fecha_limite! < hoy;
@@ -625,31 +661,7 @@ function TarjetaTarea({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          {editando ? (
-            <div className="space-y-2">
-              <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} />
-              <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Detalles…" />
-              <div className="flex flex-wrap gap-2">
-                <Select value={prioridad} onChange={(e) => setPrioridad(e.target.value)} className="w-auto">
-                  {ORDEN_PRIORIDAD.map((x) => <option key={x} value={x}>{PRIORIDAD[x].label}</option>)}
-                </Select>
-                <Input type="date" value={fechaLimite} onChange={(e) => setFechaLimite(e.target.value)} className="w-auto" />
-                <Input type="number" step="0.5" min="0" value={horas} onChange={(e) => setHoras(e.target.value)} placeholder="h estim." className="w-[90px] text-right tabular" />
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={async () => {
-                    await act({ titulo, descripcion, prioridad, fechaLimite, horasEstimadas: horas ? Number(horas.replace(",", ".")) : null });
-                    setEditando(false);
-                  }}
-                >
-                  Guardar
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditando(false)}>×</Button>
-              </div>
-            </div>
-          ) : (
-            <>
+          <>
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`text-[14px] font-semibold ${hecha ? "line-through" : ""}`}>{t.titulo}</span>
                 <span className={`rounded-pill px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] ${p.clase}`}>
@@ -688,7 +700,6 @@ function TarjetaTarea({
                 )}
               </p>
             </>
-          )}
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -725,7 +736,7 @@ function TarjetaTarea({
           </button>
           <button
             title="Editar"
-            onClick={() => setEditando((v) => !v)}
+            onClick={abrirEdicion}
             className="rounded-sm p-1.5 text-ink-muted hover:bg-beige-warm"
           >
             <Pencil size={15} />
@@ -777,6 +788,59 @@ function TarjetaTarea({
           )}
         </div>
       )}
+
+      {/* Editar tarea: misma vista que al crear una tarea */}
+      <Dialog open={editando} onOpenChange={setEditando}>
+        <DialogContent title="Editar tarea">
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Tarea *">
+                <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Preparar los centros de la boda…" autoFocus />
+              </Field>
+              <Field label="Detalles">
+                <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Cómo, dónde, con qué…" />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <Field label="Para *">
+                <Select value={para} onChange={(e) => setPara(e.target.value)}>
+                  <option value="">—</option>
+                  {personas.map((pn) => <option key={pn} value={pn}>{pn}</option>)}
+                </Select>
+              </Field>
+              <Field label="De">
+                <Select value={de} onChange={(e) => setDe(e.target.value)}>
+                  <option value="">—</option>
+                  {personas.map((pn) => <option key={pn} value={pn}>{pn}</option>)}
+                </Select>
+              </Field>
+              <Field label="Prioridad">
+                <Select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
+                  {ORDEN_PRIORIDAD.map((x) => <option key={x} value={x}>{PRIORIDAD[x].label}</option>)}
+                </Select>
+              </Field>
+              <Field label="Horas estim.">
+                <Input type="number" step="0.5" min="0" value={horas} onChange={(e) => setHoras(e.target.value)} placeholder="p. ej. 2" className="text-right tabular" />
+              </Field>
+              <Field label="Fecha límite">
+                <Input type="date" value={fechaLimite} onChange={(e) => setFechaLimite(e.target.value)} />
+              </Field>
+            </div>
+            <Field label="Vinculada a un evento (opcional)">
+              <Select value={opId} onChange={(e) => setOpId(e.target.value)}>
+                <option value="">— Ninguno —</option>
+                {oportunidades.map((o) => <option key={o.id} value={o.id}>{o.titulo}</option>)}
+              </Select>
+            </Field>
+            <div className="flex justify-end gap-1">
+              <Button size="sm" onClick={guardarEdicion} disabled={busy || !titulo.trim() || !para}>
+                {busy ? "Guardando…" : "Guardar cambios"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditando(false)}>Cancelar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
