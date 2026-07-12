@@ -261,7 +261,7 @@ export function FacturasList({ facturas, responsables = [] }: { facturas: Factur
                       >
                         <FileDown size={12} /> PDF{f.pdf_url ? " ✓" : ""}
                       </Link>
-                      <SubirPdf facturaId={f.id} />
+                      {!f.pdf_url && <SubirPdf facturaId={f.id} />}
                       {f.estado !== "anulada" && (
                         <button
                           onClick={() => toggle(f)}
@@ -352,7 +352,7 @@ export function FacturasList({ facturas, responsables = [] }: { facturas: Factur
                   >
                     <FileDown size={12} /> PDF{f.pdf_url ? " ✓" : ""}
                   </Link>
-                  <SubirPdf facturaId={f.id} />
+                  {!f.pdf_url && <SubirPdf facturaId={f.id} />}
                   <button
                     onClick={() => toggle(f)}
                     disabled={busy === f.id}

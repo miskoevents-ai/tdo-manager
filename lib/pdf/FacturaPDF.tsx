@@ -1,5 +1,6 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
+import { LOGO_TDO } from "./logo";
 
 // Datos ya preparados (importes formateados) para que el componente sea "tonto".
 export type FacturaPdfData = {
@@ -39,14 +40,16 @@ const COL = {
 };
 
 const s = StyleSheet.create({
-  page: { paddingTop: 42, paddingBottom: 56, paddingHorizontal: 46, fontSize: 9.5, color: COL.ink, fontFamily: "Helvetica", lineHeight: 1.4 },
-  band: { backgroundColor: COL.beigeWarm, borderRadius: 4, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 18 },
-  titulo: { fontSize: 22, fontFamily: "Helvetica-Bold", color: COL.sage, letterSpacing: 1, lineHeight: 1, marginBottom: 4 },
-  sub: { fontSize: 9, color: COL.soft, marginTop: 6 },
+  page: { paddingTop: 40, paddingBottom: 56, paddingHorizontal: 46, fontSize: 9.5, color: COL.ink, fontFamily: "Helvetica", lineHeight: 1.4 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 },
+  titulo: { fontSize: 24, fontFamily: "Helvetica-Bold", color: COL.sage, letterSpacing: 1.5, lineHeight: 1 },
+  sub: { fontSize: 9.5, color: COL.soft, marginTop: 5 },
+  logo: { width: 168, height: 92, objectFit: "contain" },
+  rule: { height: 2, backgroundColor: COL.sage, marginBottom: 14, marginTop: 2 },
   row: { flexDirection: "row" },
   cols2: { flexDirection: "row", gap: 14, marginBottom: 16 },
-  box: { flex: 1, borderWidth: 0.7, borderColor: COL.line, borderRadius: 4, padding: 10 },
-  label: { fontSize: 7.5, letterSpacing: 1, color: COL.clay, fontFamily: "Helvetica-Bold", textTransform: "uppercase", marginBottom: 3 },
+  box: { flex: 1, backgroundColor: COL.beige, borderWidth: 0.7, borderColor: COL.line, borderRadius: 4, padding: 11 },
+  label: { fontSize: 7.5, letterSpacing: 1, color: COL.clay, fontFamily: "Helvetica-Bold", textTransform: "uppercase", marginBottom: 4 },
   strong: { fontFamily: "Helvetica-Bold" },
   th: { flexDirection: "row", backgroundColor: COL.sage, color: COL.beige, paddingVertical: 5, paddingHorizontal: 8, fontSize: 8, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.5 },
   td: { flexDirection: "row", paddingVertical: 6, paddingHorizontal: 8, borderBottomWidth: 0.6, borderBottomColor: COL.line },
@@ -70,26 +73,27 @@ export function FacturaPDFDoc({ data }: { data: FacturaPdfData }) {
       <Page size="A4" style={s.page}>
         {data.anulada && <Text style={s.anulada}>ANULADA</Text>}
 
-        {/* Cabecera */}
-        <View style={s.band}>
-          <View style={[s.row, { justifyContent: "space-between", alignItems: "flex-start" }]}>
-            <View>
-              <Text style={s.titulo}>FACTURA</Text>
-              <Text style={s.sub}>Nº {data.numero}   ·   Fecha: {data.fecha}</Text>
-            </View>
-            <View style={{ textAlign: "right", maxWidth: 240 }}>
-              <Text style={s.strong}>{e.nombre}</Text>
-              {!!e.razon && <Text>{e.razon}</Text>}
-              {!!e.nif && <Text>NIF: {e.nif}</Text>}
-              <Text>{e.direccion}</Text>
-              <Text>{e.contacto}</Text>
-              {!!e.web && <Text>{e.web}</Text>}
-            </View>
+        {/* Cabecera: título a la izquierda, logo a la derecha */}
+        <View style={s.header}>
+          <View>
+            <Text style={s.titulo}>FACTURA</Text>
+            <Text style={s.sub}>Nº {data.numero}   ·   Fecha: {data.fecha}</Text>
           </View>
+          <Image style={s.logo} src={LOGO_TDO} />
         </View>
+        <View style={s.rule} />
 
-        {/* Cliente */}
+        {/* Emisor y cliente, en dos cajas */}
         <View style={s.cols2}>
+          <View style={s.box}>
+            <Text style={s.label}>Emisor</Text>
+            <Text style={s.strong}>{e.nombre}</Text>
+            {!!e.razon && <Text>{e.razon}</Text>}
+            {!!e.nif && <Text>NIF: {e.nif}</Text>}
+            <Text>{e.direccion}</Text>
+            <Text>{e.contacto}</Text>
+            {!!e.web && <Text>{e.web}</Text>}
+          </View>
           <View style={s.box}>
             <Text style={s.label}>Cliente</Text>
             <Text style={s.strong}>{data.cliente.nombre}</Text>
