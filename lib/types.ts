@@ -98,6 +98,7 @@ export type Oportunidad = {
   resena_conseguida?: boolean;
   cliente_id: string | null;
   lugar_id: string | null;
+  comision_equipo_id?: string | null; // persona a la que se le paga comisión (vacío = ninguna)
   notas: string | null;
   created_at: string;
   // joins opcionales

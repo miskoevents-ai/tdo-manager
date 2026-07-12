@@ -37,6 +37,7 @@ export function CostesTab({
   pendienteCobro = 0,
   categoriasGasto = [],
   comision = 0,
+  comisionDetalle = [],
 }: {
   oportunidadId: string;
   base: number;
@@ -51,6 +52,7 @@ export function CostesTab({
   contingenciaPct?: number;
   margenObjetivoPct?: number;
   comision?: number;
+  comisionDetalle?: { persona: string; tipoEvento: string | null; porcentaje: number; importe: number }[];
   cerrada?: boolean;
   cerradaFecha?: string | null;
   pendienteCobro?: number;
@@ -151,6 +153,15 @@ export function CostesTab({
             {cComision > 0 && <Leg color="bg-sage" t={`Comisión ${eur(cComision)}`} />}
             <Leg color="bg-ok" t={`Margen ${eur(margen)}`} />
           </div>
+          {cComision > 0 && comisionDetalle.length > 0 && (
+            <p className="mt-2 text-[11px] text-ink-muted">
+              Comisión asignada a{" "}
+              {comisionDetalle
+                .map((c) => `${c.persona} · ${num(c.porcentaje, 0)}% = ${eur(c.importe)}`)
+                .join(" · ")}
+              . Se cambia en <b>Editar</b> (campo «Comisión para»).
+            </p>
+          )}
         </div>
         {/* Pre-evento (estimado) vs post-evento (real), partida a partida */}
         {totalEstimado > 0 && (
