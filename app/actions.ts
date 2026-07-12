@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calcularTotales } from "@/lib/calc";
 import { computaSegunNaturaleza } from "@/lib/computa";
+import { normalizarChecklist } from "@/lib/checklist";
+import type { ChecklistGrupo, ChecklistItem } from "@/lib/types";
 import { runSeed, type SeedData } from "@/lib/seed-core";
 import { getKmPrecio, getFactura } from "@/lib/data";
 import { renderFacturaPdf } from "@/lib/pdf/factura";
@@ -721,17 +723,10 @@ export async function borrarReunion(id: string, oportunidadId: string) {
 
 // ---------------------------- Tareas del equipo ----------------------------
 
-// Deja la checklist en forma canónica: pasos con texto no vacío y su estado.
-function normalizarChecklist(items?: { texto: string; hecho: boolean }[] | null) {
-  return (items ?? [])
-    .map((it) => ({ texto: (it.texto ?? "").trim(), hecho: Boolean(it.hecho) }))
-    .filter((it) => it.texto.length > 0);
-}
-
 // Inserta/actualiza una tarea reintentando sin las columnas que aún no estén
-// migradas (horas_estimadas 030, orden 031, checklist 035). Así la herramienta
-// sigue funcionando aunque falte una migración por aplicar.
-const COLUMNAS_TAREA_OPCIONALES = ["checklist", "horas_estimadas", "orden"];
+// migradas (horas_estimadas 030, orden 031, checklist 035, asignados 036). Así
+// la herramienta sigue funcionando aunque falte una migración por aplicar.
+const COLUMNAS_TAREA_OPCIONALES = ["checklist", "asignados", "horas_estimadas", "orden"];
 async function guardarTareaConFallback(
   fn: (fila: Record<string, unknown>) => Promise<{ error: { message: string } | null }>,
   fila: Record<string, unknown>,
@@ -748,23 +743,37 @@ async function guardarTareaConFallback(
   }
 }
 
+// Lista de asignados en orden, sin duplicados ni vacíos. La principal (para
+// avisos / imputación de horas) es la primera.
+function normalizarAsignados(asignados: string[] | undefined, principal: string): string[] {
+  const lista = [principal, ...(asignados ?? [])]
+    .map((s) => (s ?? "").trim())
+    .filter(Boolean);
+  return Array.from(new Set(lista));
+}
+
 export async function crearTarea(input: {
   titulo: string;
   descripcion: string | null;
   asignadaA: string;
+  asignados?: string[] | null;
   creadaPor: string | null;
   prioridad: string;
   fechaLimite: string | null;
   oportunidadId: string | null;
   horasEstimadas?: number | null;
-  checklist?: { texto: string; hecho: boolean }[] | null;
+  checklist?: ChecklistGrupo[] | ChecklistItem[] | null;
 }) {
   const sb = createAdminClient();
-  if (!input.asignadaA.trim()) throw new Error("Di para quién es la tarea.");
+  // La principal puede venir en asignadaA o como primera de la lista.
+  const principal = (input.asignados?.[0] ?? input.asignadaA ?? "").trim();
+  if (!principal) throw new Error("Di para quién es la tarea.");
+  const asignados = normalizarAsignados(input.asignados ?? undefined, principal);
   const fila: Record<string, unknown> = {
     titulo: input.titulo.trim(),
     descripcion: input.descripcion?.trim() || null,
-    asignada_a: input.asignadaA.trim(),
+    asignada_a: asignados[0],
+    asignados,
     creada_por: input.creadaPor?.trim() || null,
     prioridad: ["baja", "normal", "alta", "urgente"].includes(input.prioridad) ? input.prioridad : "normal",
     fecha_limite: input.fechaLimite || null,
@@ -788,9 +797,10 @@ export async function actualizarTarea(
     comentario?: string | null;
     horasEstimadas?: number | null;
     asignadaA?: string;
+    asignados?: string[];
     creadaPor?: string | null;
     oportunidadId?: string | null;
-    checklist?: { texto: string; hecho: boolean }[] | null;
+    checklist?: ChecklistGrupo[] | ChecklistItem[] | null;
   },
 ) {
   const sb = createAdminClient();
@@ -800,7 +810,17 @@ export async function actualizarTarea(
   if (patch.prioridad !== undefined) upd.prioridad = patch.prioridad;
   if (patch.fechaLimite !== undefined) upd.fecha_limite = patch.fechaLimite || null;
   if (patch.comentario !== undefined) upd.comentario = patch.comentario?.trim() || null;
-  if (patch.asignadaA !== undefined) upd.asignada_a = patch.asignadaA;
+  // Al cambiar los asignados, la principal (asignada_a) pasa a ser la primera.
+  if (patch.asignados !== undefined) {
+    const asignados = normalizarAsignados(patch.asignados, patch.asignadaA ?? patch.asignados[0] ?? "");
+    if (asignados.length) {
+      upd.asignados = asignados;
+      upd.asignada_a = asignados[0];
+    }
+  } else if (patch.asignadaA !== undefined) {
+    upd.asignada_a = patch.asignadaA;
+    upd.asignados = normalizarAsignados([], patch.asignadaA);
+  }
   if (patch.creadaPor !== undefined) upd.creada_por = patch.creadaPor || null;
   if (patch.oportunidadId !== undefined) upd.oportunidad_id = patch.oportunidadId || null;
   if (patch.checklist !== undefined) upd.checklist = normalizarChecklist(patch.checklist);
@@ -847,6 +867,7 @@ export async function crearTareasPlantilla(input: {
   const filas = input.items.map((it, i) => ({
     titulo: it.titulo,
     asignada_a: input.asignadaA.trim(),
+    asignados: [input.asignadaA.trim()],
     creada_por: input.creadaPor?.trim() || null,
     prioridad: ["baja", "normal", "alta", "urgente"].includes(it.prioridad ?? "") ? it.prioridad : "normal",
     fecha_limite: fechaLimite(it.offset),
@@ -855,12 +876,12 @@ export async function crearTareasPlantilla(input: {
     orden: i,
   }));
 
-  // Reintenta sin las columnas nuevas (030/031) si aún no están migradas.
+  // Reintenta sin las columnas nuevas (030/031/036) si aún no están migradas.
   let { error } = await sb.from("tareas").insert(filas);
-  if (error && /(horas_estimadas|orden)/.test(error.message) && /column/i.test(error.message)) {
+  if (error && /(horas_estimadas|orden|asignados)/.test(error.message) && /column/i.test(error.message)) {
     ({ error } = await sb
       .from("tareas")
-      .insert(filas.map(({ horas_estimadas: _h, orden: _o, ...r }) => r)));
+      .insert(filas.map(({ horas_estimadas: _h, orden: _o, asignados: _a, ...r }) => r)));
   }
   if (error) throw new Error(error.message);
   revalidatePath("/tareas");
