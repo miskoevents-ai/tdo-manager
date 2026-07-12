@@ -87,7 +87,9 @@ export function CostesTab({
   }
 
   // Reembolsos a personas aún pendientes (para la validación del cierre).
-  const reembolsosPdtes = compras.filter((m) => m.quien_lo_paga && m.estado !== "pagado").length;
+  // El gasto ya está pagado (lo adelantó la persona); lo pendiente es
+  // devolvérselo: eso lo dice liquidado, no el estado.
+  const reembolsosPdtes = compras.filter((m) => m.quien_lo_paga && !m.liquidado).length;
 
   async function toggleCierre() {
     if (!cerrada) {
@@ -361,7 +363,7 @@ export function CostesTab({
                       <Td>{fecha(m.fecha)}</Td>
                       <Td>
                         {m.quien_lo_paga ?? "TDO"}
-                        {m.quien_lo_paga && m.estado !== "pagado" && (
+                        {m.quien_lo_paga && !m.liquidado && (
                           <span className="ml-1 text-[10.5px] font-semibold text-warn">· reembolso pdte.</span>
                         )}
                       </Td>
