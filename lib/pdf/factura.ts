@@ -55,6 +55,8 @@ export async function renderFacturaPdf(f: Factura): Promise<Buffer> {
   const data: FacturaPdfData = {
     numero: f.numero,
     fecha: fecha(f.fecha_emision),
+    vencimiento: f.fecha_vencimiento ? fecha(f.fecha_vencimiento) : null,
+    notas: f.notas?.trim() || null,
     anulada: f.estado === "anulada",
     emisor: {
       nombre: EMPRESA.nombre,
