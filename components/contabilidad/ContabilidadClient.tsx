@@ -4,9 +4,16 @@ import * as React from "react";
 import { Download, Printer } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { eur } from "@/lib/format";
 import { NATURALEZA_LABEL } from "@/lib/estados";
 import type { Tesoreria } from "@/lib/types";
+
+const esCobrado = (m: Tesoreria) => m.tipo === "ingreso" && m.estado === "cobrado";
+const esGasto = (m: Tesoreria) => m.tipo === "gasto";
+const esPrevisto = (m: Tesoreria) => m.tipo === "ingreso" && m.estado === "previsto";
+const totalConSigno = (movs: Tesoreria[]) =>
+  movs.reduce((s, m) => s + (m.tipo === "ingreso" ? 1 : -1) * Number(m.importe), 0);
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesLabel = (ym: string) => `${MESES[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
@@ -75,6 +82,10 @@ export function ContabilidadClient({
   // Desglose por naturaleza y categoría (dentro del rango)
   const porNaturaleza = agrupa(enRango, (m) => NATURALEZA_LABEL[m.naturaleza] ?? m.naturaleza);
   const porCategoria = agrupa(enRango, (m) => m.categoria ?? "Sin categoría");
+
+  // Detalle: al pinchar una cifra, mostramos los movimientos que la componen.
+  const [detalle, setDetalle] = React.useState<{ titulo: string; movs: Tesoreria[] } | null>(null);
+  const abrir = (titulo: string, movs: Tesoreria[]) => setDetalle({ titulo, movs });
 
   function exportarCSV() {
     const head = ["fecha", "concepto", "tipo", "naturaleza", "categoria", "importe", "estado"];
@@ -154,16 +165,32 @@ export function ContabilidadClient({
         </div>
       </div>
 
-      {/* KPIs del rango */}
+      {/* KPIs del rango (pinchables → detalle) */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi label="Ingresos cobrados" value={eur(stats.ingresosCobrados)} tone="text-ok" />
-        <Kpi label="Gastos" value={eur(stats.gastos)} tone="text-error" />
+        <Kpi
+          label="Ingresos cobrados"
+          value={eur(stats.ingresosCobrados)}
+          tone="text-ok"
+          onClick={() => abrir("Ingresos cobrados", enRango.filter(esCobrado))}
+        />
+        <Kpi
+          label="Gastos"
+          value={eur(stats.gastos)}
+          tone="text-error"
+          onClick={() => abrir("Gastos", enRango.filter(esGasto))}
+        />
         <Kpi
           label="Resultado"
           value={eur(stats.resultado)}
           tone={stats.resultado >= 0 ? "text-sage" : "text-error"}
+          onClick={() => abrir("Resultado (ingresos cobrados y gastos)", enRango.filter((m) => esCobrado(m) || esGasto(m)))}
         />
-        <Kpi label="Previsto por cobrar" value={eur(stats.previsto)} tone="text-warn" />
+        <Kpi
+          label="Previsto por cobrar"
+          value={eur(stats.previsto)}
+          tone="text-warn"
+          onClick={() => abrir("Previsto por cobrar", enRango.filter(esPrevisto))}
+        />
       </div>
 
       {/* Tabla por mes */}
@@ -183,14 +210,42 @@ export function ContabilidadClient({
             {meses
               .filter((m) => m >= desde && m <= hasta)
               .map((m) => {
-                const s = statsDe(contables.filter((x) => x.fecha.slice(0, 7) === m));
+                const mm = contables.filter((x) => x.fecha.slice(0, 7) === m);
+                const s = statsDe(mm);
+                const lbl = mesLabel(m);
+                const cel = "cursor-pointer hover:bg-beige-warm/60";
                 return (
                   <tr key={m}>
-                    <td className="border-b border-[#f0eae1] py-2 font-medium">{mesLabel(m)}</td>
-                    <td className="border-b border-[#f0eae1] py-2 text-right tabular text-ok">{eur(s.ingresosCobrados)}</td>
-                    <td className="border-b border-[#f0eae1] py-2 text-right tabular text-error">{eur(s.gastos)}</td>
-                    <td className={`border-b border-[#f0eae1] py-2 text-right tabular font-semibold ${s.resultado >= 0 ? "text-sage" : "text-error"}`}>{eur(s.resultado)}</td>
-                    <td className="border-b border-[#f0eae1] py-2 text-right tabular text-warn">{eur(s.previsto)}</td>
+                    <td
+                      className={`border-b border-[#f0eae1] py-2 font-medium ${cel}`}
+                      onClick={() => abrir(`${lbl} · todos`, mm)}
+                    >
+                      {lbl}
+                    </td>
+                    <td
+                      className={`border-b border-[#f0eae1] py-2 text-right tabular text-ok ${cel}`}
+                      onClick={() => abrir(`${lbl} · ingresos cobrados`, mm.filter(esCobrado))}
+                    >
+                      {eur(s.ingresosCobrados)}
+                    </td>
+                    <td
+                      className={`border-b border-[#f0eae1] py-2 text-right tabular text-error ${cel}`}
+                      onClick={() => abrir(`${lbl} · gastos`, mm.filter(esGasto))}
+                    >
+                      {eur(s.gastos)}
+                    </td>
+                    <td
+                      className={`border-b border-[#f0eae1] py-2 text-right tabular font-semibold ${s.resultado >= 0 ? "text-sage" : "text-error"} ${cel}`}
+                      onClick={() => abrir(`${lbl} · resultado`, mm.filter((x) => esCobrado(x) || esGasto(x)))}
+                    >
+                      {eur(s.resultado)}
+                    </td>
+                    <td
+                      className={`border-b border-[#f0eae1] py-2 text-right tabular text-warn ${cel}`}
+                      onClick={() => abrir(`${lbl} · previsto por cobrar`, mm.filter(esPrevisto))}
+                    >
+                      {eur(s.previsto)}
+                    </td>
                   </tr>
                 );
               })}
@@ -213,10 +268,14 @@ export function ContabilidadClient({
           <Overline>Desglose por naturaleza</Overline>
           <div className="mt-2">
             {porNaturaleza.map(([k, v]) => (
-              <div key={k} className="flex items-center justify-between border-t border-border py-2 text-[13px] first:border-t-0">
+              <button
+                key={k}
+                onClick={() => abrir(k, enRango.filter((m) => (NATURALEZA_LABEL[m.naturaleza] ?? m.naturaleza) === k))}
+                className="flex w-full items-center justify-between border-t border-border py-2 text-left text-[13px] first:border-t-0 hover:bg-beige-warm/60"
+              >
                 <span>{k}</span>
                 <span className={`tabular font-semibold ${v >= 0 ? "text-ok" : "text-error"}`}>{eur(v)}</span>
-              </div>
+              </button>
             ))}
           </div>
         </Card>
@@ -226,22 +285,84 @@ export function ContabilidadClient({
           <Overline>Desglose por categoría</Overline>
           <div className="mt-2">
             {porCategoria.map(([k, v]) => (
-              <div key={k} className="flex items-center justify-between border-t border-border py-2 text-[13px] first:border-t-0">
+              <button
+                key={k}
+                onClick={() => abrir(k, enRango.filter((m) => (m.categoria ?? "Sin categoría") === k))}
+                className="flex w-full items-center justify-between border-t border-border py-2 text-left text-[13px] first:border-t-0 hover:bg-beige-warm/60"
+              >
                 <span>{k}</span>
                 <span className={`tabular font-semibold ${v >= 0 ? "text-ok" : "text-error"}`}>{eur(v)}</span>
-              </div>
+              </button>
             ))}
           </div>
         </Card>
       </div>
+
+      {/* Detalle de movimientos al pinchar cualquier cifra */}
+      <Dialog open={detalle !== null} onOpenChange={(o) => { if (!o) setDetalle(null); }}>
+        {detalle && (
+          <DialogContent title={detalle.titulo}>
+            {detalle.movs.length === 0 ? (
+              <p className="text-small text-ink-muted">No hay movimientos en este apartado.</p>
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto">
+                <table className="w-full border-collapse text-[12.5px]">
+                  <tbody>
+                    {detalle.movs
+                      .slice()
+                      .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+                      .map((m) => (
+                        <tr key={m.id}>
+                          <td className="whitespace-nowrap border-b border-[#f0eae1] py-1.5 pr-2 tabular text-ink-muted">
+                            {m.fecha.slice(8, 10)}/{m.fecha.slice(5, 7)}
+                          </td>
+                          <td className="border-b border-[#f0eae1] py-1.5 pr-2">
+                            {m.concepto}
+                            <span className="ml-1.5 text-[10.5px] text-ink-muted">
+                              {m.naturaleza === "amigos" ? "🤝 amigos" : "🏦 oficial"} · {m.estado}
+                            </span>
+                          </td>
+                          <td className={`whitespace-nowrap border-b border-[#f0eae1] py-1.5 text-right tabular font-semibold ${m.tipo === "ingreso" ? "text-ok" : "text-error"}`}>
+                            {m.tipo === "gasto" ? "−" : "+"}{eur(Number(m.importe))}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="font-display">
+                      <td colSpan={2} className="py-2 font-semibold">Total · {detalle.movs.length} mov.</td>
+                      <td className={`py-2 text-right tabular font-semibold ${totalConSigno(detalle.movs) >= 0 ? "text-sage" : "text-error"}`}>
+                        {eur(totalConSigno(detalle.movs))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone: string }) {
+function Kpi({
+  label,
+  value,
+  tone,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  tone: string;
+  onClick?: () => void;
+}) {
   const bar = tone.replace("text-", "bg-");
   return (
-    <Card className="relative overflow-hidden p-4 pl-[18px]">
+    <Card
+      onClick={onClick}
+      className={`relative overflow-hidden p-4 pl-[18px] ${onClick ? "cursor-pointer transition-shadow hover:shadow-md" : ""}`}
+    >
       <span className={`absolute left-0 top-0 h-full w-[3px] ${bar}`} />
       <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">{label}</div>
       <div className={`mt-1 font-display text-[24px] tabular ${tone}`}>{value}</div>
