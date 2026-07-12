@@ -333,6 +333,7 @@ export type ComisionConfig = {
   equipo_id: string | null;
   porcentaje: number;
   activo: boolean;
+  desde?: string | null; // vigencia: solo devenga en eventos desde esta fecha
   equipo?: { nombre: string } | null;
 };
 

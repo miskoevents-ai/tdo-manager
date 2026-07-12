@@ -60,6 +60,7 @@ export default async function ComisionesPage() {
                   <b>{c.equipo?.nombre ?? "—"}</b>
                   <span className="ml-2 text-ink-muted">
                     {c.tipo_evento ? (TIPO_EVENTO_LABEL[c.tipo_evento] ?? c.tipo_evento) : "Todos los eventos"} · {num(c.porcentaje, 0)}%
+                    {c.desde ? ` · desde ${c.desde.split("-").reverse().join("/")}` : ""}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

@@ -1133,14 +1133,25 @@ export async function guardarComisionConfig(formData: FormData) {
     tipo_evento: (formData.get("tipo_evento") as string) || null, // "" => todos
     porcentaje: Math.abs(Number(formData.get("porcentaje") || 0)),
     activo: formData.get("activo") === "on",
+    desde: (formData.get("desde") as string) || null, // vigencia (migración 033)
   };
   if (!payload.equipo_id) throw new Error("Elige una persona.");
 
+  // Reintento sin "desde" si la migración 033 aún no está aplicada.
+  const esColumnaDesde = (msg: string) => /desde/.test(msg) && /column/i.test(msg);
   if (id) {
-    const { error } = await sb.from("comisiones_config").update(payload).eq("id", id);
+    let { error } = await sb.from("comisiones_config").update(payload).eq("id", id);
+    if (error && esColumnaDesde(error.message)) {
+      const { desde: _d, ...sinDesde } = payload;
+      ({ error } = await sb.from("comisiones_config").update(sinDesde).eq("id", id));
+    }
     if (error) throw new Error(error.message);
   } else {
-    const { error } = await sb.from("comisiones_config").insert(payload);
+    let { error } = await sb.from("comisiones_config").insert(payload);
+    if (error && esColumnaDesde(error.message)) {
+      const { desde: _d, ...sinDesde } = payload;
+      ({ error } = await sb.from("comisiones_config").insert(sinDesde));
+    }
     if (error) throw new Error(error.message);
   }
   revalidatePath("/comisiones");
