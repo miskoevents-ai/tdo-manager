@@ -8,9 +8,11 @@ import { Menu, X, LogOut } from "lucide-react";
 import { NAV } from "./nav";
 import { Asistente } from "@/components/asistente/Asistente";
 import { CambiarContrasena } from "./CambiarContrasena";
+import { SesionTracker } from "./SesionTracker";
+import { puedeAcceder } from "@/lib/secciones";
 import { cn } from "@/lib/utils";
 
-type UsuarioShell = { nombre: string; esAdmin: boolean } | null;
+type UsuarioShell = { nombre: string; esAdmin: boolean; permisos: string[] | null } | null;
 
 // Nombre + inicial + cerrar sesión en la barra superior.
 function UsuarioMenu({ usuario }: { usuario: UsuarioShell }) {
@@ -43,11 +45,25 @@ function UsuarioMenu({ usuario }: { usuario: UsuarioShell }) {
   );
 }
 
-function NavLinks({ onNavigate, esAdmin = false }: { onNavigate?: () => void; esAdmin?: boolean }) {
+function NavLinks({
+  onNavigate,
+  esAdmin = false,
+  permisos = null,
+}: {
+  onNavigate?: () => void;
+  esAdmin?: boolean;
+  permisos?: string[] | null;
+}) {
   const pathname = usePathname();
+  const visible = NAV.filter((item) => {
+    if (item.soloAdmin && !esAdmin) return false;
+    // Los admins ven todo; el resto, solo las secciones concedidas.
+    if (esAdmin) return true;
+    return puedeAcceder(item.href, permisos);
+  });
   return (
     <nav className="mt-4 flex flex-col gap-px">
-      {NAV.filter((item) => !item.soloAdmin || esAdmin).map((item) => {
+      {visible.map((item) => {
         const active =
           item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         const Icon = item.icon;
@@ -72,7 +88,15 @@ function NavLinks({ onNavigate, esAdmin = false }: { onNavigate?: () => void; es
   );
 }
 
-function SidebarInner({ onNavigate, esAdmin }: { onNavigate?: () => void; esAdmin?: boolean }) {
+function SidebarInner({
+  onNavigate,
+  esAdmin,
+  permisos,
+}: {
+  onNavigate?: () => void;
+  esAdmin?: boolean;
+  permisos?: string[] | null;
+}) {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-white/[0.13] px-2 pb-[18px] pt-[6px]">
@@ -88,7 +112,7 @@ function SidebarInner({ onNavigate, esAdmin }: { onNavigate?: () => void; esAdmi
           TDO Manager
         </small>
       </div>
-      <NavLinks onNavigate={onNavigate} esAdmin={esAdmin} />
+      <NavLinks onNavigate={onNavigate} esAdmin={esAdmin} permisos={permisos} />
     </div>
   );
 }
@@ -113,7 +137,7 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
     <div className="min-h-screen md:grid md:grid-cols-[238px_1fr]">
       {/* Sidebar fijo en escritorio */}
       <aside className="hidden bg-gradient-to-b from-sage to-[#353f2c] px-[14px] py-[22px] text-cream shadow-md md:flex md:flex-col">
-        <SidebarInner esAdmin={usuario?.esAdmin} />
+        <SidebarInner esAdmin={usuario?.esAdmin} permisos={usuario?.permisos} />
       </aside>
 
       {/* Drawer móvil */}
@@ -121,7 +145,7 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/50" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-[260px] bg-gradient-to-b from-sage to-[#353f2c] px-[14px] py-[22px] text-cream shadow-lg">
-            <SidebarInner onNavigate={() => setOpen(false)} esAdmin={usuario?.esAdmin} />
+            <SidebarInner onNavigate={() => setOpen(false)} esAdmin={usuario?.esAdmin} permisos={usuario?.permisos} />
           </aside>
         </div>
       )}
@@ -146,6 +170,7 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
       </div>
 
       <Asistente />
+      {usuario && <SesionTracker />}
     </div>
   );
 }

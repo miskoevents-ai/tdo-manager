@@ -313,10 +313,8 @@ export async function getActividad(limite = 200): Promise<RegistroActividad[]> {
 export async function getUsuarios(): Promise<Usuario[]> {
   if (mock.enabled) return [];
   const sb = createAdminClient();
-  const { data, error } = await sb
-    .from("usuarios")
-    .select("id, usuario, nombre, activo, es_admin, equipo_id, ultimo_acceso, created_at")
-    .order("nombre", { ascending: true });
+  // select("*") para tolerar columnas nuevas aún sin migrar (permisos, tiempo).
+  const { data, error } = await sb.from("usuarios").select("*").order("nombre", { ascending: true });
   if (error) {
     if (tablaNoExiste(error)) return [];
     throw new Error(error.message);

@@ -1250,6 +1250,7 @@ export async function crearUsuario(input: {
   nombre: string;
   esAdmin: boolean;
   password: string;
+  permisos?: string[] | null;
 }) {
   await requiereAdmin();
   const usuario = input.usuario.trim().toLowerCase();
@@ -1258,12 +1259,19 @@ export async function crearUsuario(input: {
   if (!/^[a-z0-9._-]+$/.test(usuario)) throw new Error("El usuario solo puede llevar letras, números, punto, guion o guion bajo.");
   if (!input.password || input.password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres.");
   const sb = createAdminClient();
-  const { error } = await sb.from("usuarios").insert({
+  // Los admins ven todo: no se guardan permisos concretos.
+  const fila: Record<string, unknown> = {
     usuario,
     nombre,
     es_admin: input.esAdmin,
     password_hash: await hashPassword(usuario, input.password),
-  });
+    permisos: input.esAdmin ? null : input.permisos ?? [],
+  };
+  let { error } = await sb.from("usuarios").insert(fila);
+  if (error && /permisos/.test(error.message) && /column/i.test(error.message)) {
+    const { permisos: _p, ...sin } = fila;
+    ({ error } = await sb.from("usuarios").insert(sin));
+  }
   if (error) throw new Error(/duplicate|unique/i.test(error.message) ? "Ese usuario ya existe." : error.message);
   revalidatePath("/usuarios");
   await registrarActividad({ accion: "creó un usuario", entidad: "usuario", detalle: nombre });
@@ -1271,20 +1279,29 @@ export async function crearUsuario(input: {
 
 export async function actualizarUsuario(
   id: string,
-  patch: { nombre?: string; esAdmin?: boolean; activo?: boolean },
+  patch: { nombre?: string; esAdmin?: boolean; activo?: boolean; permisos?: string[] | null },
 ) {
   const admin = await requiereAdmin();
   const sb = createAdminClient();
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = patch.nombre.trim();
-  if (patch.esAdmin !== undefined) upd.es_admin = patch.esAdmin;
+  if (patch.esAdmin !== undefined) {
+    upd.es_admin = patch.esAdmin;
+    // Al hacer admin, se olvidan los permisos concretos (ve todo).
+    if (patch.esAdmin) upd.permisos = null;
+  }
   if (patch.activo !== undefined) upd.activo = patch.activo;
+  if (patch.permisos !== undefined) upd.permisos = patch.permisos;
   // No permitir quitarte a ti mismo el admin ni desactivarte (evita quedarse sin acceso).
   const { data: u } = await sb.from("usuarios").select("usuario").eq("id", id).maybeSingle();
   if (u?.usuario === admin.usuario && (patch.esAdmin === false || patch.activo === false)) {
     throw new Error("No puedes quitarte a ti mismo el acceso de administrador.");
   }
-  const { error } = await sb.from("usuarios").update(upd).eq("id", id);
+  let { error } = await sb.from("usuarios").update(upd).eq("id", id);
+  if (error && /permisos/.test(error.message) && /column/i.test(error.message)) {
+    const { permisos: _p, ...sin } = upd;
+    ({ error } = await sb.from("usuarios").update(sin).eq("id", id));
+  }
   if (error) throw new Error(error.message);
   revalidatePath("/usuarios");
   await registrarActividad({ accion: "editó un usuario", entidad: "usuario", entidadId: id });

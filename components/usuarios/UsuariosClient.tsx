@@ -9,7 +9,50 @@ import { Input, Field } from "@/components/ui/input";
 import { Dialog, DialogTrigger, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { crearUsuario, actualizarUsuario, resetPasswordUsuario, borrarUsuario } from "@/app/actions";
 import { fecha } from "@/lib/format";
+import { SECCIONES } from "@/lib/secciones";
 import type { Usuario } from "@/lib/types";
+
+// Tiempo total de uso, legible.
+function tiempoUso(seg: number): string {
+  if (!seg || seg < 60) return "—";
+  const h = Math.floor(seg / 3600);
+  const m = Math.round((seg % 3600) / 60);
+  if (h > 0) return `${h} h ${m} min`;
+  return `${m} min`;
+}
+
+// Selector de secciones (casillas) para un usuario no admin.
+function PermisosPicker({ valor, onChange }: { valor: string[]; onChange: (v: string[]) => void }) {
+  function toggle(key: string) {
+    onChange(valor.includes(key) ? valor.filter((k) => k !== key) : [...valor, key]);
+  }
+  const todas = valor.length === SECCIONES.length;
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+          Secciones a las que puede entrar
+        </span>
+        <button
+          type="button"
+          onClick={() => onChange(todas ? [] : SECCIONES.map((s) => s.key))}
+          className="text-[11px] font-semibold text-sage hover:underline"
+        >
+          {todas ? "Ninguna" : "Todas"}
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-md border-hair border-border bg-beige-light/60 p-3">
+        {SECCIONES.map((s) => (
+          <label key={s.key} className="flex items-center gap-2 text-[12.5px]">
+            <input type="checkbox" checked={valor.includes(s.key)} onChange={() => toggle(s.key)} className="h-4 w-4 accent-sage" />
+            {s.label}
+          </label>
+        ))}
+      </div>
+      <p className="mt-1 text-[11px] text-ink-muted">Inicio y Guía están siempre disponibles.</p>
+    </div>
+  );
+}
 
 export function UsuariosClient({ usuarios, yoUsuario }: { usuarios: Usuario[]; yoUsuario: string }) {
   const router = useRouter();
@@ -39,6 +82,7 @@ export function UsuariosClient({ usuarios, yoUsuario }: { usuarios: Usuario[]; y
               <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Nombre</th>
               <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Usuario</th>
               <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Rol</th>
+              <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Tiempo en la app</th>
               <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Último acceso</th>
               <th className="border-b border-border px-4 py-2.5 text-right font-semibold"></th>
             </tr>
@@ -67,11 +111,15 @@ export function UsuariosClient({ usuarios, yoUsuario }: { usuarios: Usuario[]; y
                       {u.es_admin ? "Admin" : "Normal"}
                     </button>
                   </td>
+                  <td className="border-b border-[#f0eae1] px-4 py-2.5 text-[12px] text-ink-secondary tabular">
+                    {tiempoUso(Number(u.segundos_activo ?? 0))}
+                  </td>
                   <td className="border-b border-[#f0eae1] px-4 py-2.5 text-[12px] text-ink-muted">
                     {u.ultimo_acceso ? fecha(u.ultimo_acceso) : "nunca"}
                   </td>
                   <td className="border-b border-[#f0eae1] px-4 py-2.5">
                     <div className="flex items-center justify-end gap-1">
+                      {!u.es_admin && <EditarPermisos usuario={u} onError={setError} onDone={() => router.refresh()} />}
                       <ResetPassword usuario={u} onError={setError} onDone={() => router.refresh()} />
                       {!soyYo && (
                         <>
@@ -113,6 +161,7 @@ function NuevoUsuario({ onError, onDone }: { onError: (m: string | null) => void
   const [nombre, setNombre] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [esAdmin, setEsAdmin] = React.useState(true);
+  const [permisos, setPermisos] = React.useState<string[]>(SECCIONES.map((s) => s.key));
   const [busy, setBusy] = React.useState(false);
 
   async function guardar(e: React.FormEvent) {
@@ -120,9 +169,9 @@ function NuevoUsuario({ onError, onDone }: { onError: (m: string | null) => void
     onError(null);
     setBusy(true);
     try {
-      await crearUsuario({ usuario, nombre, esAdmin, password });
+      await crearUsuario({ usuario, nombre, esAdmin, password, permisos });
       setOpen(false);
-      setUsuario(""); setNombre(""); setPassword(""); setEsAdmin(true);
+      setUsuario(""); setNombre(""); setPassword(""); setEsAdmin(true); setPermisos(SECCIONES.map((s) => s.key));
       onDone();
     } catch (err) {
       onError((err as Error).message);
@@ -151,8 +200,9 @@ function NuevoUsuario({ onError, onDone }: { onError: (m: string | null) => void
           </Field>
           <label className="flex items-center gap-2 text-[13px]">
             <input type="checkbox" checked={esAdmin} onChange={(e) => setEsAdmin(e.target.checked)} className="h-4 w-4 accent-sage" />
-            Administrador (puede gestionar usuarios y borrar)
+            Administrador (ve todo y puede gestionar usuarios)
           </label>
+          {!esAdmin && <PermisosPicker valor={permisos} onChange={setPermisos} />}
           <div className="flex justify-end gap-2 pt-1">
             <DialogClose asChild>
               <Button type="button" variant="ghost" size="sm">Cancelar</Button>
@@ -162,6 +212,53 @@ function NuevoUsuario({ onError, onDone }: { onError: (m: string | null) => void
             </Button>
           </div>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditarPermisos({ usuario, onError, onDone }: { usuario: Usuario; onError: (m: string | null) => void; onDone: () => void }) {
+  const [open, setOpen] = React.useState(false);
+  // permisos null = todas (comportamiento anterior); se muestran todas marcadas.
+  const inicial = usuario.permisos ?? SECCIONES.map((s) => s.key);
+  const [permisos, setPermisos] = React.useState<string[]>(inicial);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) setPermisos(usuario.permisos ?? SECCIONES.map((s) => s.key));
+  }, [open, usuario.permisos]);
+
+  async function guardar() {
+    onError(null);
+    setBusy(true);
+    try {
+      await actualizarUsuario(usuario.id, { permisos });
+      setOpen(false);
+      onDone();
+    } catch (err) {
+      onError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button title="Secciones a las que puede entrar" className="rounded-sm px-2 py-1 text-[11px] font-semibold text-ink-secondary hover:bg-beige-warm">
+          Permisos
+        </button>
+      </DialogTrigger>
+      <DialogContent title={`Permisos de ${usuario.nombre}`}>
+        <div className="space-y-3">
+          <PermisosPicker valor={permisos} onChange={setPermisos} />
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button type="button" variant="ghost" size="sm">Cancelar</Button>
+            </DialogClose>
+            <Button size="sm" onClick={guardar} disabled={busy}>{busy ? "Guardando…" : "Guardar"}</Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

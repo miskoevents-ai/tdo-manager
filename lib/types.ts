@@ -398,6 +398,10 @@ export type Usuario = {
   nombre: string;
   activo: boolean;
   es_admin: boolean;
+  // Secciones a las que puede entrar (null = todas). Ver lib/secciones.
+  permisos?: string[] | null;
+  // Tiempo total con la plataforma abierta, en segundos (migración 042).
+  segundos_activo?: number | null;
   equipo_id: string | null;
   ultimo_acceso: string | null;
   created_at: string;
