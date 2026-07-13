@@ -1235,6 +1235,42 @@ export async function borrarEquipo(id: string) {
   await registrarActividad({ accion: "borró una persona del equipo", entidad: "equipo", detalle: p?.nombre ?? null });
 }
 
+// --------------------------- Calculadora de precio ---------------------------
+
+// Guarda los parámetros de la calculadora (para todos) en ajustes.
+export async function guardarCalculadoraConfig(cfg: unknown) {
+  const sb = createAdminClient();
+  const { error } = await sb
+    .from("ajustes")
+    .upsert({ clave: "calculadora_precio", valor: JSON.stringify(cfg ?? {}) }, { onConflict: "clave" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/oportunidades");
+  await registrarActividad({ accion: "cambió los parámetros de la calculadora de precio", entidad: "ajustes" });
+}
+
+// Guarda la foto del cálculo de una oportunidad (uno por oportunidad).
+export async function guardarCalculoPrecio(oportunidadId: string, inputs: unknown, resultado: unknown) {
+  const sb = createAdminClient();
+  const { error } = await sb
+    .from("calculos_precio")
+    .upsert(
+      { oportunidad_id: oportunidadId, inputs, resultado, updated_at: new Date().toISOString() },
+      { onConflict: "oportunidad_id" },
+    );
+  if (error) {
+    if (/calculos_precio/.test(error.message) && /(relation|does not exist|find the table)/i.test(error.message)) {
+      throw new Error("Falta aplicar la migración 045 en Supabase para poder guardar cálculos.");
+    }
+    throw new Error(error.message);
+  }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  await registrarActividad({
+    accion: "guardó un cálculo de precio",
+    entidad: "oportunidad",
+    entidadId: oportunidadId,
+  });
+}
+
 // --------------------------- Usuarios ---------------------------
 
 // Exige permiso de administración. Un usuario debe ser admin; la contraseña

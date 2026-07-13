@@ -31,7 +31,12 @@ import {
   getVersionesPresupuesto,
   getCostesEstimados,
   getComisionesConfig,
+  getGastosFijos,
+  getCalculadoraConfigRaw,
+  getCalculoPrecio,
 } from "@/lib/data";
+import { boteFijosMes } from "@/lib/calculadora-precio";
+import { CalculadoraPrecio } from "@/components/calculadora/CalculadoraPrecio";
 import { calcularTotales } from "@/lib/calc";
 import { comisionDeOportunidad, comisionDetalleDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha } from "@/lib/format";
@@ -60,10 +65,10 @@ export default async function Page({
   if (!supabaseConfigurado()) return <SetupNotice />;
   const { id } = await params;
   const { tab } = (await searchParams) ?? {};
-  const TABS = ["datos", "reuniones", "presupuesto", "material", "costes", "cobros"];
+  const TABS = ["datos", "reuniones", "presupuesto", "material", "costes", "cobros", "calculadora"];
   const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
-  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados, comConfig] =
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados, comConfig, gastosFijos, calcConfigRaw, calculoGuardado] =
     await Promise.all([
       getOportunidad(id),
       getClientes(),
@@ -81,6 +86,9 @@ export default async function Page({
       getVersionesPresupuesto(id),
       getCostesEstimados(id),
       getComisionesConfig(),
+      getGastosFijos(),
+      getCalculadoraConfigRaw(),
+      getCalculoPrecio(id),
     ]);
   if (!op) notFound();
   // Comisión del evento: cuenta como coste (afecta al margen).
@@ -122,6 +130,11 @@ export default async function Page({
   const cobrado = op.cobrado ?? 0;
   const pendiente = Math.max(0, t.total - cobrado);
   const esEmpresa = op.cliente?.tipo === "empresa";
+
+  // Calculadora de precio: bote de fijos del mes del evento (o del actual).
+  const hoyMadrid = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const mesEvento = (op.fecha_evento ?? hoyMadrid).slice(0, 7);
+  const boteFijos = boteFijosMes(gastosFijos, mesEvento);
 
   return (
     <div className="space-y-5">
@@ -222,6 +235,7 @@ export default async function Page({
           <TabsTrigger value="material">Material</TabsTrigger>
           <TabsTrigger value="costes">Costes</TabsTrigger>
           <TabsTrigger value="cobros">Cobros</TabsTrigger>
+          <TabsTrigger value="calculadora">Calculadora</TabsTrigger>
         </TabsList>
 
         <TabsContent value="datos">
@@ -423,6 +437,19 @@ export default async function Page({
               <PlanPagos oportunidadId={op.id} />
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="calculadora">
+          <CalculadoraPrecio
+            oportunidadId={op.id}
+            serie={op.serie ?? null}
+            tipoEvento={op.tipo_evento ?? null}
+            fechaEvento={op.fecha_evento ?? null}
+            presupuestoBase={t.base}
+            boteFijos={boteFijos}
+            configGuardada={calcConfigRaw}
+            calculoInicial={calculoGuardado}
+          />
         </TabsContent>
       </Tabs>
     </div>
