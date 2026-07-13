@@ -66,7 +66,7 @@ function NumInput({
           step={step}
           min={0}
           value={Number.isFinite(value) ? value : 0}
-          onChange={(e) => onChange(Number(e.target.value) || 0)}
+          onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
           className="py-2 text-right text-[13px] tabular"
         />
         {sufijo && <span className="shrink-0 text-[11px] text-ink-muted">{sufijo}</span>}
@@ -149,6 +149,20 @@ export function CalculadoraPrecio({
   function quitarPersona(idx: number) {
     setInputs((i) => ({ ...i, personas: (i.personas ?? []).filter((_, j) => j !== idx) }));
   }
+
+  // Si cambia el tipo de evento o la serie (p. ej. se corrige en Editar), se
+  // recargan las horas por ese tipo. No corre en el primer render (misma clave),
+  // así respeta un cálculo ya guardado.
+  const seedRef = React.useRef(`${serie}|${tipoEvento}`);
+  React.useEffect(() => {
+    const key = `${serie}|${tipoEvento}`;
+    if (seedRef.current === key) return;
+    seedRef.current = key;
+    const pk = serie === "alquiler_encargo" ? "alquiler_encargo" : (tipoEvento ?? "otro");
+    const nuevas = cfg.horasPorTipo[pk] ?? cfg.horasPorTipo.otro;
+    setInputs((i) => ({ ...i, horas: { ...nuevas } }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serie, tipoEvento]);
 
   const [verParams, setVerParams] = React.useState(false);
   const [verDesglose, setVerDesglose] = React.useState(false);
@@ -254,11 +268,11 @@ export function CalculadoraPrecio({
               <span className="min-w-[110px] flex-1 text-[13px] font-medium">{p.nombre}</span>
               <label className="flex items-center gap-1 text-[11px] text-ink-muted">
                 horas
-                <Input type="number" step={0.5} min={0} value={p.horas} onChange={(e) => setPersona(idx, { horas: Number(e.target.value) || 0 })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
+                <Input type="number" step={0.5} min={0} value={p.horas} onChange={(e) => setPersona(idx, { horas: Math.max(0, Number(e.target.value) || 0) })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
               </label>
               <label className="flex items-center gap-1 text-[11px] text-ink-muted">
                 €/h
-                <Input type="number" step={0.5} min={0} value={p.precioHora} onChange={(e) => setPersona(idx, { precioHora: Number(e.target.value) || 0 })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
+                <Input type="number" step={0.5} min={0} value={p.precioHora} onChange={(e) => setPersona(idx, { precioHora: Math.max(0, Number(e.target.value) || 0) })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
               </label>
               <span className="tabular text-[12.5px] font-semibold text-ink-secondary">{eur(p.horas * p.precioHora)}</span>
               <label

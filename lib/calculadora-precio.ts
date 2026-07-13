@@ -82,9 +82,18 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
   cuotaAlquilerPct: 25,
 };
 
-// Mezcla la config guardada (parcial) con los valores por defecto.
+// Mezcla la config guardada (parcial) con los valores por defecto, tolerando
+// campos ausentes, nulos o corruptos (nunca deja arrays nulos ni fases a medias).
 export function mezclarConfig(guardada: unknown): CalculadoraConfig {
-  const g = (guardada ?? {}) as Partial<CalculadoraConfig>;
+  const g = (guardada && typeof guardada === "object" ? guardada : {}) as Partial<CalculadoraConfig>;
+  const arr = (v: unknown, def: number[]) => (Array.isArray(v) ? v.filter((x) => Number.isFinite(x)) : def);
+  // Cada tipo de evento conserva sus 4 fases (una entrada parcial no deja huecos).
+  const horas: Record<string, FaseHoras> = { ...CALCULADORA_DEFAULTS.horasPorTipo };
+  const gh = (g.horasPorTipo ?? {}) as Record<string, Partial<FaseHoras>>;
+  for (const k of Object.keys(gh)) {
+    const base = CALCULADORA_DEFAULTS.horasPorTipo[k] ?? CALCULADORA_DEFAULTS.horasPorTipo.otro;
+    horas[k] = { ...base, ...(gh[k] ?? {}) };
+  }
   return {
     ...CALCULADORA_DEFAULTS,
     ...g,
@@ -95,7 +104,9 @@ export function mezclarConfig(guardada: unknown): CalculadoraConfig {
       baja: { ...CALCULADORA_DEFAULTS.margenes.baja, ...(g.margenes?.baja ?? {}) },
     },
     tramos: { ...CALCULADORA_DEFAULTS.tramos, ...(g.tramos ?? {}) },
-    horasPorTipo: { ...CALCULADORA_DEFAULTS.horasPorTipo, ...(g.horasPorTipo ?? {}) },
+    mesesAlta: arr(g.mesesAlta, CALCULADORA_DEFAULTS.mesesAlta),
+    mesesMedia: arr(g.mesesMedia, CALCULADORA_DEFAULTS.mesesMedia),
+    horasPorTipo: horas,
   };
 }
 
@@ -227,35 +238,41 @@ export function calcularPrecio(
   // Los alquileres cargan solo una fracción de la cuota de estructura.
   const cuotaFijos = ctx.cuotaFijos * (ctx.serie === "alquiler_encargo" ? cfg.cuotaAlquilerPct / 100 : 1);
 
-  const horasCristina =
-    Number(inputs.horas.comercial) + Number(inputs.horas.pre) + Number(inputs.horas.durante) + Number(inputs.horas.post);
+  // Divisor precio = 1 − margen − comisión, acotado para no dar precios absurdos
+  // ni negativos si en Ajustes se ponen márgenes/comisiones muy altos.
+  const n = (v: unknown) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? Math.max(0, x) : 0; // sin NaN ni negativos
+  };
+  const factor = (margenPct: number) => Math.max(0.05, 1 - margenPct / 100 - com);
+
+  const horasCristina = n(inputs.horas?.comercial) + n(inputs.horas?.pre) + n(inputs.horas?.durante) + n(inputs.horas?.post);
   const costeCristina = horasCristina * cfg.costeHoraEmpleada;
-  // Resto de personas: aportadas (socios que no cobran) y pagadas (extras).
+  // Resto de personas: aportadas (socios que no cobran) y pagadas (extras). Si
+  // hay líneas de persona se ignoran los campos viejos (evita doble conteo).
   const personas = inputs.personas ?? [];
+  const soloViejo = personas.length === 0;
   const costeAportado =
-    personas.filter((p) => p.aportado).reduce((s, p) => s + Number(p.horas) * Number(p.precioHora), 0) +
-    Number(inputs.horasSocio ?? 0) * cfg.costeHoraSocio;
+    personas.filter((p) => p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
+    (soloViejo ? n(inputs.horasSocio) * cfg.costeHoraSocio : 0);
   const costePagado =
-    personas.filter((p) => !p.aportado).reduce((s, p) => s + Number(p.horas) * Number(p.precioHora), 0) +
-    Number(inputs.personalExtra ?? 0);
+    personas.filter((p) => !p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
+    (soloViejo ? n(inputs.personalExtra) : 0);
+  const materiales = n(inputs.materiales);
+  const mobiliario = n(inputs.mobiliarioTarifa);
   const directosSinExtras =
-    costeCristina + costeAportado + costePagado + Number(inputs.materiales) +
-    (Number(inputs.mobiliarioTarifa) * cfg.desgasteMobiliarioPct) / 100 + Number(inputs.transporte);
+    costeCristina + costeAportado + costePagado + materiales +
+    (mobiliario * cfg.desgasteMobiliarioPct) / 100 + n(inputs.transporte);
   const contingencia = (directosSinExtras * cfg.contingenciaPct) / 100;
-  const mermas = ((Number(inputs.materiales) + Number(inputs.mobiliarioTarifa)) * cfg.mermasPct) / 100;
+  const mermas = ((materiales + mobiliario) * cfg.mermasPct) / 100;
   const directos = directosSinExtras + contingencia + mermas;
   const costeTotal = directos + cuotaFijos;
 
-  // Tamaño: por el presupuesto actual si existe; si no, por el sugerido base
-  // (dos pasadas para no morder la pescadilla).
+  // Tamaño del evento por su MAGNITUD intrínseca (precio natural por costes), no
+  // por lo que ofrezca el cliente: así el precio sugerido es objetivo y estable.
   const margenBase = cfg.margenes[temporada];
-  const sugeridoSinAjuste = costeTotal / Math.max(0.05, 1 - margenBase.ideal / 100 - com);
-  const baseRef =
-    ctx.presupuestoBase && ctx.presupuestoBase > 0
-      ? ctx.presupuestoBase
-      : Number(inputs.precioTope ?? 0) > 0
-        ? Number(inputs.precioTope)
-        : sugeridoSinAjuste;
+  const sugeridoSinAjuste = costeTotal / factor(margenBase.ideal);
+  const baseRef = sugeridoSinAjuste;
   const tamano =
     baseRef >= cfg.tramos.muyGrandeMin ? "muy_grande"
     : baseRef >= cfg.tramos.grandeMin ? "grande"
@@ -272,14 +289,17 @@ export function calcularPrecio(
 
   const precioMinimo = costeTotal / Math.max(0.05, 1 - com);
   const precioSupervivencia = directos / Math.max(0.05, 1 - com);
-  let precioVerde = costeTotal / Math.max(0.05, 1 - margenVerde / 100 - com);
-  let precioSugerido = costeTotal / Math.max(0.05, 1 - margenIdeal / 100 - com);
+  let precioVerde = costeTotal / factor(margenVerde);
+  let precioSugerido = costeTotal / factor(margenIdeal);
   // Beneficio mínimo en euros para eventos pequeños: no compensar jaleo barato.
   if (tamano === "pequeno" && ctx.serie !== "alquiler_encargo") {
     const suelo = (costeTotal + cfg.tramos.beneficioMinimo) / Math.max(0.05, 1 - com);
     precioVerde = Math.max(precioVerde, suelo);
     precioSugerido = Math.max(precioSugerido, suelo);
   }
+  // Coherencia: verde nunca por debajo del mínimo, ni el sugerido por debajo del verde.
+  precioVerde = Math.max(precioVerde, precioMinimo);
+  precioSugerido = Math.max(precioSugerido, precioVerde);
   precioSugerido = redondeaArriba(precioSugerido, cfg.redondeo);
   precioVerde = redondeaArriba(precioVerde, cfg.redondeo);
 
@@ -299,18 +319,22 @@ export function calcularPrecio(
 
   // Precio tope del cliente: cálculo inverso (precio → coste admisible).
   let tope: AnalisisTope | null = null;
-  const precioTope = Number(inputs.precioTope ?? 0);
+  const precioTope = n(inputs.precioTope);
   if (precioTope > 0) {
     const beneficioTope = precioTope * (1 - com) - costeTotal;
     const sueloRojo = temporada === "baja" ? precioSupervivencia : precioMinimo;
+    // Coste admisible = precio × (1 − margen − comisión), acotado a ≥ 0.
+    const costeMaxVerde = Math.max(0, precioTope * (1 - margenVerde / 100 - com));
+    const costeMaxIdeal = Math.max(0, precioTope * (1 - margenIdeal / 100 - com));
     tope = {
       precio: precioTope,
+      // Mismo criterio de suelo redondeado que el semáforo principal (coherencia).
       semaforo: precioTope >= precioVerde ? "verde" : precioTope >= sueloRojo ? "ambar" : "rojo",
       margenPct: (beneficioTope / precioTope) * 100,
       beneficio: beneficioTope,
-      costeMaxVerde: precioTope * (1 - margenVerde / 100 - com),
-      costeMaxIdeal: precioTope * (1 - margenIdeal / 100 - com),
-      recorteParaVerde: costeTotal - precioTope * (1 - margenVerde / 100 - com),
+      costeMaxVerde,
+      costeMaxIdeal,
+      recorteParaVerde: costeTotal - costeMaxVerde,
     };
   }
 
