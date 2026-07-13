@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
-import { Lock } from "lucide-react";
+import { Lock, User } from "lucide-react";
 
 export function LoginForm() {
   const params = useSearchParams();
+  const [usuario, setUsuario] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -18,7 +19,7 @@ export function LoginForm() {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ usuario, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -33,10 +34,29 @@ export function LoginForm() {
     }
   }
 
+  const inputCls =
+    "w-full rounded-sm border-med border-border bg-white py-2.5 pl-9 pr-3 text-[14px] focus:border-sage-300 focus:outline-none";
+
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-        Contraseña del equipo
+        Usuario
+      </label>
+      <div className="relative">
+        <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
+        <input
+          type="text"
+          value={usuario}
+          onChange={(e) => setUsuario(e.target.value)}
+          autoFocus
+          autoCapitalize="none"
+          autoCorrect="off"
+          placeholder="jero, cris…"
+          className={inputCls}
+        />
+      </div>
+      <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+        Contraseña
       </label>
       <div className="relative">
         <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
@@ -44,9 +64,8 @@ export function LoginForm() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          autoFocus
           placeholder="••••••••"
-          className="w-full rounded-sm border-med border-border bg-white py-2.5 pl-9 pr-3 text-[14px] focus:border-sage-300 focus:outline-none"
+          className={inputCls}
         />
       </div>
       {error && <p className="text-[12px] text-error">{error}</p>}
@@ -58,7 +77,7 @@ export function LoginForm() {
         {busy ? "Entrando…" : "Entrar"}
       </button>
       <p className="pt-1 text-center text-[11px] text-ink-muted">
-        Acceso privado del equipo de TDO.
+        Cada socio entra con su usuario. Acceso privado del equipo de TDO.
       </p>
     </form>
   );

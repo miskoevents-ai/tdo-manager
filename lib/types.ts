@@ -390,6 +390,27 @@ export type Reunion = {
   oportunidad?: { id: string; titulo: string } | null;
 };
 
+export type Usuario = {
+  id: string;
+  usuario: string;
+  nombre: string;
+  activo: boolean;
+  es_admin: boolean;
+  equipo_id: string | null;
+  ultimo_acceso: string | null;
+  created_at: string;
+};
+
+export type RegistroActividad = {
+  id: string;
+  usuario: string | null;
+  accion: string;
+  entidad: string | null;
+  entidad_id: string | null;
+  detalle: string | null;
+  created_at: string;
+};
+
 export type TareaPrioridad = "baja" | "normal" | "alta" | "urgente";
 export type TareaEstado = "pendiente" | "en_curso" | "hecha" | "no_puedo";
 

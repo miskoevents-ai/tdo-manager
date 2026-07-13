@@ -7,6 +7,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { calcularTotales } from "@/lib/calc";
 import { computaSegunNaturaleza } from "@/lib/computa";
 import { normalizarChecklist } from "@/lib/checklist";
+import { registrarActividad } from "@/lib/actividad";
+import { cookies } from "next/headers";
+import { USER_COOKIE, leerCookieUsuario, hashPassword } from "@/lib/auth";
 import type { ChecklistGrupo, ChecklistItem } from "@/lib/types";
 import { runSeed, type SeedData } from "@/lib/seed-core";
 import { getKmPrecio, getFactura } from "@/lib/data";
@@ -193,6 +196,12 @@ export async function guardarOportunidad(formData: FormData) {
   }
   revalidatePath("/oportunidades");
   if (opId) revalidatePath(`/oportunidades/${opId}`);
+  await registrarActividad({
+    accion: id ? "editó una oportunidad" : "creó una oportunidad",
+    entidad: "oportunidad",
+    entidadId: (id ?? opId) || null,
+    detalle: (formData.get("titulo") as string)?.trim() || null,
+  });
   return opId;
 }
 
@@ -232,6 +241,11 @@ export async function cambiarEstado(id: string, estado: string) {
   revalidatePath("/oportunidades");
   revalidatePath(`/oportunidades/${id}`);
   revalidatePath("/");
+  await registrarActividad({
+    accion: `cambió el estado a "${estado}"`,
+    entidad: "oportunidad",
+    entidadId: id,
+  });
 }
 
 export async function toggleFianzaDevuelta(id: string, devuelta: boolean) {
@@ -443,6 +457,12 @@ export async function guardarMovimiento(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/tesoreria");
   revalidatePath("/");
+  await registrarActividad({
+    accion: id ? "editó un movimiento" : `registró un ${payload.tipo}`,
+    entidad: "movimiento",
+    entidadId: id,
+    detalle: `${payload.concepto} · ${payload.importe} €`,
+  });
 }
 
 // Marca un cobro recibido por una persona como ya entregado a TDO (liquidado):
@@ -784,6 +804,11 @@ export async function crearTarea(input: {
   await guardarTareaConFallback(async (f) => await sb.from("tareas").insert(f), fila);
   revalidatePath("/tareas");
   revalidatePath("/");
+  await registrarActividad({
+    accion: "creó una tarea",
+    entidad: "tarea",
+    detalle: `${input.titulo.trim()} · para ${(input.asignados?.join(", ") || input.asignadaA)}`,
+  });
 }
 
 export async function actualizarTarea(
@@ -1146,6 +1171,35 @@ export async function borrarEquipo(id: string) {
   const { error } = await sb.from("equipo").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/equipo");
+}
+
+// --------------------------- Usuarios ---------------------------
+
+// Cambia la contraseña del usuario que tiene la sesión abierta. Pide la actual
+// para confirmar. La nueva se guarda hasheada (misma fórmula que el login).
+export async function cambiarMiContrasena(actual: string, nueva: string) {
+  if (!nueva || nueva.length < 6) throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");
+  const pass = process.env.APP_PASSWORD;
+  const jar = await cookies();
+  const usuario = pass ? await leerCookieUsuario(jar.get(USER_COOKIE)?.value, pass, Date.now()) : null;
+  if (!usuario) throw new Error("Entra con tu usuario para cambiar la contraseña.");
+
+  const sb = createAdminClient();
+  const { data: u, error } = await sb
+    .from("usuarios")
+    .select("password_hash")
+    .eq("usuario", usuario)
+    .maybeSingle();
+  if (error || !u) throw new Error("No se encontró tu usuario.");
+  if ((await hashPassword(usuario, actual)) !== u.password_hash) {
+    throw new Error("La contraseña actual no es correcta.");
+  }
+  const { error: updErr } = await sb
+    .from("usuarios")
+    .update({ password_hash: await hashPassword(usuario, nueva) })
+    .eq("usuario", usuario);
+  if (updErr) throw new Error(updErr.message);
+  await registrarActividad({ accion: "cambió su contraseña", entidad: "usuario" });
 }
 
 // --------------------------- Inventario ---------------------------
@@ -2094,6 +2148,12 @@ export async function emitirFactura(oportunidadId: string) {
   revalidatePath("/contabilidad");
   revalidatePath(`/oportunidades/${op.id}`);
   revalidatePath("/oportunidades");
+  await registrarActividad({
+    accion: "emitió una factura",
+    entidad: "factura",
+    entidadId: facturaId,
+    detalle: `Factura ${numeroFactura} · ${op.titulo}`,
+  });
   return facturaId;
 }
 

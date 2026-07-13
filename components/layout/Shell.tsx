@@ -4,10 +4,44 @@ import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { NAV } from "./nav";
 import { Asistente } from "@/components/asistente/Asistente";
+import { CambiarContrasena } from "./CambiarContrasena";
 import { cn } from "@/lib/utils";
+
+type UsuarioShell = { nombre: string; esAdmin: boolean } | null;
+
+// Nombre + inicial + cerrar sesión en la barra superior.
+function UsuarioMenu({ usuario }: { usuario: UsuarioShell }) {
+  const [busy, setBusy] = React.useState(false);
+  const nombre = usuario?.nombre ?? "Equipo";
+  const inicial = (nombre[0] ?? "T").toUpperCase();
+
+  async function salir() {
+    setBusy(true);
+    await fetch("/api/logout", { method: "POST" });
+    window.location.href = "/login";
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-[12px] text-ink-muted">
+      <span className="hidden sm:inline">{nombre}</span>
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-clay text-[13px] font-semibold text-cream">
+        {inicial}
+      </span>
+      {usuario && <CambiarContrasena />}
+      <button
+        onClick={salir}
+        disabled={busy}
+        title="Cerrar sesión"
+        className="rounded-sm p-1.5 text-ink-muted hover:bg-beige-warm hover:text-clay"
+      >
+        <LogOut size={15} />
+      </button>
+    </div>
+  );
+}
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -67,7 +101,7 @@ const EXTRA_TITLES: Record<string, string> = {
   "/setup": "Configuración",
 };
 
-export function Shell({ children }: { children: React.ReactNode }) {
+export function Shell({ children, usuario = null }: { children: React.ReactNode; usuario?: UsuarioShell }) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
   const title =
@@ -105,12 +139,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </button>
             <h1 className="font-display text-[24px] font-normal">{title}</h1>
           </div>
-          <div className="flex items-center gap-3 text-[12px] text-ink-muted">
-            <span className="hidden sm:inline">Sarmi</span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-clay text-[13px] font-semibold text-cream">
-              S
-            </span>
-          </div>
+          <UsuarioMenu usuario={usuario} />
         </header>
 
         <main className="max-w-container px-5 py-6 md:px-7">{children}</main>

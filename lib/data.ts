@@ -19,6 +19,8 @@ import type {
   Tarea,
   PresupuestoVersion,
   CosteEstimado,
+  RegistroActividad,
+  Usuario,
 } from "@/lib/types";
 
 // Capa de acceso a datos (server-only). Usa la secret key vía admin client.
@@ -291,6 +293,35 @@ export async function getEquipo(): Promise<Equipo[]> {
   const { data, error } = await sb.from("equipo").select("*").order("nombre", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Equipo[];
+}
+
+export async function getActividad(limite = 200): Promise<RegistroActividad[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("registro_actividad")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limite);
+  if (error) {
+    if (tablaNoExiste(error)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as RegistroActividad[];
+}
+
+export async function getUsuarios(): Promise<Usuario[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("usuarios")
+    .select("id, usuario, nombre, activo, es_admin, equipo_id, ultimo_acceso, created_at")
+    .order("nombre", { ascending: true });
+  if (error) {
+    if (tablaNoExiste(error)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []) as Usuario[];
 }
 
 export async function getGastosFijos(): Promise<GastoFijo[]> {
