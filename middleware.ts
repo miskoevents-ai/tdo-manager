@@ -7,15 +7,22 @@ import { AUTH_COOKIE, USER_COOKIE, tokenDe, leerCookieUsuario } from "@/lib/auth
 // configurada, no bloquea (evita quedarse fuera antes de configurarla).
 export async function middleware(req: NextRequest) {
   const pass = process.env.APP_PASSWORD;
-  if (!pass) return NextResponse.next();
+  // Se pasa la ruta a los server components (para el control de acceso por
+  // sección) mediante una cabecera de petición.
+  const dejarPasar = () => {
+    const h = new Headers(req.headers);
+    h.set("x-tdo-path", req.nextUrl.pathname);
+    return NextResponse.next({ request: { headers: h } });
+  };
+  if (!pass) return dejarPasar();
 
   // 1) Sesión de usuario (firmada con APP_PASSWORD como secreto).
   const userCookie = req.cookies.get(USER_COOKIE)?.value;
-  if (await leerCookieUsuario(userCookie, pass, Date.now())) return NextResponse.next();
+  if (await leerCookieUsuario(userCookie, pass, Date.now())) return dejarPasar();
 
   // 2) Sesión de la contraseña compartida (respaldo).
   const cookie = req.cookies.get(AUTH_COOKIE)?.value;
-  if (cookie && cookie === (await tokenDe(pass))) return NextResponse.next();
+  if (cookie && cookie === (await tokenDe(pass))) return dejarPasar();
 
   const url = req.nextUrl.clone();
   url.pathname = "/login";
