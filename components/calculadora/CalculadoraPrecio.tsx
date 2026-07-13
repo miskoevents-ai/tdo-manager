@@ -66,7 +66,7 @@ function NumInput({
           step={step}
           min={0}
           value={Number.isFinite(value) ? value : 0}
-          onChange={(e) => onChange(Number(e.target.value) || 0)}
+          onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
           className="py-2 text-right text-[13px] tabular"
         />
         {sufijo && <span className="shrink-0 text-[11px] text-ink-muted">{sufijo}</span>}
@@ -82,6 +82,7 @@ export function CalculadoraPrecio({
   fechaEvento,
   presupuestoBase,
   boteFijos,
+  ivaPct = 21,
   configGuardada,
   calculoInicial,
   personasEquipo = [],
@@ -92,6 +93,7 @@ export function CalculadoraPrecio({
   fechaEvento: string | null;
   presupuestoBase: number;
   boteFijos: number;
+  ivaPct?: number;
   configGuardada: unknown;
   calculoInicial: unknown;
   personasEquipo?: PersonaOpcion[];
@@ -148,6 +150,20 @@ export function CalculadoraPrecio({
     setInputs((i) => ({ ...i, personas: (i.personas ?? []).filter((_, j) => j !== idx) }));
   }
 
+  // Si cambia el tipo de evento o la serie (p. ej. se corrige en Editar), se
+  // recargan las horas por ese tipo. No corre en el primer render (misma clave),
+  // así respeta un cálculo ya guardado.
+  const seedRef = React.useRef(`${serie}|${tipoEvento}`);
+  React.useEffect(() => {
+    const key = `${serie}|${tipoEvento}`;
+    if (seedRef.current === key) return;
+    seedRef.current = key;
+    const pk = serie === "alquiler_encargo" ? "alquiler_encargo" : (tipoEvento ?? "otro");
+    const nuevas = cfg.horasPorTipo[pk] ?? cfg.horasPorTipo.otro;
+    setInputs((i) => ({ ...i, horas: { ...nuevas } }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serie, tipoEvento]);
+
   const [verParams, setVerParams] = React.useState(false);
   const [verDesglose, setVerDesglose] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -168,6 +184,7 @@ export function CalculadoraPrecio({
   });
   const temp = TEMporada_META[r.temporada];
   const sem = r.semaforo ? SEMAFORO_META[r.semaforo] : null;
+  const conIva = (n: number) => eur(n * (1 + ivaPct / 100));
 
   const setHora = (k: keyof CalculoInputs["horas"], v: number) =>
     setInputs((i) => ({ ...i, horas: { ...i.horas, [k]: v } }));
@@ -251,11 +268,11 @@ export function CalculadoraPrecio({
               <span className="min-w-[110px] flex-1 text-[13px] font-medium">{p.nombre}</span>
               <label className="flex items-center gap-1 text-[11px] text-ink-muted">
                 horas
-                <Input type="number" step={0.5} min={0} value={p.horas} onChange={(e) => setPersona(idx, { horas: Number(e.target.value) || 0 })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
+                <Input type="number" step={0.5} min={0} value={p.horas} onChange={(e) => setPersona(idx, { horas: Math.max(0, Number(e.target.value) || 0) })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
               </label>
               <label className="flex items-center gap-1 text-[11px] text-ink-muted">
                 €/h
-                <Input type="number" step={0.5} min={0} value={p.precioHora} onChange={(e) => setPersona(idx, { precioHora: Number(e.target.value) || 0 })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
+                <Input type="number" step={0.5} min={0} value={p.precioHora} onChange={(e) => setPersona(idx, { precioHora: Math.max(0, Number(e.target.value) || 0) })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
               </label>
               <span className="tabular text-[12.5px] font-semibold text-ink-secondary">{eur(p.horas * p.precioHora)}</span>
               <label
@@ -331,21 +348,26 @@ export function CalculadoraPrecio({
           <div className="rounded-md border-hair border-border bg-white p-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Precio mínimo</div>
             <div className="mt-1 font-display text-[20px] tabular text-error">{eur(r.precioMinimo)}</div>
-            <div className="text-[10.5px] text-ink-muted">por debajo, se pierde dinero</div>
+            <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioMinimo)} con IVA · por debajo se pierde</div>
           </div>
           <div className="rounded-md border-hair border-border bg-white p-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Verde desde ({num(r.margenVerde, 0)}%)</div>
             <div className="mt-1 font-display text-[20px] tabular text-ink">{eur(r.precioVerde)}</div>
-            <div className="text-[10.5px] text-ink-muted">margen aceptable</div>
+            <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioVerde)} con IVA · margen aceptable</div>
           </div>
           <div className="rounded-md border-med border-sage bg-sage-tint/50 p-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-sage">Precio sugerido ({num(r.margenIdeal, 0)}%)</div>
             <div className="mt-1 font-display text-[22px] tabular text-sage">{eur(r.precioSugerido)}</div>
-            <div className="text-[10.5px] text-ink-muted">sin IVA · redondeado</div>
+            <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioSugerido)} con IVA ({num(ivaPct, 0)}%) · redondeado</div>
           </div>
         </div>
+        <p className="mt-2 text-[11px] text-ink-muted">
+          Del precio sugerido ({eur(r.precioSugerido)}): coste <b className="tabular">{eur(r.costeTotal)}</b> ·
+          comisión <b className="tabular">{eur(r.precioSugerido * (r.comisionPct / 100))}</b> ·
+          tu beneficio <b className="tabular text-sage">{eur(r.precioSugerido * (1 - r.comisionPct / 100) - r.costeTotal)}</b>.
+        </p>
         {r.temporada === "baja" && (
-          <p className="mt-2 text-[11px] text-ink-muted">
+          <p className="mt-1 text-[11px] text-ink-muted">
             ❄️ En temporada baja, si el mes está flojo se puede aceptar desde el precio de
             supervivencia (<b className="tabular">{eur(r.precioSupervivencia)}</b>: cubre directos y comisión;
             los fijos se pagan igual). Antes que bajar precio: regala extras.
