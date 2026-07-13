@@ -397,11 +397,50 @@ export function CalculadoraPrecio({
             <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioSugerido)} con IVA ({num(ivaPct, 0)}%) · redondeado</div>
           </div>
         </div>
-        <p className="mt-2 text-[11px] text-ink-muted">
-          Del precio sugerido ({eur(r.precioSugerido)}): coste <b className="tabular">{eur(r.costeTotal)}</b> ·
-          comisión <b className="tabular">{eur(r.precioSugerido * (r.comisionPct / 100))}</b> ·
-          tu beneficio <b className="tabular text-sage">{eur(r.precioSugerido * (1 - r.comisionPct / 100) - r.costeTotal)}</b>.
-        </p>
+        {/* Opciones de margen: el menú completo para elegir con criterio */}
+        <div className="mt-3">
+          <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+            Opciones de margen — elige el que veas
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[12.5px]">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-[0.06em] text-ink-muted">
+                  <th className="border-b border-border py-1.5 text-left font-semibold">Margen TDO</th>
+                  <th className="border-b border-border py-1.5 text-right font-semibold">Precio sin IVA</th>
+                  <th className="border-b border-border py-1.5 text-right font-semibold">Con IVA</th>
+                  <th className="border-b border-border py-1.5 text-right font-semibold">Beneficio TDO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[15, 20, 25, 30, 35, 40].map((m) => {
+                  const com = r.comisionPct / 100;
+                  const bruto = r.costeTotal / Math.max(0.05, 1 - m / 100 - com);
+                  const precio = Math.ceil(bruto / Math.max(1, cfg.redondeo)) * Math.max(1, cfg.redondeo);
+                  const beneficio = precio * (1 - com) - r.costeTotal;
+                  const verde = m >= r.margenVerde;
+                  const esSugerido = Math.round(m) === Math.round(r.margenIdeal);
+                  return (
+                    <tr key={m} className={esSugerido ? "bg-sage-tint/40" : verde ? "bg-ok-tint/30" : ""}>
+                      <td className="border-b border-[#f0eae1] py-1.5 font-semibold">
+                        {verde && !esSugerido && <span className="mr-1 text-ok">🟢</span>}
+                        {esSugerido && <span className="mr-1">⭐</span>}
+                        {m}%{esSugerido ? " · sugerido" : ""}
+                      </td>
+                      <td className="border-b border-[#f0eae1] py-1.5 text-right tabular font-semibold">{eur(precio)}</td>
+                      <td className="border-b border-[#f0eae1] py-1.5 text-right tabular text-ink-secondary">{conIva(precio)}</td>
+                      <td className="border-b border-[#f0eae1] py-1.5 text-right tabular text-sage">{eur(beneficio)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-1 text-[10.5px] text-ink-muted">
+            🟢 = margen sano para este evento (verde desde {num(r.margenVerde, 0)}%). Los eventos grandes
+            aceptan menos %; los pequeños piden más. Nunca por debajo del mínimo ({eur(r.precioMinimo)}).
+          </p>
+        </div>
         {r.temporada === "baja" && (
           <p className="mt-1 text-[11px] text-ink-muted">
             ❄️ En temporada baja, si el mes está flojo se puede aceptar desde el precio de
