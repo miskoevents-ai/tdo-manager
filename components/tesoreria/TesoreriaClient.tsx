@@ -215,7 +215,7 @@ export function TesoreriaClient({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Deudas y cuentas con el equipo: al final para no estorbar arriba */}
+      {/* Deudas pendientes: al final para no estorbar arriba */}
       <div className="order-last flex flex-col gap-4">
       {/* Deudas / pendiente de pago (gastos sin pagar) */}
       {deudas.length > 0 && (
@@ -303,14 +303,26 @@ export function TesoreriaClient({
           </div>
         </Card>
       )}
+      </div>
 
-      {/* Cuentas con el equipo: en los dos sentidos y por caja */}
+      {/* Cuentas con el equipo: lo primero — el estado de cuentas entre nosotros */}
       {hayCuentasEquipo && (
         <Card className="p-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
               Cuentas con el equipo
             </span>
+          </div>
+          {/* El contexto: cómo hemos llegado aquí y qué pasará al crear la SL */}
+          <div className="mb-3 rounded-md border-hair border-sage-tint-deep bg-sage-tint/30 p-3 text-[12px] leading-relaxed text-ink-secondary">
+            <b>Cómo funciona esto (hasta que se cree la SL):</b> TDO empezó a operar antes de tener
+            sociedad, así que{" "}
+            <b>{(personasCaja.length ? personasCaja : ["Jero"]).map((n) => n.split(" ")[0]).join(" y ")} actúa como TDO</b>{" "}
+            — cobra las facturas en su cuenta y paga la mayoría de los gastos. Por el camino, el
+            resto del equipo también ha puesto o cobrado dinero: eso es lo que refleja esta tabla.
+            Cuando se cree la SL se ajustarán las cuentas: se devolverá a cada uno lo que puso,
+            quien tenga cobros pendientes los entregará, y el balance de la caja (lo puesto neto)
+            pasará a la SL.
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[13px]">
@@ -389,7 +401,6 @@ export function TesoreriaClient({
           </p>
         </Card>
       )}
-      </div>
 
       {personaDetalle && (
         <PersonaDetalle
