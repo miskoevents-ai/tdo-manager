@@ -16,8 +16,7 @@ export type CalculadoraConfig = {
   // Eventos al mes entre los que se reparte el bote de fijos.
   eventosMes: number;
   contingenciaPct: number; // imprevistos sobre costes directos
-  mermasPct: number; // roturas/mermas sobre materiales + mobiliario
-  desgasteMobiliarioPct: number; // % del valor de tarifario que es coste real
+  mermasPct: number; // roturas/mermas sobre materiales
   costeHoraSocio: number; // tarifa nominal si un socio hace montaje (aportado)
   comisiones: { alquiler: number; boda: number; corporativo: number };
   margenes: {
@@ -49,7 +48,6 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
   eventosMes: 6,
   contingenciaPct: 5,
   mermasPct: 3,
-  desgasteMobiliarioPct: 20,
   costeHoraSocio: 12,
   comisiones: { alquiler: 5, boda: 6, corporativo: 7 },
   margenes: {
@@ -170,7 +168,6 @@ export type CalculoInputs = {
   horasSocio?: number;
   personalExtra?: number;
   materiales: number; // € materiales/subcontratas
-  mobiliarioTarifa: number; // € valor de tarifario del mobiliario propio usado
   transporte: number; // € furgoneta + gasolina + km
   // Precio tope del cliente (opcional): "tengo X € y punto" → la calculadora
   // trabaja al revés: cuánto coste te puedes permitir para ese precio.
@@ -200,7 +197,6 @@ export type CalculoResultado = {
     costeSocio: number;
     personalExtra: number;
     materiales: number;
-    desgasteMobiliario: number;
     transporte: number;
     contingencia: number;
     mermas: number;
@@ -259,12 +255,10 @@ export function calcularPrecio(
     personas.filter((p) => !p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
     (soloViejo ? n(inputs.personalExtra) : 0);
   const materiales = n(inputs.materiales);
-  const mobiliario = n(inputs.mobiliarioTarifa);
   const directosSinExtras =
-    costeCristina + costeAportado + costePagado + materiales +
-    (mobiliario * cfg.desgasteMobiliarioPct) / 100 + n(inputs.transporte);
+    costeCristina + costeAportado + costePagado + materiales + n(inputs.transporte);
   const contingencia = (directosSinExtras * cfg.contingenciaPct) / 100;
-  const mermas = ((materiales + mobiliario) * cfg.mermasPct) / 100;
+  const mermas = (materiales * cfg.mermasPct) / 100;
   const directos = directosSinExtras + contingencia + mermas;
   const costeTotal = directos + cuotaFijos;
 
@@ -350,7 +344,6 @@ export function calcularPrecio(
       costeSocio: costeAportado,
       personalExtra: costePagado,
       materiales: Number(inputs.materiales),
-      desgasteMobiliario: (Number(inputs.mobiliarioTarifa) * cfg.desgasteMobiliarioPct) / 100,
       transporte: Number(inputs.transporte),
       contingencia,
       mermas,
