@@ -136,13 +136,40 @@ export default async function Page({
   const mesEvento = (op.fecha_evento ?? hoyMadrid).slice(0, 7);
   const boteFijos = boteFijosMes(gastosFijos, mesEvento);
   // Personas para el desplegable de la calculadora (socios detectados por rol).
+  const esSocioDe = (nombre: string) =>
+    (equipo.find((e) => e.nombre === nombre)?.rol ?? "").toLowerCase().includes("socio");
   const personasCalc = equipo
     .filter((e) => e.activo)
     .map((e) => ({
       nombre: e.nombre,
       precioHora: e.precio_hora != null ? Number(e.precio_hora) : null,
-      esSocio: (e.rol ?? "").toLowerCase().includes("socio"),
+      esSocio: esSocioDe(e.nombre),
     }));
+
+  // Costes REALES ya registrados (para comparar en la Calculadora estimado vs
+  // real y poder "traerlos" y aplicarles margen). Los datos se introducen en
+  // Costes; aquí solo se leen los totales.
+  const realPorPersona = new Map<string, { horas: number; coste: number }>();
+  for (const p of partes) {
+    const nombre = p.equipo?.nombre ?? p.persona_externa ?? "Sin asignar";
+    const acc = realPorPersona.get(nombre) ?? { horas: 0, coste: 0 };
+    acc.horas += Number(p.horas);
+    acc.coste += Number(p.horas) * Number(p.precio_hora);
+    realPorPersona.set(nombre, acc);
+  }
+  const costesReales = {
+    personas: Array.from(realPorPersona.entries()).map(([nombre, v]) => ({
+      nombre,
+      horas: v.horas,
+      precioHora: v.horas > 0 ? v.coste / v.horas : 0,
+      aportado: esSocioDe(nombre),
+    })),
+    materiales: compras.reduce((s, m) => s + Number(m.importe), 0),
+    transporte: desplazamientos.reduce(
+      (s, d) => s + Number(d.coste_gasolina ?? 0) + Number(d.peaje ?? 0) + Number(d.parking ?? 0),
+      0,
+    ),
+  };
 
   return (
     <div className="space-y-5">
@@ -470,6 +497,7 @@ export default async function Page({
             configGuardada={calcConfigRaw}
             calculoInicial={calculoGuardado}
             personasEquipo={personasCalc}
+            costesReales={costesReales}
           />
         </TabsContent>
       </Tabs>

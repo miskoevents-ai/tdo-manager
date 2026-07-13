@@ -19,6 +19,11 @@ import {
 import { eur, num } from "@/lib/format";
 
 export type PersonaOpcion = { nombre: string; precioHora: number | null; esSocio: boolean };
+export type CostesReales = {
+  personas: { nombre: string; horas: number; precioHora: number; aportado: boolean }[];
+  materiales: number;
+  transporte: number;
+};
 
 const TEMporada_META = {
   alta: { emoji: "🌞", label: "Temporada alta", nota: "hay demanda: vender caro" },
@@ -86,6 +91,7 @@ export function CalculadoraPrecio({
   configGuardada,
   calculoInicial,
   personasEquipo = [],
+  costesReales,
 }: {
   oportunidadId: string;
   serie: string | null;
@@ -97,6 +103,7 @@ export function CalculadoraPrecio({
   configGuardada: unknown;
   calculoInicial: unknown;
   personasEquipo?: PersonaOpcion[];
+  costesReales?: CostesReales;
 }) {
   const router = useRouter();
   const [cfg, setCfg] = React.useState<CalculadoraConfig>(() => mezclarConfig(configGuardada));
@@ -188,6 +195,35 @@ export function CalculadoraPrecio({
 
   const setHora = (k: keyof CalculoInputs["horas"], v: number) =>
     setInputs((i) => ({ ...i, horas: { ...i.horas, [k]: v } }));
+
+  // Costes reales ya registrados en Costes (para comparar y traer).
+  const cr = costesReales;
+  const realPersonal = (cr?.personas ?? []).reduce((s, p) => s + p.horas * p.precioHora, 0);
+  const realDirectos = realPersonal + (cr?.materiales ?? 0) + (cr?.transporte ?? 0);
+  const hayReales = !!cr && (cr.personas.length > 0 || cr.materiales > 0 || cr.transporte > 0);
+  // Coste que se estimó al guardar el cálculo (para "estimado vs real").
+  const estimadoGuardado = Number(
+    (calculoInicial as { resultado?: { costeTotal?: number } } | null)?.resultado?.costeTotal ?? 0,
+  );
+
+  // Trae los costes reales a la calculadora: personas reales como líneas,
+  // materiales y transporte reales; deja las horas de estimación a 0.
+  function usarReales() {
+    if (!cr) return;
+    setInputs((i) => ({
+      ...i,
+      horas: { comercial: 0, pre: 0, durante: 0, post: 0 },
+      personas: cr.personas.map((p) => ({
+        nombre: p.nombre,
+        horas: Math.round(p.horas * 100) / 100,
+        precioHora: Math.round(p.precioHora * 100) / 100,
+        aportado: p.aportado,
+      })),
+      materiales: Math.round(cr.materiales * 100) / 100,
+      transporte: Math.round(cr.transporte * 100) / 100,
+      mobiliarioTarifa: 0,
+    }));
+  }
 
   async function guardarCalculo() {
     setBusy("calculo");
@@ -436,6 +472,37 @@ export function CalculadoraPrecio({
               </p>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Costes reales del evento (se registran en la pestaña Costes) */}
+      {hayReales && (
+        <div className="rounded-md border-hair border-border bg-white p-3">
+          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+              Costes reales registrados en este evento
+            </span>
+            <Button size="sm" variant="outline" onClick={usarReales} title="Sustituye las estimaciones por lo realmente registrado, para aplicarle el margen">
+              Usar costes reales →
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12.5px] text-ink-secondary">
+            {realPersonal > 0 && <span>Personal: <b className="tabular">{eur(realPersonal)}</b></span>}
+            {(cr?.transporte ?? 0) > 0 && <span>Transporte: <b className="tabular">{eur(cr!.transporte)}</b></span>}
+            {(cr?.materiales ?? 0) > 0 && <span>Materiales: <b className="tabular">{eur(cr!.materiales)}</b></span>}
+            <span>Total directo: <b className="tabular text-ink">{eur(realDirectos)}</b></span>
+          </div>
+          {estimadoGuardado > 0 && (
+            <p className="mt-1.5 text-[11.5px] text-ink-muted">
+              Estimaste un coste de <b className="tabular">{eur(estimadoGuardado)}</b> (con fijos y colchón).
+              Los costes directos reales van por <b className="tabular">{eur(realDirectos)}</b>.
+              {realDirectos > 0 && estimadoGuardado > 0 && (
+                <> Desviación en directos: <b className={realDirectos > estimadoGuardado ? "text-error" : "text-ok"}>
+                  {realDirectos > estimadoGuardado ? "+" : ""}{eur(realDirectos - estimadoGuardado)}
+                </b>.</>
+              )}
+            </p>
+          )}
         </div>
       )}
 
