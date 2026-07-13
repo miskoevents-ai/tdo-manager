@@ -69,6 +69,7 @@ export type Oportunidad = {
   id: string;
   numero: string;
   titulo: string;
+  creado_por?: string | null; // usuario que la creó (migración 040)
   serie: OportunidadSerie;
   tipo_evento: TipoEvento;
   tipo_operacion: TipoOperacion;
@@ -185,6 +186,7 @@ export type Factura = {
   total: number;
   estado: FacturaEstado;
   notas: string | null;
+  creado_por?: string | null; // usuario que la emitió (migración 040)
   pdf_url?: string | null; // PDF real subido desde el ordenador (si lo hay)
   descuento_pct?: number | null; // % de descuento global aplicado al emitirla
   lineas?: FacturaLinea[] | null;

@@ -141,6 +141,7 @@ export default async function Page({
           <p className="mt-1 text-[12px] text-ink-muted">
             Nº {op.numero} · {TIPO_EVENTO_LABEL[op.tipo_evento] ?? op.tipo_evento}
             {op.tipo_operacion === "amigos_prestamo" && " · Amigos/préstamo"}
+            {op.creado_por && ` · Creada por ${op.creado_por}`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

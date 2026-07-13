@@ -43,11 +43,11 @@ function UsuarioMenu({ usuario }: { usuario: UsuarioShell }) {
   );
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ onNavigate, esAdmin = false }: { onNavigate?: () => void; esAdmin?: boolean }) {
   const pathname = usePathname();
   return (
     <nav className="mt-4 flex flex-col gap-px">
-      {NAV.map((item) => {
+      {NAV.filter((item) => !item.soloAdmin || esAdmin).map((item) => {
         const active =
           item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         const Icon = item.icon;
@@ -72,7 +72,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarInner({ onNavigate, esAdmin }: { onNavigate?: () => void; esAdmin?: boolean }) {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-white/[0.13] px-2 pb-[18px] pt-[6px]">
@@ -88,7 +88,7 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
           TDO Manager
         </small>
       </div>
-      <NavLinks onNavigate={onNavigate} />
+      <NavLinks onNavigate={onNavigate} esAdmin={esAdmin} />
     </div>
   );
 }
@@ -113,7 +113,7 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
     <div className="min-h-screen md:grid md:grid-cols-[238px_1fr]">
       {/* Sidebar fijo en escritorio */}
       <aside className="hidden bg-gradient-to-b from-sage to-[#353f2c] px-[14px] py-[22px] text-cream shadow-md md:flex md:flex-col">
-        <SidebarInner />
+        <SidebarInner esAdmin={usuario?.esAdmin} />
       </aside>
 
       {/* Drawer móvil */}
@@ -121,7 +121,7 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/50" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-[260px] bg-gradient-to-b from-sage to-[#353f2c] px-[14px] py-[22px] text-cream shadow-lg">
-            <SidebarInner onNavigate={() => setOpen(false)} />
+            <SidebarInner onNavigate={() => setOpen(false)} esAdmin={usuario?.esAdmin} />
           </aside>
         </div>
       )}

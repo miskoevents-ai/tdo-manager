@@ -9,6 +9,8 @@ import { EstaSemana } from "@/components/home/EstaSemana";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades, getReservas, getTesoreria, getReuniones, getTareas, getEquipo } from "@/lib/data";
+import { getUsuarioActual } from "@/lib/sesion";
+import { canonizarNombre } from "@/lib/personas";
 import { calcularTotales } from "@/lib/calc";
 import { calcularAvisos } from "@/lib/avisos";
 import { construirEventos } from "@/lib/calendario";
@@ -99,6 +101,18 @@ export default async function Home() {
   const avisos = calcularAvisos(ops, HOY_ISO, reservas, tareas).slice(0, 10);
   const eventosCal = construirEventos(ops, reservas, tesoreria, reuniones);
 
+  // Saludo personalizado: tareas del usuario conectado.
+  const usuario = await getUsuarioActual();
+  const yoNombre = usuario ? canonizarNombre(usuario.nombre, responsables) : null;
+  const misPendientes = yoNombre
+    ? tareas.filter((t) => {
+        const asignados = (t.asignados ?? []).filter(Boolean);
+        const mia = asignados.length ? asignados.includes(yoNombre) : t.asignada_a === yoNombre;
+        return mia && t.estado !== "hecha";
+      })
+    : [];
+  const misVencidas = misPendientes.filter((t) => t.fecha_limite && t.fecha_limite < HOY_ISO);
+
   const futuros = ops
     .filter((o) => o.fecha_evento && o.fecha_evento >= HOY_ISO)
     .sort((a, b) => (a.fecha_evento! < b.fecha_evento! ? -1 : 1));
@@ -111,6 +125,23 @@ export default async function Home() {
 
   return (
     <div className="space-y-6">
+      {usuario && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border-hair border-sage-tint-deep bg-sage-tint/40 px-[18px] py-[14px]">
+          <p className="font-display text-[19px] text-sage">Hola, {usuario.nombre} 👋</p>
+          <p className="text-[13px] text-ink-secondary">
+            {misPendientes.length === 0 ? (
+              "No tienes tareas pendientes. 🎉"
+            ) : (
+              <>
+                Tienes <Link href="/tareas" className="font-semibold text-sage hover:underline">{misPendientes.length} tarea{misPendientes.length === 1 ? "" : "s"} pendiente{misPendientes.length === 1 ? "" : "s"}</Link>
+                {misVencidas.length > 0 && (
+                  <> · <span className="font-semibold text-error">{misVencidas.length} vencida{misVencidas.length === 1 ? "" : "s"}</span></>
+                )}
+              </>
+            )}
+          </p>
+        </div>
+      )}
       <InfoNote id="inicio">
         Tu panel de inicio: los avisos que requieren atención, los cobros pendientes y los próximos
         eventos y alquileres, todo de un vistazo.

@@ -4,6 +4,8 @@ import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { TareasClient } from "@/components/tareas/TareasClient";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getTareas, getOportunidades, getEquipo } from "@/lib/data";
+import { getUsuarioActual } from "@/lib/sesion";
+import { canonizarNombre } from "@/lib/personas";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,7 @@ export default async function TareasPage() {
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
+  const usuario = await getUsuarioActual();
 
   const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
 
@@ -30,6 +33,9 @@ export default async function TareasPage() {
     if (t.asignada_a) nombres.add(t.asignada_a);
     if (t.creada_por) nombres.add(t.creada_por);
   }
+  const listaPersonas = Array.from(nombres).sort((a, b) => a.localeCompare(b, "es"));
+  // Quién soy según el usuario conectado (canonizado contra la lista real).
+  const yoInicial = usuario ? canonizarNombre(usuario.nombre, listaPersonas) ?? "" : "";
 
   // Info del equipo ACTIVO (id + €/hora) para imputar horas al cerrar una tarea.
   const equipoInfo = equipo
@@ -51,8 +57,9 @@ export default async function TareasPage() {
       <TareasClient
         tareas={tareas}
         oportunidades={opsLite}
-        personas={Array.from(nombres).sort((a, b) => a.localeCompare(b, "es"))}
+        personas={listaPersonas}
         equipoInfo={equipoInfo}
+        yoInicial={yoInicial}
         hoy={hoy}
       />
     </div>

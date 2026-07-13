@@ -22,7 +22,7 @@ create table if not exists usuarios (
 --   jero  → jero-tdo-26      cris → cris-tdo-26      sarmi → sarmi-tdo-26
 insert into usuarios (usuario, nombre, password_hash, es_admin) values
   ('jero',  'Jero',  '8bff858355ee31f774f424d2cde406131c63ceb2f191df32f02df1d90e253213', true),
-  ('cris',  'Cris',  'a14f57bede4126a81f88ccb1440ce695205086e293879b5e1bdc173b750dda48', false),
+  ('cris',  'Cris',  'a14f57bede4126a81f88ccb1440ce695205086e293879b5e1bdc173b750dda48', true),
   ('sarmi', 'Sarmi', '2c17e0d3ab6809ef61a28f11251e6295ec84c443ab2bef057292b77cf99910bb', true)
 on conflict (usuario) do nothing;
 
