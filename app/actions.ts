@@ -469,10 +469,19 @@ export async function guardarMovimiento(formData: FormData) {
 // deja de contar como deuda de esa persona hacia TDO.
 export async function marcarMovimientoLiquidado(id: string, liquidado: boolean) {
   const sb = createAdminClient();
+  const { data: mov } = await sb.from("tesoreria").select("concepto, tipo").eq("id", id).maybeSingle();
   const { error } = await sb.from("tesoreria").update({ liquidado }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/tesoreria");
   revalidatePath("/");
+  await registrarActividad({
+    accion: liquidado
+      ? mov?.tipo === "ingreso" ? "marcó un cobro como entregado" : "marcó un gasto como reembolsado"
+      : "deshizo una liquidación",
+    entidad: "movimiento",
+    entidadId: id,
+    detalle: mov?.concepto ?? null,
+  });
 }
 
 // Reembolsa a la persona un gasto que adelantó, indicando de qué caja sale el
@@ -507,14 +516,26 @@ export async function reembolsarMovimiento(id: string, caja: string) {
   if (updErr) throw new Error(updErr.message);
   revalidatePath("/tesoreria");
   revalidatePath("/");
+  await registrarActividad({
+    accion: `reembolsó a ${mov.quien_lo_paga ?? "alguien del equipo"} (caja ${esAmigos ? "amigos" : "oficial"})`,
+    entidad: "movimiento",
+    entidadId: id,
+    detalle: `${mov.concepto} · ${Number(mov.importe)} €`,
+  });
 }
 
 export async function borrarMovimiento(id: string) {
   const sb = createAdminClient();
+  const { data: mov } = await sb.from("tesoreria").select("concepto, importe").eq("id", id).maybeSingle();
   const { error } = await sb.from("tesoreria").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/tesoreria");
   revalidatePath("/");
+  await registrarActividad({
+    accion: "borró un movimiento",
+    entidad: "movimiento",
+    detalle: mov ? `${mov.concepto} · ${Number(mov.importe)} €` : null,
+  });
 }
 
 // Marca un movimiento (gasto pendiente) como pagado en un clic.
@@ -863,10 +884,12 @@ export async function actualizarTarea(
 
 export async function borrarTarea(id: string) {
   const sb = createAdminClient();
+  const { data: t } = await sb.from("tareas").select("titulo").eq("id", id).maybeSingle();
   const { error } = await sb.from("tareas").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/tareas");
   revalidatePath("/");
+  await registrarActividad({ accion: "borró una tarea", entidad: "tarea", detalle: t?.titulo ?? null });
 }
 
 // Genera de golpe las tareas típicas de un tipo de evento (plantilla). Si se
@@ -1070,9 +1093,16 @@ export async function crearCompra(input: {
 
 export async function borrarCompra(tesoreriaId: string, oportunidadId: string) {
   const sb = createAdminClient();
+  const { data: mov } = await sb.from("tesoreria").select("concepto, importe").eq("id", tesoreriaId).maybeSingle();
   const { error } = await sb.from("tesoreria").delete().eq("id", tesoreriaId);
   if (error) throw new Error(error.message);
   revCostes(oportunidadId);
+  await registrarActividad({
+    accion: "borró un coste de evento",
+    entidad: "movimiento",
+    entidadId: oportunidadId,
+    detalle: mov ? `${mov.concepto} · ${Number(mov.importe)} €` : null,
+  });
 }
 
 export async function guardarKmPrecio(valor: number) {
@@ -1168,9 +1198,11 @@ export async function guardarEquipo(formData: FormData) {
 
 export async function borrarEquipo(id: string) {
   const sb = createAdminClient();
+  const { data: p } = await sb.from("equipo").select("nombre").eq("id", id).maybeSingle();
   const { error } = await sb.from("equipo").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/equipo");
+  await registrarActividad({ accion: "borró una persona del equipo", entidad: "equipo", detalle: p?.nombre ?? null });
 }
 
 // --------------------------- Usuarios ---------------------------
@@ -1382,9 +1414,11 @@ export async function guardarProveedor(formData: FormData) {
 
 export async function borrarProveedor(id: string) {
   const sb = createAdminClient();
+  const { data: p } = await sb.from("proveedores").select("nombre").eq("id", id).maybeSingle();
   const { error } = await sb.from("proveedores").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/proveedores");
+  await registrarActividad({ accion: "borró un proveedor", entidad: "proveedor", detalle: p?.nombre ?? null });
 }
 
 // --------------------------- Gastos fijos ---------------------------
