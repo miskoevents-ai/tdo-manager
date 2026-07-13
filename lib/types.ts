@@ -373,6 +373,11 @@ export type GastoFijo = {
   caja?: string | null; // 'amigos' o null (oficial)
   desde?: string | null; // primer mes en que aplica (YYYY-MM-01); null = sin límite
   hasta?: string | null; // último mes en que aplica; null = sin límite
+  categoria?: string | null; // ver lib/categorias-gastos (migración 044)
+  equipo_id?: string | null; // beneficiario (sueldos)
+  proveedor_id?: string | null; // proveedor al que se paga (servicios/tecnología…)
+  equipo?: { id: string; nombre: string } | null;
+  proveedor?: { id: string; nombre: string } | null;
   activo: boolean;
   notas: string | null;
 };

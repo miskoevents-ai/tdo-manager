@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { calcularTotales } from "@/lib/calc";
 import { computaSegunNaturaleza } from "@/lib/computa";
 import { normalizarChecklist } from "@/lib/checklist";
+import { campoDeCategoria } from "@/lib/categorias-gastos";
 import { registrarActividad } from "@/lib/actividad";
 import { cookies } from "next/headers";
 import { USER_COOKIE, leerCookieUsuario, hashPassword } from "@/lib/auth";
@@ -1553,7 +1554,10 @@ export async function borrarProveedor(id: string) {
 export async function guardarGastoFijo(formData: FormData) {
   const sb = createAdminClient();
   const id = (formData.get("id") as string) || null;
-  const payload = {
+  // Según la categoría solo tiene sentido uno de los dos enlaces.
+  const categoria = (formData.get("categoria") as string)?.trim() || null;
+  const campo = campoDeCategoria(categoria);
+  const payload: Record<string, unknown> = {
     concepto: (formData.get("concepto") as string)?.trim(),
     importe_mensual: Math.abs(Number(formData.get("importe_mensual") || 0)),
     periodicidad: (formData.get("periodicidad") as string) || "mensual",
@@ -1561,6 +1565,9 @@ export async function guardarGastoFijo(formData: FormData) {
     caja: (formData.get("caja") as string) === "amigos" ? "amigos" : null,
     desde: (formData.get("desde") as string) ? `${formData.get("desde")}-01` : null,
     hasta: (formData.get("hasta") as string) ? `${formData.get("hasta")}-01` : null,
+    categoria,
+    equipo_id: campo === "persona" ? (formData.get("equipo_id") as string) || null : null,
+    proveedor_id: campo === "proveedor" ? (formData.get("proveedor_id") as string) || null : null,
     activo: formData.get("activo") === "on",
     notas: (formData.get("notas") as string)?.trim() || null,
   };
@@ -1572,13 +1579,16 @@ export async function guardarGastoFijo(formData: FormData) {
       : sb.from("gastos_fijos").insert(p);
   }
   let { error } = await persistir(payload);
-  // Las columnas caja/desde/hasta son de la migración 032: si no están, se omiten.
-  if (error && /(caja|desde|hasta)/.test(error.message) && /column/i.test(error.message)) {
-    const { caja: _c, desde: _d, hasta: _h, ...sin } = payload;
+  // Columnas de migraciones posteriores (caja/desde/hasta 032, categoría y
+  // enlaces 044): si aún no están, se reintenta sin ellas.
+  if (error && /(caja|desde|hasta|categoria|equipo_id|proveedor_id)/.test(error.message) && /column|relationship/i.test(error.message)) {
+    const { caja: _c, desde: _d, hasta: _h, categoria: _cat, equipo_id: _e, proveedor_id: _p, ...sin } = payload;
     ({ error } = await persistir(sin));
   }
   if (error) throw new Error(error.message);
   revalidatePath("/gastos-fijos");
+  revalidatePath("/proveedores");
+  revalidatePath("/equipo");
 }
 
 export async function borrarGastoFijo(id: string) {

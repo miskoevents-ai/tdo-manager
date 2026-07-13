@@ -32,8 +32,18 @@ function sueldosDesdeGastosFijos(
   personas: { id: string; nombre: string }[],
 ): Record<string, { importe: number; concepto: string; desde?: string | null; hasta?: string | null }> {
   const out: Record<string, { importe: number; concepto: string; desde?: string | null; hasta?: string | null }> = {};
+  const idsEquipo = new Set(personas.map((p) => p.id));
   for (const g of gastos) {
     if (!g.activo) continue;
+    // 1) Enlace explícito (categoría "sueldo" con beneficiario elegido).
+    if (g.equipo_id && idsEquipo.has(g.equipo_id)) {
+      const prev = out[g.equipo_id];
+      if (!prev || Number(g.importe_mensual) > prev.importe) {
+        out[g.equipo_id] = { importe: Number(g.importe_mensual), concepto: g.concepto, desde: g.desde, hasta: g.hasta };
+      }
+      continue;
+    }
+    // 2) Respaldo: por concepto ("Sueldo <nombre>") con palabra completa.
     const pal = palabras(g.concepto);
     if (pal[0] !== "sueldo") continue;
     const set = new Set(pal);
