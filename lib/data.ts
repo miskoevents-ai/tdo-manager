@@ -322,6 +322,38 @@ export async function getUsuarios(): Promise<Usuario[]> {
   return (data ?? []) as Usuario[];
 }
 
+// Lunes y domingo (YYYY-MM-DD) de la semana actual en horario de Madrid.
+export function semanaActual(): { lunes: string; domingo: string } {
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const d = new Date(hoy + "T00:00:00Z");
+  const dow = d.getUTCDay(); // 0=domingo … 6=sábado
+  const aLunes = dow === 0 ? -6 : 1 - dow;
+  const lunes = new Date(d);
+  lunes.setUTCDate(d.getUTCDate() + aLunes);
+  const domingo = new Date(lunes);
+  domingo.setUTCDate(lunes.getUTCDate() + 6);
+  return { lunes: lunes.toISOString().slice(0, 10), domingo: domingo.toISOString().slice(0, 10) };
+}
+
+// Segundos de uso por usuario en la semana actual (lunes-domingo).
+export async function getUsoSemanal(): Promise<Record<string, number>> {
+  if (mock.enabled) return {};
+  const sb = createAdminClient();
+  const { lunes, domingo } = semanaActual();
+  const { data, error } = await sb
+    .from("uso_diario")
+    .select("usuario, segundos")
+    .gte("dia", lunes)
+    .lte("dia", domingo);
+  if (error) return {}; // tabla sin migrar: se muestra "—"
+  const por: Record<string, number> = {};
+  for (const r of data ?? []) {
+    const u = (r as { usuario: string }).usuario;
+    por[u] = (por[u] ?? 0) + Number((r as { segundos: number }).segundos ?? 0);
+  }
+  return por;
+}
+
 export async function getGastosFijos(): Promise<GastoFijo[]> {
   if (mock.enabled) return mock.gastosFijos();
   const sb = createAdminClient();

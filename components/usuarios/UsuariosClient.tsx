@@ -54,7 +54,17 @@ function PermisosPicker({ valor, onChange }: { valor: string[]; onChange: (v: st
   );
 }
 
-export function UsuariosClient({ usuarios, yoUsuario }: { usuarios: Usuario[]; yoUsuario: string }) {
+export function UsuariosClient({
+  usuarios,
+  yoUsuario,
+  usoSemana = {},
+  rangoSemana = "",
+}: {
+  usuarios: Usuario[];
+  yoUsuario: string;
+  usoSemana?: Record<string, number>;
+  rangoSemana?: string;
+}) {
   const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
 
@@ -82,7 +92,10 @@ export function UsuariosClient({ usuarios, yoUsuario }: { usuarios: Usuario[]; y
               <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Nombre</th>
               <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Usuario</th>
               <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Rol</th>
-              <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Tiempo en la app</th>
+              <th className="border-b border-border px-4 py-2.5 text-left font-semibold">
+                Esta semana{rangoSemana ? ` (${rangoSemana})` : ""}
+              </th>
+              <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Total</th>
               <th className="border-b border-border px-4 py-2.5 text-left font-semibold">Último acceso</th>
               <th className="border-b border-border px-4 py-2.5 text-right font-semibold"></th>
             </tr>
@@ -110,6 +123,9 @@ export function UsuariosClient({ usuarios, yoUsuario }: { usuarios: Usuario[]; y
                       {u.es_admin ? <ShieldCheck size={12} /> : <Shield size={12} />}
                       {u.es_admin ? "Admin" : "Normal"}
                     </button>
+                  </td>
+                  <td className="border-b border-[#f0eae1] px-4 py-2.5 text-[12px] tabular font-medium text-sage">
+                    {tiempoUso(Number(usoSemana[u.usuario] ?? 0))}
                   </td>
                   <td className="border-b border-[#f0eae1] px-4 py-2.5 text-[12px] text-ink-secondary tabular">
                     {tiempoUso(Number(u.segundos_activo ?? 0))}
@@ -160,7 +176,9 @@ function NuevoUsuario({ onError, onDone }: { onError: (m: string | null) => void
   const [usuario, setUsuario] = React.useState("");
   const [nombre, setNombre] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [esAdmin, setEsAdmin] = React.useState(true);
+  // Por defecto NO admin: así se ven las casillas de secciones y se da acceso
+  // limitado (lo normal al sumar a alguien). Marca "Administrador" para todo.
+  const [esAdmin, setEsAdmin] = React.useState(false);
   const [permisos, setPermisos] = React.useState<string[]>(SECCIONES.map((s) => s.key));
   const [busy, setBusy] = React.useState(false);
 

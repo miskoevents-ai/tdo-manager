@@ -127,6 +127,9 @@ const EXTRA_TITLES: Record<string, string> = {
 
 export function Shell({ children, usuario = null }: { children: React.ReactNode; usuario?: UsuarioShell }) {
   const [open, setOpen] = React.useState(false);
+  // Sin sesión de usuario = contraseña compartida (llave maestra): ve todo.
+  const esAdminNav = usuario ? usuario.esAdmin : true;
+  const permisosNav = usuario ? usuario.permisos : null;
   const pathname = usePathname();
   const title =
     NAV.find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))?.label ??
@@ -137,7 +140,7 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
     <div className="min-h-screen md:grid md:grid-cols-[238px_1fr]">
       {/* Sidebar fijo en escritorio */}
       <aside className="hidden bg-gradient-to-b from-sage to-[#353f2c] px-[14px] py-[22px] text-cream shadow-md md:flex md:flex-col">
-        <SidebarInner esAdmin={usuario?.esAdmin} permisos={usuario?.permisos} />
+        <SidebarInner esAdmin={esAdminNav} permisos={permisosNav} />
       </aside>
 
       {/* Drawer móvil */}
@@ -145,7 +148,7 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/50" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-[260px] bg-gradient-to-b from-sage to-[#353f2c] px-[14px] py-[22px] text-cream shadow-lg">
-            <SidebarInner onNavigate={() => setOpen(false)} esAdmin={usuario?.esAdmin} permisos={usuario?.permisos} />
+            <SidebarInner onNavigate={() => setOpen(false)} esAdmin={esAdminNav} permisos={permisosNav} />
           </aside>
         </div>
       )}
