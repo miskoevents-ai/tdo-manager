@@ -244,7 +244,7 @@ export function CostesTab({
 
         {!cerrada && (
           <div className="mb-5 rounded-md border-hair border-border bg-beige-light/60 p-3">
-            <ApunteRapido oportunidadId={oportunidadId} equipo={equipo} categoriasGasto={categoriasGasto} onDone={r} />
+            <ApunteRapido oportunidadId={oportunidadId} equipo={equipo} kmPrecio={kmPrecio} categoriasGasto={categoriasGasto} onDone={r} />
           </div>
         )}
 
@@ -431,11 +431,13 @@ const esDespl = (t: string) => t === "desplazamiento";
 function ApunteRapido({
   oportunidadId,
   equipo,
+  kmPrecio = 0.26,
   categoriasGasto = [],
   onDone,
 }: {
   oportunidadId: string;
   equipo: Pick<Equipo, "id" | "nombre" | "precio_hora">[];
+  kmPrecio?: number;
   categoriasGasto?: string[];
   onDone: () => void;
 }) {
@@ -500,7 +502,9 @@ function ApunteRapido({
           await crearDesplazamiento({
             oportunidadId,
             trayecto: f.concepto.trim(),
-            km: 0,
+            // En la rejilla, Cant = km y €/ud = €/km → se guardan los km reales
+            // y la gasolina ya calculada (km × tarifa) tal cual.
+            km: f.cantidad,
             idaVuelta: false,
             gasolinaManual: Math.round(f.cantidad * f.precio * 100) / 100,
             peaje: 0,
@@ -604,7 +608,12 @@ function ApunteRapido({
                         setCats((cs) => unirCategorias([...cs, nombre]));
                         set(i, { tipo: nombre });
                       } else {
-                        set(i, { tipo: e.target.value });
+                        const nuevoTipo = e.target.value;
+                        // Al pasar a "Desplazamiento", prefija el €/km (kilometraje)
+                        // para teclear solo los km en la columna Cant. (km × 0,26 €).
+                        const patch: Partial<FilaRapida> = { tipo: nuevoTipo };
+                        if (esDespl(nuevoTipo) && !f.precio) patch.precio = kmPrecio;
+                        set(i, patch);
                       }
                     }}
                     className="py-1.5 text-[12px]"
@@ -664,10 +673,10 @@ function ApunteRapido({
                   />
                 </td>
                 <td className="border-b border-[#f0eae1] py-1">
-                  <Input type="number" step="0.5" value={f.cantidad || ""} onChange={(e) => set(i, { cantidad: Number(e.target.value) })} className="py-1.5 text-right text-[12.5px] tabular" />
+                  <Input type="number" step="0.5" value={f.cantidad || ""} onChange={(e) => set(i, { cantidad: Number(e.target.value) })} placeholder={esDespl(f.tipo) ? "km" : undefined} title={esDespl(f.tipo) ? "Kilómetros (× €/km)" : undefined} className="py-1.5 text-right text-[12.5px] tabular" />
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 pl-1">
-                  <Input type="number" step="0.01" value={f.precio || ""} onChange={(e) => set(i, { precio: Number(e.target.value) })} className="py-1.5 text-right text-[12.5px] tabular" />
+                  <Input type="number" step="0.01" value={f.precio || ""} onChange={(e) => set(i, { precio: Number(e.target.value) })} title={esDespl(f.tipo) ? "€ por km (kilometraje)" : undefined} className="py-1.5 text-right text-[12.5px] tabular" />
                 </td>
                 <td className="border-b border-[#f0eae1] py-1 text-right text-[12.5px] tabular font-semibold">
                   {eur(f.cantidad * f.precio)}
