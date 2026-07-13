@@ -589,7 +589,6 @@ export function CalculadoraPrecio({
             <NumInput label="Baja: verde desde" value={cfg.margenes.baja.verde} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, baja: { ...cfg.margenes.baja, verde: v } } })} sufijo="%" />
             <NumInput label="Baja: ideal" value={cfg.margenes.baja.ideal} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, baja: { ...cfg.margenes.baja, ideal: v } } })} sufijo="%" />
             <NumInput label="Beneficio mín. pequeños" value={cfg.tramos.beneficioMinimo} onChange={(v) => setCfg({ ...cfg, tramos: { ...cfg.tramos, beneficioMinimo: v } })} sufijo="€" />
-            <NumInput label="Cuota fijos alquileres" value={cfg.cuotaAlquilerPct} onChange={(v) => setCfg({ ...cfg, cuotaAlquilerPct: v })} sufijo="%" />
           </div>
           <p className="text-[11px] text-ink-muted">
             Temporadas: 🌞 alta = may, jun, sep, oct, dic · 🌗 media = abr, jul, nov · ❄️ baja = ene,
