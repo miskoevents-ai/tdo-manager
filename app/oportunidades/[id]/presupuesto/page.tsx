@@ -84,7 +84,7 @@ export default async function Page({
   const nCols = hayDescLinea ? 5 : 4;
 
   return (
-    <div className="mx-auto max-w-[820px] space-y-4">
+    <div className="print-page mx-auto max-w-[820px] space-y-4">
       {/* Barra de acciones (no se imprime) */}
       <div className="no-print flex items-center justify-between">
         <Link
