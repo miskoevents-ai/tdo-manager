@@ -277,11 +277,11 @@ export default async function Page({
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="reuniones">Reuniones</TabsTrigger>
-          <TabsTrigger value="presupuesto">Presupuesto</TabsTrigger>
           <TabsTrigger value="material">Material</TabsTrigger>
           <TabsTrigger value="costes">Costes</TabsTrigger>
-          <TabsTrigger value="cobros">Cobros</TabsTrigger>
           <TabsTrigger value="calculadora">Calculadora</TabsTrigger>
+          <TabsTrigger value="presupuesto">Presupuesto</TabsTrigger>
+          <TabsTrigger value="cobros">Cobros</TabsTrigger>
         </TabsList>
 
         <TabsContent value="datos">
