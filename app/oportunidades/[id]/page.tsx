@@ -135,6 +135,14 @@ export default async function Page({
   const hoyMadrid = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
   const mesEvento = (op.fecha_evento ?? hoyMadrid).slice(0, 7);
   const boteFijos = boteFijosMes(gastosFijos, mesEvento);
+  // Personas para el desplegable de la calculadora (socios detectados por rol).
+  const personasCalc = equipo
+    .filter((e) => e.activo)
+    .map((e) => ({
+      nombre: e.nombre,
+      precioHora: e.precio_hora != null ? Number(e.precio_hora) : null,
+      esSocio: (e.rol ?? "").toLowerCase().includes("socio"),
+    }));
 
   return (
     <div className="space-y-5">
@@ -449,6 +457,7 @@ export default async function Page({
             boteFijos={boteFijos}
             configGuardada={calcConfigRaw}
             calculoInicial={calculoGuardado}
+            personasEquipo={personasCalc}
           />
         </TabsContent>
       </Tabs>

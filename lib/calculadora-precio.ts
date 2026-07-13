@@ -147,10 +147,17 @@ export function cuotaPorEvento(bote: number, cfg: CalculadoraConfig): number {
   return (bote + estructural) / Math.max(1, cfg.eventosMes);
 }
 
+// Una persona más en el evento (además de la empleada principal): socio,
+// colaborador o externo. Si es "aportado", su coste cuenta para el precio
+// pero nadie lo cobra (trabajo regalado por un socio).
+export type PersonaLinea = { nombre: string; horas: number; precioHora: number; aportado: boolean };
+
 export type CalculoInputs = {
   horas: FaseHoras; // horas de Cristina por fase
-  horasSocio: number; // horas de socio aportadas (no se cobran, sí cuestan)
-  personalExtra: number; // € refuerzos externos
+  personas?: PersonaLinea[]; // resto de personas (desplegable del equipo)
+  // Campos antiguos (cálculos guardados antes de las líneas de persona):
+  horasSocio?: number;
+  personalExtra?: number;
   materiales: number; // € materiales/subcontratas
   mobiliarioTarifa: number; // € valor de tarifario del mobiliario propio usado
   transporte: number; // € furgoneta + gasolina + km
@@ -208,9 +215,16 @@ export function calcularPrecio(
   const horasCristina =
     Number(inputs.horas.comercial) + Number(inputs.horas.pre) + Number(inputs.horas.durante) + Number(inputs.horas.post);
   const costeCristina = horasCristina * cfg.costeHoraEmpleada;
-  const costeSocio = Number(inputs.horasSocio) * cfg.costeHoraSocio;
+  // Resto de personas: aportadas (socios que no cobran) y pagadas (extras).
+  const personas = inputs.personas ?? [];
+  const costeAportado =
+    personas.filter((p) => p.aportado).reduce((s, p) => s + Number(p.horas) * Number(p.precioHora), 0) +
+    Number(inputs.horasSocio ?? 0) * cfg.costeHoraSocio;
+  const costePagado =
+    personas.filter((p) => !p.aportado).reduce((s, p) => s + Number(p.horas) * Number(p.precioHora), 0) +
+    Number(inputs.personalExtra ?? 0);
   const directosSinExtras =
-    costeCristina + costeSocio + Number(inputs.personalExtra) + Number(inputs.materiales) +
+    costeCristina + costeAportado + costePagado + Number(inputs.materiales) +
     (Number(inputs.mobiliarioTarifa) * cfg.desgasteMobiliarioPct) / 100 + Number(inputs.transporte);
   const contingencia = (directosSinExtras * cfg.contingenciaPct) / 100;
   const mermas = ((Number(inputs.materiales) + Number(inputs.mobiliarioTarifa)) * cfg.mermasPct) / 100;
@@ -272,8 +286,8 @@ export function calcularPrecio(
     desglose: {
       horasCristina,
       costeCristina,
-      costeSocio,
-      personalExtra: Number(inputs.personalExtra),
+      costeSocio: costeAportado,
+      personalExtra: costePagado,
       materiales: Number(inputs.materiales),
       desgasteMobiliario: (Number(inputs.mobiliarioTarifa) * cfg.desgasteMobiliarioPct) / 100,
       transporte: Number(inputs.transporte),
