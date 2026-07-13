@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Calculator, ChevronDown, ChevronUp, RotateCcw, Save, Settings2 } from "lucide-react";
+import { Calculator, ChevronDown, ChevronUp, Plus, RotateCcw, Save, Settings2, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Field } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 import { guardarCalculadoraConfig, guardarCalculoPrecio } from "@/app/actions";
 import {
   calcularPrecio,
@@ -14,8 +14,11 @@ import {
   CALCULADORA_DEFAULTS,
   type CalculadoraConfig,
   type CalculoInputs,
+  type PersonaLinea,
 } from "@/lib/calculadora-precio";
 import { eur, num } from "@/lib/format";
+
+export type PersonaOpcion = { nombre: string; precioHora: number | null; esSocio: boolean };
 
 const TEMporada_META = {
   alta: { emoji: "🌞", label: "Temporada alta", nota: "hay demanda: vender caro" },
@@ -76,6 +79,7 @@ export function CalculadoraPrecio({
   boteFijos,
   configGuardada,
   calculoInicial,
+  personasEquipo = [],
 }: {
   oportunidadId: string;
   serie: string | null;
@@ -85,6 +89,7 @@ export function CalculadoraPrecio({
   boteFijos: number;
   configGuardada: unknown;
   calculoInicial: unknown;
+  personasEquipo?: PersonaOpcion[];
 }) {
   const router = useRouter();
   const [cfg, setCfg] = React.useState<CalculadoraConfig>(() => mezclarConfig(configGuardada));
@@ -97,9 +102,46 @@ export function CalculadoraPrecio({
 
   const [inputs, setInputs] = React.useState<CalculoInputs>(() => {
     const g = (calculoInicial as { inputs?: CalculoInputs } | null)?.inputs;
-    if (g && g.horas) return g;
-    return { horas: { ...precarga }, horasSocio: 0, personalExtra: 0, materiales: 0, mobiliarioTarifa: 0, transporte: 0 };
+    if (g && g.horas) {
+      // Cálculos guardados con el formato antiguo → se pasan a líneas de persona.
+      const personas: PersonaLinea[] = g.personas ?? [];
+      if (!g.personas) {
+        if (Number(g.horasSocio ?? 0) > 0) {
+          personas.push({ nombre: "Socio", horas: Number(g.horasSocio), precioHora: 12, aportado: true });
+        }
+        if (Number(g.personalExtra ?? 0) > 0) {
+          personas.push({ nombre: "Personal externo", horas: 1, precioHora: Number(g.personalExtra), aportado: false });
+        }
+      }
+      return { ...g, personas, horasSocio: 0, personalExtra: 0 };
+    }
+    return { horas: { ...precarga }, personas: [], materiales: 0, mobiliarioTarifa: 0, transporte: 0 };
   });
+
+  // Desplegable "añadir persona": equipo + externo genérico.
+  const [personaSel, setPersonaSel] = React.useState("");
+  function anadirPersona(nombre: string) {
+    if (!nombre) return;
+    const op = personasEquipo.find((p) => p.nombre === nombre);
+    const esSocio = op?.esSocio ?? false;
+    const linea: PersonaLinea = {
+      nombre,
+      horas: 2,
+      precioHora: op?.precioHora ?? (esSocio ? cfg.costeHoraSocio : 15),
+      aportado: esSocio, // los socios aportan (no cobran); se puede cambiar
+    };
+    setInputs((i) => ({ ...i, personas: [...(i.personas ?? []), linea] }));
+    setPersonaSel("");
+  }
+  function setPersona(idx: number, patch: Partial<PersonaLinea>) {
+    setInputs((i) => ({
+      ...i,
+      personas: (i.personas ?? []).map((p, j) => (j === idx ? { ...p, ...patch } : p)),
+    }));
+  }
+  function quitarPersona(idx: number) {
+    setInputs((i) => ({ ...i, personas: (i.personas ?? []).filter((_, j) => j !== idx) }));
+  }
 
   const [verParams, setVerParams] = React.useState(false);
   const [verDesglose, setVerDesglose] = React.useState(false);
@@ -179,14 +221,57 @@ export function CalculadoraPrecio({
           <NumInput label="Post" value={inputs.horas.post} onChange={(v) => setHora("post", v)} step={0.5} />
         </div>
       </div>
+      {/* Más personas: socios, colaboradores, externos — con desplegable del equipo */}
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+          Más personas en el evento
+        </p>
+        <div className="space-y-2">
+          {(inputs.personas ?? []).map((p, idx) => (
+            <div key={idx} className="flex flex-wrap items-center gap-2 rounded-md bg-beige-light/70 px-2.5 py-2">
+              <span className="min-w-[110px] flex-1 text-[13px] font-medium">{p.nombre}</span>
+              <label className="flex items-center gap-1 text-[11px] text-ink-muted">
+                horas
+                <Input type="number" step={0.5} min={0} value={p.horas} onChange={(e) => setPersona(idx, { horas: Number(e.target.value) || 0 })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
+              </label>
+              <label className="flex items-center gap-1 text-[11px] text-ink-muted">
+                €/h
+                <Input type="number" step={0.5} min={0} value={p.precioHora} onChange={(e) => setPersona(idx, { precioHora: Number(e.target.value) || 0 })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
+              </label>
+              <span className="tabular text-[12.5px] font-semibold text-ink-secondary">{eur(p.horas * p.precioHora)}</span>
+              <label
+                className="flex cursor-pointer items-center gap-1.5 text-[11px] text-ink-secondary"
+                title="Aportado: cuenta como coste para el precio, pero no se paga (trabajo regalado por un socio)"
+              >
+                <input type="checkbox" checked={p.aportado} onChange={(e) => setPersona(idx, { aportado: e.target.checked })} className="h-3.5 w-3.5 accent-sage" />
+                aportado (no se cobra)
+              </label>
+              <button onClick={() => quitarPersona(idx)} className="ml-auto rounded-sm p-1 text-ink-muted hover:bg-error-tint hover:text-error" title="Quitar">
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Select value={personaSel} onChange={(e) => anadirPersona(e.target.value)} className="w-auto min-w-[220px] py-2 text-[13px]">
+              <option value="">＋ Añadir persona…</option>
+              {personasEquipo.map((p) => (
+                <option key={p.nombre} value={p.nombre}>
+                  {p.nombre}{p.esSocio ? " (socio · aportado)" : ""}
+                </option>
+              ))}
+              <option value="Personal externo">Personal externo</option>
+            </Select>
+            <span className="text-[11px] text-ink-muted">
+              socios entran como «aportado»: cuestan para el precio, no se pagan
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <NumInput label="Horas socio (aportadas)" value={inputs.horasSocio} onChange={(v) => setInputs((i) => ({ ...i, horasSocio: v }))} step={0.5} />
-        <NumInput label="Personal extra €" value={inputs.personalExtra} onChange={(v) => setInputs((i) => ({ ...i, personalExtra: v }))} />
         <NumInput label="Materiales €" value={inputs.materiales} onChange={(v) => setInputs((i) => ({ ...i, materiales: v }))} />
         <NumInput label="Transporte €" value={inputs.transporte} onChange={(v) => setInputs((i) => ({ ...i, transporte: v }))} />
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <NumInput label="Mobiliario propio (valor tarifario) €" value={inputs.mobiliarioTarifa} onChange={(v) => setInputs((i) => ({ ...i, mobiliarioTarifa: v }))} />
+        <NumInput label="Mobiliario propio (tarifario) €" value={inputs.mobiliarioTarifa} onChange={(v) => setInputs((i) => ({ ...i, mobiliarioTarifa: v }))} />
       </div>
 
       {/* Resultado */}
@@ -204,7 +289,7 @@ export function CalculadoraPrecio({
         {verDesglose && (
           <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-0.5 border-t border-border pt-2 text-[12px] text-ink-secondary sm:grid-cols-3">
             <span>Cristina ({num(r.desglose.horasCristina, 1)} h): <b className="tabular">{eur(r.desglose.costeCristina)}</b></span>
-            {r.desglose.costeSocio > 0 && <span>Socio (aportado): <b className="tabular">{eur(r.desglose.costeSocio)}</b></span>}
+            {r.desglose.costeSocio > 0 && <span>Aportado por socios (no se paga): <b className="tabular">{eur(r.desglose.costeSocio)}</b></span>}
             {r.desglose.personalExtra > 0 && <span>Personal extra: <b className="tabular">{eur(r.desglose.personalExtra)}</b></span>}
             {r.desglose.materiales > 0 && <span>Materiales: <b className="tabular">{eur(r.desglose.materiales)}</b></span>}
             {r.desglose.desgasteMobiliario > 0 && <span>Desgaste mobiliario: <b className="tabular">{eur(r.desglose.desgasteMobiliario)}</b></span>}
@@ -253,6 +338,12 @@ export function CalculadoraPrecio({
               {r.beneficioPorHora != null && <> · <b className="tabular">{eur(r.beneficioPorHora)}</b>/h de Cristina</>}
             </span>
           </div>
+          {r.desglose.costeSocio > 0 && r.beneficioPrevisto != null && (
+            <p className="mt-1 text-[11px] opacity-80">
+              {eur(r.desglose.costeSocio)} de los costes son trabajo aportado por socios (no se paga):
+              el beneficio que se queda en caja es {eur(r.beneficioPrevisto + r.desglose.costeSocio)}.
+            </p>
+          )}
         </div>
       ) : (
         <p className="text-[12px] text-ink-muted">
