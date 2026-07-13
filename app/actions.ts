@@ -1236,11 +1236,12 @@ export async function borrarEquipo(id: string) {
 
 // --------------------------- Usuarios ---------------------------
 
-// Exige que quien llama sea un administrador con sesión de usuario. Devuelve
-// el admin. Con la contraseña compartida (sin identidad) no se permite.
+// Exige permiso de administración. Un usuario debe ser admin; la contraseña
+// compartida (llave maestra, sin identidad) también vale. Devuelve el usuario
+// admin o null (sesión compartida).
 async function requiereAdmin() {
   const u = await getUsuarioActual();
-  if (!u) throw new Error("Entra con tu usuario para gestionar el equipo.");
+  if (!u) return null; // sesión compartida = acceso total
   if (!u.esAdmin) throw new Error("Solo un administrador puede hacer esto.");
   return u;
 }
@@ -1294,7 +1295,7 @@ export async function actualizarUsuario(
   if (patch.permisos !== undefined) upd.permisos = patch.permisos;
   // No permitir quitarte a ti mismo el admin ni desactivarte (evita quedarse sin acceso).
   const { data: u } = await sb.from("usuarios").select("usuario").eq("id", id).maybeSingle();
-  if (u?.usuario === admin.usuario && (patch.esAdmin === false || patch.activo === false)) {
+  if (admin && u?.usuario === admin.usuario && (patch.esAdmin === false || patch.activo === false)) {
     throw new Error("No puedes quitarte a ti mismo el acceso de administrador.");
   }
   let { error } = await sb.from("usuarios").update(upd).eq("id", id);
@@ -1326,7 +1327,7 @@ export async function borrarUsuario(id: string) {
   const admin = await requiereAdmin();
   const sb = createAdminClient();
   const { data: u } = await sb.from("usuarios").select("usuario, nombre").eq("id", id).maybeSingle();
-  if (u?.usuario === admin.usuario) throw new Error("No puedes borrarte a ti mismo.");
+  if (admin && u?.usuario === admin.usuario) throw new Error("No puedes borrarte a ti mismo.");
   const { error } = await sb.from("usuarios").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/usuarios");

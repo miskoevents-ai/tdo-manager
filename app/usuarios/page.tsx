@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { Overline } from "@/components/ui/card";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { UsuariosClient } from "@/components/usuarios/UsuariosClient";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getUsuarios } from "@/lib/data";
+import { getUsuarios, getUsoSemanal, semanaActual } from "@/lib/data";
 import { getUsuarioActual } from "@/lib/sesion";
 import type { Usuario } from "@/lib/types";
 
@@ -13,19 +12,10 @@ export const dynamic = "force-dynamic";
 export default async function UsuariosPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
+  // Un usuario debe ser admin; la contraseña compartida (llave maestra) también
+  // puede gestionar (yo == null).
   const yo = await getUsuarioActual();
-  if (!yo) {
-    return (
-      <div className="space-y-3">
-        <Overline className="!mt-0">Usuarios</Overline>
-        <p className="text-small text-ink-secondary">
-          Entra con tu usuario (no con la contraseña compartida) para gestionar los accesos del
-          equipo. <Link href="/login" className="text-sage hover:underline">Ir al login</Link>.
-        </p>
-      </div>
-    );
-  }
-  if (!yo.esAdmin) {
+  if (yo && !yo.esAdmin) {
     return (
       <div className="space-y-3">
         <Overline className="!mt-0">Usuarios</Overline>
@@ -35,20 +25,24 @@ export default async function UsuariosPage() {
   }
 
   let usuarios: Usuario[];
+  let usoSemana: Record<string, number>;
   try {
-    usuarios = await getUsuarios();
+    [usuarios, usoSemana] = await Promise.all([getUsuarios(), getUsoSemanal()]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
+  const { lunes, domingo } = semanaActual();
+  const rango = `${lunes.slice(8, 10)}/${lunes.slice(5, 7)}–${domingo.slice(8, 10)}/${domingo.slice(5, 7)}`;
 
   return (
     <div className="space-y-5">
       <InfoNote id="usuarios">
-        Los accesos del equipo. Da de alta a alguien, ponle o quítale permisos de administrador,
-        desactívalo o reinicia su contraseña. Cada uno entra con su usuario y todo queda registrado.
+        Los accesos del equipo. Da de alta a alguien, elige a qué pestañas entra, ponle o quítale
+        permisos de administrador, desactívalo o reinicia su contraseña. Cada uno entra con su
+        usuario y todo queda registrado.
       </InfoNote>
       <Overline className="!mt-0">Usuarios del equipo</Overline>
-      <UsuariosClient usuarios={usuarios} yoUsuario={yo.usuario} />
+      <UsuariosClient usuarios={usuarios} yoUsuario={yo?.usuario ?? ""} usoSemana={usoSemana} rangoSemana={rango} />
     </div>
   );
 }
