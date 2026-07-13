@@ -277,6 +277,12 @@ export function CalculadoraPrecio({
         <NumInput label="Materiales €" value={inputs.materiales} onChange={(v) => setInputs((i) => ({ ...i, materiales: v }))} />
         <NumInput label="Transporte €" value={inputs.transporte} onChange={(v) => setInputs((i) => ({ ...i, transporte: v }))} />
         <NumInput label="Mobiliario propio (tarifario) €" value={inputs.mobiliarioTarifa} onChange={(v) => setInputs((i) => ({ ...i, mobiliarioTarifa: v }))} />
+        <NumInput
+          label="Precio tope del cliente €"
+          value={Number(inputs.precioTope ?? 0)}
+          onChange={(v) => setInputs((i) => ({ ...i, precioTope: v }))}
+          hint="Si el cliente dice 'tengo X € y punto', ponlo aquí (sin IVA): la calculadora te dice al revés cuánto coste te puedes permitir para que salga rentable."
+        />
       </div>
 
       {/* Resultado */}
@@ -357,6 +363,44 @@ export function CalculadoraPrecio({
           Añade líneas al presupuesto (pestaña Presupuesto) y el semáforo comparará el precio
           automáticamente.
         </p>
+      )}
+
+      {/* Precio tope del cliente: el cálculo al revés */}
+      {r.tope && (
+        <div className={`rounded-md border-med p-3 ${SEMAFORO_META[r.tope.semaforo].clase}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[14px] font-semibold">
+              {SEMAFORO_META[r.tope.semaforo].emoji} Con el tope del cliente ({eur(r.tope.precio)}):
+              margen {num(r.tope.margenPct, 0)}% · beneficio {eur(r.tope.beneficio)}
+            </span>
+          </div>
+          <div className="mt-1.5 space-y-0.5 text-[12px] opacity-90">
+            {r.tope.recorteParaVerde > 0.5 ? (
+              <>
+                <p>
+                  Para que este tope salga rentable (margen {num(r.margenVerde, 0)}%), los costes
+                  deben bajar a <b className="tabular">{eur(r.tope.costeMaxVerde)}</b> — ahora van en{" "}
+                  <b className="tabular">{eur(r.costeTotal)}</b>. Hay que recortar{" "}
+                  <b className="tabular">{eur(r.tope.recorteParaVerde)}</b>: menos horas, materiales
+                  más sencillos, mobiliario más básico… (o negociar el tope).
+                </p>
+                {r.tope.semaforo === "rojo" && (
+                  <p className="font-semibold">
+                    ⚠️ Con los costes actuales, a este precio se pierde dinero. Si no se puede
+                    recortar, mejor decir que no.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p>
+                El tope cabe: con los costes actuales ({eur(r.costeTotal)}) queda una holgura de{" "}
+                <b className="tabular">{eur(-r.tope.recorteParaVerde)}</b> hasta el límite rentable
+                ({eur(r.tope.costeMaxVerde)}). Para el margen ideal ({num(r.margenIdeal, 0)}%), no
+                pases de <b className="tabular">{eur(r.tope.costeMaxIdeal)}</b> de coste.
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">

@@ -161,6 +161,20 @@ export type CalculoInputs = {
   materiales: number; // € materiales/subcontratas
   mobiliarioTarifa: number; // € valor de tarifario del mobiliario propio usado
   transporte: number; // € furgoneta + gasolina + km
+  // Precio tope del cliente (opcional): "tengo X € y punto" → la calculadora
+  // trabaja al revés: cuánto coste te puedes permitir para ese precio.
+  precioTope?: number | null;
+};
+
+// Análisis del precio tope: qué margen sale y a cuánto deben bajar los costes.
+export type AnalisisTope = {
+  precio: number;
+  semaforo: "verde" | "ambar" | "rojo";
+  margenPct: number; // margen real con los costes actuales a ese precio
+  beneficio: number; // € con los costes actuales
+  costeMaxVerde: number; // coste total admisible para quedar en verde
+  costeMaxIdeal: number; // coste admisible para el margen ideal
+  recorteParaVerde: number; // >0 = hay que recortar tanto; <=0 = holgura
 };
 
 export type CalculoResultado = {
@@ -192,6 +206,7 @@ export type CalculoResultado = {
   beneficioPrevisto: number | null; // € con el precio actual
   beneficioPorHora: number | null; // €/hora de Cristina con el precio actual
   semaforo: "verde" | "ambar" | "rojo" | null;
+  tope: AnalisisTope | null; // si el cliente puso precio tope
 };
 
 const redondeaArriba = (n: number, paso: number) => Math.ceil(n / Math.max(1, paso)) * Math.max(1, paso);
@@ -235,7 +250,12 @@ export function calcularPrecio(
   // (dos pasadas para no morder la pescadilla).
   const margenBase = cfg.margenes[temporada];
   const sugeridoSinAjuste = costeTotal / Math.max(0.05, 1 - margenBase.ideal / 100 - com);
-  const baseRef = ctx.presupuestoBase && ctx.presupuestoBase > 0 ? ctx.presupuestoBase : sugeridoSinAjuste;
+  const baseRef =
+    ctx.presupuestoBase && ctx.presupuestoBase > 0
+      ? ctx.presupuestoBase
+      : Number(inputs.precioTope ?? 0) > 0
+        ? Number(inputs.precioTope)
+        : sugeridoSinAjuste;
   const tamano =
     baseRef >= cfg.tramos.muyGrandeMin ? "muy_grande"
     : baseRef >= cfg.tramos.grandeMin ? "grande"
@@ -277,6 +297,23 @@ export function calcularPrecio(
     semaforo = base >= precioVerde ? "verde" : base >= sueloRojo ? "ambar" : "rojo";
   }
 
+  // Precio tope del cliente: cálculo inverso (precio → coste admisible).
+  let tope: AnalisisTope | null = null;
+  const precioTope = Number(inputs.precioTope ?? 0);
+  if (precioTope > 0) {
+    const beneficioTope = precioTope * (1 - com) - costeTotal;
+    const sueloRojo = temporada === "baja" ? precioSupervivencia : precioMinimo;
+    tope = {
+      precio: precioTope,
+      semaforo: precioTope >= precioVerde ? "verde" : precioTope >= sueloRojo ? "ambar" : "rojo",
+      margenPct: (beneficioTope / precioTope) * 100,
+      beneficio: beneficioTope,
+      costeMaxVerde: precioTope * (1 - margenVerde / 100 - com),
+      costeMaxIdeal: precioTope * (1 - margenIdeal / 100 - com),
+      recorteParaVerde: costeTotal - precioTope * (1 - margenVerde / 100 - com),
+    };
+  }
+
   return {
     temporada,
     comisionPct: com * 100,
@@ -305,5 +342,6 @@ export function calcularPrecio(
     beneficioPrevisto,
     beneficioPorHora,
     semaforo,
+    tope,
   };
 }
