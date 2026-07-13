@@ -153,6 +153,11 @@ export function CalculadoraPrecio({
   const [busy, setBusy] = React.useState<string | null>(null);
   const [aviso, setAviso] = React.useState<string | null>(null);
 
+  // Aviso de incoherencia: una boda/comunión/corporativo marcada como
+  // "alquiler/encargo" seguramente es un error (comisión y horas de alquiler).
+  const tiposEvento = ["boda", "comunion", "corporativo", "cumpleanos", "bautizo", "navidad"];
+  const posibleError = serie === "alquiler_encargo" && !!tipoEvento && tiposEvento.includes(tipoEvento);
+
   const cuotaFijos = cuotaPorEvento(boteFijos, cfg);
   const r = calcularPrecio(inputs, cfg, {
     serie,
@@ -213,6 +218,15 @@ export function CalculadoraPrecio({
           </span>
         </div>
       </div>
+
+      {posibleError && (
+        <div className="rounded-md border-med border-[#e7d3a6] bg-warn-tint px-3 py-2 text-[12px] text-[#7a5a1a]">
+          ⚠️ Esta oportunidad es un evento ({tipoEvento}) pero está marcada como{" "}
+          <b>Alquiler / encargo</b>, así que la calculadora usa comisión y horas de alquiler. Si en
+          realidad lo montáis vosotros, cámbialo en <b>Editar → Tipo de operación</b> y los cálculos
+          se ajustarán.
+        </div>
+      )}
 
       {/* Entradas: lo único que toca Cristina */}
       <div>
