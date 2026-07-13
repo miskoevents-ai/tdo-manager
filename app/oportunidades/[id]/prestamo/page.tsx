@@ -60,7 +60,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const devolucion = material.find((m) => m.devolucion)?.devolucion ?? op.fecha_recogida;
 
   return (
-    <div className="mx-auto max-w-[820px] space-y-4">
+    <div className="print-page mx-auto max-w-[820px] space-y-4">
       {/* Barra de acciones (no se imprime) */}
       <div className="no-print flex items-center justify-between">
         <Link

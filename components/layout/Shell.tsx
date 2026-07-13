@@ -137,7 +137,7 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
     "TDO Manager";
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[238px_1fr]">
+    <div id="app-shell" className="min-h-screen md:grid md:grid-cols-[238px_1fr]">
       {/* Sidebar fijo en escritorio */}
       <aside className="hidden bg-gradient-to-b from-sage to-[#353f2c] px-[14px] py-[22px] text-cream shadow-md md:flex md:flex-col">
         <SidebarInner esAdmin={esAdminNav} permisos={permisosNav} />

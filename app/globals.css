@@ -106,9 +106,17 @@ body {
   .no-print {
     display: none !important;
   }
+  /* El menú lateral usa un grid de [238px 1fr]; al ocultarlo, esa columna
+     fantasma ensanchaba la página y el navegador escalaba todo (salía pequeño
+     y a la izquierda). En impresión se anula el grid: el documento va a página
+     completa. */
+  #app-shell {
+    display: block !important;
+  }
   main {
     max-width: none !important;
     padding: 0 !important;
+    margin: 0 !important;
   }
   body {
     background: #fff !important;
@@ -116,6 +124,15 @@ body {
   .print-doc {
     box-shadow: none !important;
     border: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  /* El contenedor del documento (max-w-[820px]) a ancho completo al imprimir. */
+  .print-page {
+    max-width: none !important;
+    margin: 0 !important;
+    width: 100% !important;
   }
   @page {
     margin: 1.4cm;
