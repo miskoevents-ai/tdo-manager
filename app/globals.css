@@ -126,7 +126,8 @@ body {
     border: none !important;
     width: 100% !important;
     max-width: none !important;
-    padding: 0 !important;
+    /* Margen interno cómodo para que el contenido no pegue con el borde. */
+    padding: 0.6cm 0.8cm !important;
   }
   /* El contenedor del documento (max-w-[820px]) a ancho completo al imprimir. */
   .print-page {
