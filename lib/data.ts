@@ -219,6 +219,34 @@ export async function getTareas(): Promise<Tarea[]> {
   return (data ?? []) as Tarea[];
 }
 
+// Configuración de la calculadora de precio (ajustes.calculadora_precio, JSON).
+export async function getCalculadoraConfigRaw(): Promise<unknown> {
+  if (mock.enabled) return null;
+  const sb = createAdminClient();
+  const { data } = await sb.from("ajustes").select("valor").eq("clave", "calculadora_precio").maybeSingle();
+  if (!data?.valor) return null;
+  try {
+    return JSON.parse(data.valor);
+  } catch {
+    return null;
+  }
+}
+
+// Cálculo guardado de una oportunidad (foto del estimado al presupuestar).
+export async function getCalculoPrecio(
+  oportunidadId: string,
+): Promise<{ inputs: unknown; resultado: unknown } | null> {
+  if (mock.enabled) return null;
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("calculos_precio")
+    .select("inputs, resultado")
+    .eq("oportunidad_id", oportunidadId)
+    .maybeSingle();
+  if (error) return null; // tabla sin migrar: la calculadora funciona sin guardar
+  return data ?? null;
+}
+
 export async function getKmPrecio(): Promise<number> {
   if (mock.enabled) return 0.26;
   const sb = createAdminClient();
