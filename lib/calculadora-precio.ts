@@ -37,8 +37,6 @@ export type CalculadoraConfig = {
   };
   horasPorTipo: Record<string, FaseHoras>; // precarga por tipo de evento
   redondeo: number; // redondeo comercial del precio sugerido (€)
-  // Los alquileres apenas consumen estructura: llevan solo este % de la cuota.
-  cuotaAlquilerPct: number;
 };
 
 export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
@@ -77,7 +75,6 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
     otro: { comercial: 3, pre: 6, durante: 5, post: 2 },
   },
   redondeo: 10,
-  cuotaAlquilerPct: 25,
 };
 
 // Mezcla la config guardada (parcial) con los valores por defecto, tolerando
@@ -231,8 +228,10 @@ export function calcularPrecio(
 ): CalculoResultado {
   const temporada = temporadaDeFecha(ctx.fechaEvento, cfg);
   const com = comisionPct(ctx.serie, ctx.tipoEvento, cfg) / 100;
-  // Los alquileres cargan solo una fracción de la cuota de estructura.
-  const cuotaFijos = ctx.cuotaFijos * (ctx.serie === "alquiler_encargo" ? cfg.cuotaAlquilerPct / 100 : 1);
+  // Los alquileres cargan la cuota de estructura completa, igual que un evento
+  // (los gastos fijos —local, wifi, gestoría, parte estructural del sueldo— se
+  // pagan igual haya evento o alquiler).
+  const cuotaFijos = ctx.cuotaFijos;
 
   // Divisor precio = 1 − margen − comisión, acotado para no dar precios absurdos
   // ni negativos si en Ajustes se ponen márgenes/comisiones muy altos.
