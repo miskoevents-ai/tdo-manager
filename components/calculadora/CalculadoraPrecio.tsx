@@ -129,7 +129,7 @@ export function CalculadoraPrecio({
       }
       return { ...g, personas, horasSocio: 0, personalExtra: 0 };
     }
-    return { horas: { ...precarga }, personas: [], materiales: 0, mobiliarioTarifa: 0, transporte: 0 };
+    return { horas: { ...precarga }, personas: [], materiales: 0, transporte: 0 };
   });
 
   // Desplegable "añadir persona": equipo + externo genérico.
@@ -221,7 +221,6 @@ export function CalculadoraPrecio({
       })),
       materiales: Math.round(cr.materiales * 100) / 100,
       transporte: Math.round(cr.transporte * 100) / 100,
-      mobiliarioTarifa: 0,
     }));
   }
 
@@ -343,7 +342,6 @@ export function CalculadoraPrecio({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <NumInput label="Materiales €" value={inputs.materiales} onChange={(v) => setInputs((i) => ({ ...i, materiales: v }))} />
         <NumInput label="Transporte €" value={inputs.transporte} onChange={(v) => setInputs((i) => ({ ...i, transporte: v }))} />
-        <NumInput label="Mobiliario propio (tarifario) €" value={inputs.mobiliarioTarifa} onChange={(v) => setInputs((i) => ({ ...i, mobiliarioTarifa: v }))} />
         <NumInput
           label="Precio tope del cliente €"
           value={Number(inputs.precioTope ?? 0)}
@@ -370,7 +368,6 @@ export function CalculadoraPrecio({
             {r.desglose.costeSocio > 0 && <span>Aportado por socios (no se paga): <b className="tabular">{eur(r.desglose.costeSocio)}</b></span>}
             {r.desglose.personalExtra > 0 && <span>Personal extra: <b className="tabular">{eur(r.desglose.personalExtra)}</b></span>}
             {r.desglose.materiales > 0 && <span>Materiales: <b className="tabular">{eur(r.desglose.materiales)}</b></span>}
-            {r.desglose.desgasteMobiliario > 0 && <span>Desgaste mobiliario: <b className="tabular">{eur(r.desglose.desgasteMobiliario)}</b></span>}
             {r.desglose.transporte > 0 && <span>Transporte: <b className="tabular">{eur(r.desglose.transporte)}</b></span>}
             <span title="Imprevistos y también la inflación de materiales entre el presupuesto y el evento (flores, fungibles…)">
               Contingencia {num(cfg.contingenciaPct, 0)}% ⓘ: <b className="tabular">{eur(r.desglose.contingencia)}</b>
@@ -493,7 +490,7 @@ export function CalculadoraPrecio({
                   deben bajar a <b className="tabular">{eur(r.tope.costeMaxVerde)}</b> — ahora van en{" "}
                   <b className="tabular">{eur(r.costeTotal)}</b>. Hay que recortar{" "}
                   <b className="tabular">{eur(r.tope.recorteParaVerde)}</b>: menos horas, materiales
-                  más sencillos, mobiliario más básico… (o negociar el tope).
+                  más sencillos… (o negociar el tope).
                 </p>
                 {r.tope.semaforo === "rojo" && (
                   <p className="font-semibold">
@@ -580,7 +577,6 @@ export function CalculadoraPrecio({
               hint="Colchón para imprevistos. Sirve también para cubrir la inflación de materiales entre el presupuesto y el evento (flores, fungibles…): si se presupuesta con muchos meses de antelación, conviene subirla."
             />
             <NumInput label="Mermas" value={cfg.mermasPct} onChange={(v) => setCfg({ ...cfg, mermasPct: v })} sufijo="%" />
-            <NumInput label="Desgaste mobiliario" value={cfg.desgasteMobiliarioPct} onChange={(v) => setCfg({ ...cfg, desgasteMobiliarioPct: v })} sufijo="%" />
             <NumInput label="€/h socio" value={cfg.costeHoraSocio} onChange={(v) => setCfg({ ...cfg, costeHoraSocio: v })} step={0.5} />
             <NumInput label="Comisión alquiler" value={cfg.comisiones.alquiler} onChange={(v) => setCfg({ ...cfg, comisiones: { ...cfg.comisiones, alquiler: v } })} sufijo="%" />
             <NumInput label="Comisión boda" value={cfg.comisiones.boda} onChange={(v) => setCfg({ ...cfg, comisiones: { ...cfg.comisiones, boda: v } })} sufijo="%" />
