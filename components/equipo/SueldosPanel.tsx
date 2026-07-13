@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Check } from "lucide-react";
+import { Plus, Trash2, Check, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { guardarSueldo, borrarSueldo } from "@/app/actions";
@@ -10,6 +11,7 @@ import { eur } from "@/lib/format";
 import type { Sueldo } from "@/lib/types";
 
 type Persona = { id: string; nombre: string };
+type SueldoFijo = { importe: number; concepto: string; desde?: string | null; hasta?: string | null };
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 function mesCorto(desde: string) {
@@ -29,11 +31,14 @@ function sueldoVigente(sueldos: Sueldo[], mes: string): Sueldo | null {
 export function SueldosPanel({
   personas,
   sueldos,
+  sueldosFijos = {},
   costeMesPorId,
   mesActual,
 }: {
   personas: Persona[];
   sueldos: Sueldo[];
+  // Sueldos que ya existen como gasto fijo (referencia, se editan allí).
+  sueldosFijos?: Record<string, SueldoFijo>;
   costeMesPorId: Record<string, number>;
   mesActual: string;
 }) {
@@ -78,8 +83,11 @@ export function SueldosPanel({
       {personas.map((p) => {
         const suyos = (porPersona.get(p.id) ?? []).sort((a, b) => (a.desde < b.desde ? 1 : -1));
         const vig = sueldoVigente(suyos, mesActual);
+        const fijo = sueldosFijos[p.id];
+        // Sueldo de referencia para la barra: el de la tabla, o el gasto fijo.
+        const sueldoRef = vig?.importe ?? fijo?.importe ?? 0;
         const coste = costeMesPorId[p.id] ?? 0;
-        const pct = vig && vig.importe > 0 ? Math.min(100, (coste / vig.importe) * 100) : 0;
+        const pct = sueldoRef > 0 ? Math.min(100, (coste / sueldoRef) * 100) : 0;
         return (
           <div key={p.id} className="rounded-md border-hair border-border bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -88,6 +96,17 @@ export function SueldosPanel({
                 {vig ? (
                   <span className="text-[12px] text-ink-secondary">
                     Sueldo {mesCorto(mesActual)}: <b className="tabular text-ink">{eur(vig.importe)}</b>
+                  </span>
+                ) : fijo ? (
+                  <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-secondary">
+                    Sueldo: <b className="tabular text-ink">{eur(fijo.importe)}</b>
+                    <Link
+                      href="/gastos-fijos"
+                      title={`Definido como gasto fijo: ${fijo.concepto}`}
+                      className="inline-flex items-center gap-1 rounded-pill bg-sage-tint px-2 py-0.5 text-[10.5px] font-semibold text-sage hover:opacity-80"
+                    >
+                      <Repeat size={10} /> gasto fijo
+                    </Link>
                   </span>
                 ) : (
                   <span className="text-[12px] text-ink-muted">Sin sueldo configurado</span>
@@ -99,7 +118,7 @@ export function SueldosPanel({
             </div>
 
             {/* Horas imputadas este mes vs sueldo */}
-            {vig && (
+            {sueldoRef > 0 && (
               <div className="mt-2">
                 <div className="flex items-center justify-between text-[11.5px] text-ink-secondary">
                   <span>Horas imputadas a proyectos este mes</span>

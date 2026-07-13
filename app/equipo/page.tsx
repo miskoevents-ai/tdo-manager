@@ -6,19 +6,68 @@ import { EquipoDialog } from "@/components/equipo/EquipoDialog";
 import { SueldosPanel } from "@/components/equipo/SueldosPanel";
 import { DistribucionSemanal, type DistribPersona } from "@/components/equipo/DistribucionSemanal";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getEquipo, getPartesHorasTodas, getSueldos } from "@/lib/data";
+import { getEquipo, getPartesHorasTodas, getSueldos, getGastosFijos } from "@/lib/data";
 import { eur, fecha, num } from "@/lib/format";
 import { FASE_LABEL } from "@/lib/estados";
-import type { Equipo, ParteHoras, Sueldo } from "@/lib/types";
+import type { Equipo, ParteHoras, Sueldo, GastoFijo } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+// Palabras normalizadas (sin acentos ni signos) de un texto.
+function palabras(s: string): string[] {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .split(/[\s(),.·/-]+/)
+    .filter(Boolean);
+}
+
+// Empareja un gasto fijo con la persona de la que es el sueldo, SOLO si:
+//  · el concepto empieza por "sueldo", y
+//  · el nombre (primera palabra) de UNA única persona aparece como palabra
+//    completa en el concepto ("Cris" no cuela en "Sueldo Cristina …").
+function sueldosDesdeGastosFijos(
+  gastos: GastoFijo[],
+  personas: { id: string; nombre: string }[],
+): Record<string, { importe: number; concepto: string; desde?: string | null; hasta?: string | null }> {
+  const out: Record<string, { importe: number; concepto: string; desde?: string | null; hasta?: string | null }> = {};
+  for (const g of gastos) {
+    if (!g.activo) continue;
+    const pal = palabras(g.concepto);
+    if (pal[0] !== "sueldo") continue;
+    const set = new Set(pal);
+    const candidatos = personas.filter((p) => {
+      const primera = palabras(p.nombre)[0];
+      return primera && set.has(primera);
+    });
+    if (candidatos.length === 1) {
+      // Si hay varios sueldos para la misma persona, nos quedamos con el mayor importe.
+      const prev = out[candidatos[0].id];
+      if (!prev || Number(g.importe_mensual) > prev.importe) {
+        out[candidatos[0].id] = {
+          importe: Number(g.importe_mensual),
+          concepto: g.concepto,
+          desde: g.desde,
+          hasta: g.hasta,
+        };
+      }
+    }
+  }
+  return out;
+}
 
 export default async function EquipoPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
-  let equipo: Equipo[], partes: ParteHoras[], sueldos: Sueldo[];
+  let equipo: Equipo[], partes: ParteHoras[], sueldos: Sueldo[], gastosFijos: GastoFijo[];
   try {
-    [equipo, partes, sueldos] = await Promise.all([getEquipo(), getPartesHorasTodas(), getSueldos()]);
+    [equipo, partes, sueldos, gastosFijos] = await Promise.all([
+      getEquipo(),
+      getPartesHorasTodas(),
+      getSueldos(),
+      getGastosFijos(),
+    ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -170,6 +219,10 @@ export default async function EquipoPage() {
       <SueldosPanel
         personas={equipo.filter((e) => e.activo).map((e) => ({ id: e.id, nombre: e.nombre }))}
         sueldos={sueldos}
+        sueldosFijos={sueldosDesdeGastosFijos(
+          gastosFijos,
+          equipo.filter((e) => e.activo).map((e) => ({ id: e.id, nombre: e.nombre })),
+        )}
         costeMesPorId={costeMesPorId}
         mesActual={mesActual}
       />
