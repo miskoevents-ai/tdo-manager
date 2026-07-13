@@ -114,7 +114,7 @@ export default async function Page({
       {/* Documento */}
       <div className="print-doc rounded-lg border-hair border-border bg-white p-8 shadow-sm md:p-12">
         {/* Cabecera */}
-        <div className="flex items-start justify-between gap-6 border-b-2 border-sage pb-6">
+        <div className="avoid-break flex items-start justify-between gap-6 border-b-2 border-sage pb-6">
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <Image src="/logo-horizontal.png" alt={EMPRESA.nombre} width={200} height={110} className="w-[180px]" />
@@ -157,7 +157,7 @@ export default async function Page({
         </div>
 
         {/* Cliente + evento */}
-        <div className="mt-6 grid grid-cols-2 gap-6 text-[12.5px]">
+        <div className="avoid-break mt-6 grid grid-cols-2 gap-6 text-[12.5px]">
           <div>
             <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">Cliente</div>
             <div className="font-semibold">{cli?.nombre ?? "—"}</div>
@@ -266,7 +266,7 @@ export default async function Page({
         </table>
 
         {/* Totales */}
-        <div className="mt-4 flex justify-end">
+        <div className="avoid-break mt-4 flex justify-end">
           <div className="w-full max-w-[300px] space-y-1.5 text-[13px]">
             {descuentoTotal > 0 && (
               <>
@@ -305,7 +305,7 @@ export default async function Page({
         </div>
 
         {/* Condiciones + pago */}
-        <div className="mt-8 border-t border-border pt-5 text-[11px] leading-relaxed text-ink-secondary">
+        <div className="avoid-break mt-8 border-t border-border pt-5 text-[11px] leading-relaxed text-ink-secondary">
           <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">Condiciones</div>
           <ul className="list-disc space-y-0.5 pl-4">
             {CONDICIONES_PRESUPUESTO.map((c, i) => (

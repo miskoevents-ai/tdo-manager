@@ -135,7 +135,41 @@ body {
     margin: 0 !important;
     width: 100% !important;
   }
+
+  /* --- Control de saltos de página: que NADA se parta a la mitad --- */
+  /* Las filas de tabla nunca se cortan entre páginas. */
+  tr,
+  img,
+  li {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  /* La cabecera de la tabla se repite en cada página. */
+  thead {
+    display: table-header-group;
+  }
+  /* Bloques (cabecera, cliente, totales, condiciones) que no deben partirse. */
+  .avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  /* Que los fondos (cabecera beige, etc.) se impriman de verdad. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Nada desborda a lo ancho ni recorta. */
+  .print-doc,
+  .print-doc * {
+    overflow: visible !important;
+    box-sizing: border-box;
+  }
+  .print-doc table {
+    width: 100% !important;
+    table-layout: auto;
+  }
+
   @page {
-    margin: 1.4cm;
+    margin: 1.2cm;
   }
 }
