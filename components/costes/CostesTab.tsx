@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -776,7 +777,6 @@ function EstimacionBlock({
   }
 
   const conColchon = totalEstimado * (1 + (cont || 0) / 100);
-  const precioSugerido = margenObj < 95 ? conColchon / (1 - (margenObj || 0) / 100) : 0;
   const margenPrevisto = base - conColchon;
   const margenPrevistoPct = base > 0 ? (margenPrevisto / base) * 100 : 0;
   const paramsCambiados = cont !== contingenciaPct || margenObj !== margenObjetivoPct;
@@ -792,9 +792,9 @@ function EstimacionBlock({
     <div className="space-y-3">
       <p className="text-[11.5px] text-ink-muted">
         El plan de gastos hecho <b>antes del presupuesto</b> (se añade desde la rejilla de arriba,
-        en modo 🧮 Previsto). Con la contingencia y el margen objetivo te sugiere el precio mínimo
-        al cliente. No entra en contabilidad; cuando sepas el coste real, <b>cuadra</b> cada línea
-        con la flecha.
+        en modo 🧮 Previsto). No entra en contabilidad; cuando sepas el coste real, <b>cuadra</b> cada
+        línea con la flecha. Para poner precio con margen, temporada y semáforo, usa la{" "}
+        <b>Calculadora</b>.
       </p>
 
       {estimados.length > 0 && (
@@ -897,23 +897,26 @@ function EstimacionBlock({
             </Button>
           )}
         </div>
-        {totalEstimado > 0 && (
-          <div className="text-[12.5px]">
+        <div className="text-[12.5px]">
+          {totalEstimado > 0 && (
             <div>
               Costes previstos + {num(cont || 0, 0)}%: <b className="tabular">{eur(conColchon)}</b>
             </div>
-            <div>
-              Precio mínimo sugerido (margen {num(margenObj || 0, 0)}%):{" "}
-              <b className="tabular text-sage">{eur(precioSugerido)}</b>
+          )}
+          {base > 0 && (
+            <div className={margenPrevistoPct >= (margenObj || 0) ? "text-ok" : "text-error"}>
+              Con el presu actual ({eur(base)}): margen previsto {eur(margenPrevisto)} ({num(margenPrevistoPct, 0)}%)
+              {margenPrevistoPct >= (margenObj || 0) ? " ✓" : " — por debajo del objetivo"}
             </div>
-            {base > 0 && (
-              <div className={margenPrevistoPct >= (margenObj || 0) ? "text-ok" : "text-error"}>
-                Con el presu actual ({eur(base)}): margen previsto {eur(margenPrevisto)} ({num(margenPrevistoPct, 0)}%)
-                {margenPrevistoPct >= (margenObj || 0) ? " ✓" : " — por debajo del objetivo"}
-              </div>
-            )}
-          </div>
-        )}
+          )}
+          {/* El precio se pone en la Calculadora (única fuente de precio). */}
+          <Link
+            href={`/oportunidades/${oportunidadId}?tab=calculadora`}
+            className="mt-1 inline-flex items-center gap-1 font-semibold text-sage hover:underline"
+          >
+            <Calculator size={13} /> ¿Poner precio? → Calculadora
+          </Link>
+        </div>
       </div>
       {error && <p className="text-caption text-error">{error}</p>}
     </div>
