@@ -870,9 +870,11 @@ function EstimacionBlock({
       {/* Parámetros + precio sugerido */}
       <div className="flex flex-col gap-3 rounded-md border-hair border-sage-tint-deep bg-sage-tint/40 p-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-end gap-2">
-          <Field label="Contingencia %">
-            <Input type="number" step="1" min="0" value={cont || ""} onChange={(e) => setCont(Number(e.target.value))} className="w-[80px] text-right tabular" />
-          </Field>
+          <div title="Colchón para imprevistos. Sirve también para cubrir la inflación de materiales entre el presupuesto y el evento (flores, fungibles…): si presupuestas con meses de antelación, súbela.">
+            <Field label="Contingencia % ⓘ">
+              <Input type="number" step="1" min="0" value={cont || ""} onChange={(e) => setCont(Number(e.target.value))} className="w-[80px] text-right tabular" />
+            </Field>
+          </div>
           <Field label="Margen objetivo %">
             <Input type="number" step="1" min="0" value={margenObj || ""} onChange={(e) => setMargenObj(Number(e.target.value))} className="w-[80px] text-right tabular" />
           </Field>
