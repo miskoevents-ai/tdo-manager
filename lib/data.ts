@@ -357,10 +357,15 @@ export async function getUsoSemanal(): Promise<Record<string, number>> {
 export async function getGastosFijos(): Promise<GastoFijo[]> {
   if (mock.enabled) return mock.gastosFijos();
   const sb = createAdminClient();
-  const { data, error } = await sb
+  // Se traen los nombres de persona/proveedor enlazados (migración 044). Si las
+  // relaciones aún no existen, se reintenta con un select plano.
+  let { data, error } = await sb
     .from("gastos_fijos")
-    .select("*")
+    .select("*, equipo:equipo(id, nombre), proveedor:proveedores(id, nombre)")
     .order("concepto", { ascending: true });
+  if (error) {
+    ({ data, error } = await sb.from("gastos_fijos").select("*").order("concepto", { ascending: true }));
+  }
   if (error) throw new Error(error.message);
   return (data ?? []) as GastoFijo[];
 }

@@ -7,10 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Input, Select, Textarea, Field } from "@/components/ui/input";
 import { guardarGastoFijo, borrarGastoFijo } from "@/app/actions";
+import { CATEGORIAS_GASTO, campoDeCategoria } from "@/lib/categorias-gastos";
 import type { GastoFijo } from "@/lib/types";
 
-export function GastoFijoDialog({ gasto, responsables = [] }: { gasto?: GastoFijo; responsables?: string[] }) {
+type Opcion = { id: string; nombre: string };
+
+export function GastoFijoDialog({
+  gasto,
+  responsables = [],
+  equipo = [],
+  proveedores = [],
+}: {
+  gasto?: GastoFijo;
+  responsables?: string[];
+  equipo?: Opcion[];
+  proveedores?: Opcion[];
+}) {
   const router = useRouter();
+  const [categoria, setCategoria] = React.useState(gasto?.categoria ?? "otros");
+  const campo = campoDeCategoria(categoria);
   // Opciones de "quién lo paga": el equipo + el valor actual si es libre.
   const quienOpts = React.useMemo(() => {
     const s = new Set(responsables);
@@ -21,6 +36,11 @@ export function GastoFijoDialog({ gasto, responsables = [] }: { gasto?: GastoFij
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const editar = Boolean(gasto);
+
+  // Al abrir, refleja la categoría guardada.
+  React.useEffect(() => {
+    if (open) setCategoria(gasto?.categoria ?? "otros");
+  }, [open, gasto]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -68,6 +88,32 @@ export function GastoFijoDialog({ gasto, responsables = [] }: { gasto?: GastoFij
           <Field label="Concepto *">
             <Input name="concepto" defaultValue={gasto?.concepto ?? ""} required autoFocus />
           </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Categoría">
+              <Select name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+                {CATEGORIAS_GASTO.map((c) => (
+                  <option key={c.key} value={c.key}>{c.emoji} {c.label}</option>
+                ))}
+              </Select>
+            </Field>
+            {campo === "persona" ? (
+              <Field label="Sueldo de (persona)">
+                <Select name="equipo_id" defaultValue={gasto?.equipo_id ?? ""}>
+                  <option value="">— Elegir persona —</option>
+                  {equipo.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </Select>
+              </Field>
+            ) : campo === "proveedor" ? (
+              <Field label="Proveedor (a quién se paga)">
+                <Select name="proveedor_id" defaultValue={gasto?.proveedor_id ?? ""}>
+                  <option value="">— Sin proveedor —</option>
+                  {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </Select>
+              </Field>
+            ) : (
+              <div />
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Importe mensual €">
               <Input

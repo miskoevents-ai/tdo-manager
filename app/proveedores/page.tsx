@@ -5,7 +5,7 @@ import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { ProveedorDialog, TIPO_SERVICIO_LABEL } from "@/components/proveedores/ProveedorDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getProveedores, getTesoreria } from "@/lib/data";
+import { getProveedores, getTesoreria, getGastosFijos } from "@/lib/data";
 import { eur } from "@/lib/format";
 import type { Proveedor } from "@/lib/types";
 
@@ -17,8 +17,9 @@ export default async function ProveedoresPage() {
   let proveedores: Proveedor[];
   const gastado: Record<string, number> = {};
   const pendiente: Record<string, number> = {};
+  const costeFijoMes: Record<string, number> = {};
   try {
-    const [provs, teso] = await Promise.all([getProveedores(), getTesoreria()]);
+    const [provs, teso, gastosFijos] = await Promise.all([getProveedores(), getTesoreria(), getGastosFijos()]);
     proveedores = provs;
     for (const m of teso) {
       if (m.proveedor_id && m.tipo === "gasto") {
@@ -27,6 +28,18 @@ export default async function ProveedoresPage() {
         if (m.estado === "previsto" || m.estado === "vencido") {
           pendiente[m.proveedor_id] = (pendiente[m.proveedor_id] ?? 0) + Number(m.importe);
         }
+      }
+    }
+    // Coste fijo recurrente por proveedor, en euros/mes (normaliza la periodicidad).
+    const porMes = (g: { importe_mensual: number; periodicidad: string }) => {
+      const imp = Number(g.importe_mensual);
+      if (g.periodicidad === "anual") return imp / 12;
+      if (g.periodicidad === "trimestral") return imp / 3;
+      return imp;
+    };
+    for (const g of gastosFijos) {
+      if (g.activo && g.proveedor_id) {
+        costeFijoMes[g.proveedor_id] = (costeFijoMes[g.proveedor_id] ?? 0) + porMes(g);
       }
     }
   } catch (e) {
@@ -76,6 +89,9 @@ export default async function ProveedoresPage() {
                           {[p.razon_social, p.nif].filter(Boolean).join(" · ")}
                         </div>
                       )}
+                      {costeFijoMes[p.id] > 0 && (
+                        <div className="mt-0.5 text-[11px] font-normal text-sage">🔁 {eur(costeFijoMes[p.id])}/mes fijo</div>
+                      )}
                     </td>
                     <td className="border-t border-border px-[15px] py-3 text-[12px] text-ink-secondary">
                       {p.tipo_servicio ? (TIPO_SERVICIO_LABEL[p.tipo_servicio] ?? p.tipo_servicio) : "—"}
@@ -121,6 +137,9 @@ export default async function ProveedoresPage() {
                   <span>Total gastado: <b className="tabular">{eur(gastado[p.id] ?? 0)}</b></span>
                   {pendiente[p.id] ? (
                     <span>Pendiente: <b className="tabular text-warn">{eur(pendiente[p.id])}</b></span>
+                  ) : null}
+                  {costeFijoMes[p.id] > 0 ? (
+                    <span>Fijo: <b className="tabular text-sage">{eur(costeFijoMes[p.id])}/mes</b></span>
                   ) : null}
                 </div>
               </Card>
