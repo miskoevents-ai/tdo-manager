@@ -466,6 +466,7 @@ export default async function Page({
             fechaEvento={op.fecha_evento ?? null}
             presupuestoBase={t.base}
             boteFijos={boteFijos}
+            ivaPct={op.iva_pct ?? 21}
             configGuardada={calcConfigRaw}
             calculoInicial={calculoGuardado}
             personasEquipo={personasCalc}

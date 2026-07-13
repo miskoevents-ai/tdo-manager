@@ -82,6 +82,7 @@ export function CalculadoraPrecio({
   fechaEvento,
   presupuestoBase,
   boteFijos,
+  ivaPct = 21,
   configGuardada,
   calculoInicial,
   personasEquipo = [],
@@ -92,6 +93,7 @@ export function CalculadoraPrecio({
   fechaEvento: string | null;
   presupuestoBase: number;
   boteFijos: number;
+  ivaPct?: number;
   configGuardada: unknown;
   calculoInicial: unknown;
   personasEquipo?: PersonaOpcion[];
@@ -168,6 +170,7 @@ export function CalculadoraPrecio({
   });
   const temp = TEMporada_META[r.temporada];
   const sem = r.semaforo ? SEMAFORO_META[r.semaforo] : null;
+  const conIva = (n: number) => eur(n * (1 + ivaPct / 100));
 
   const setHora = (k: keyof CalculoInputs["horas"], v: number) =>
     setInputs((i) => ({ ...i, horas: { ...i.horas, [k]: v } }));
@@ -331,21 +334,26 @@ export function CalculadoraPrecio({
           <div className="rounded-md border-hair border-border bg-white p-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Precio mínimo</div>
             <div className="mt-1 font-display text-[20px] tabular text-error">{eur(r.precioMinimo)}</div>
-            <div className="text-[10.5px] text-ink-muted">por debajo, se pierde dinero</div>
+            <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioMinimo)} con IVA · por debajo se pierde</div>
           </div>
           <div className="rounded-md border-hair border-border bg-white p-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Verde desde ({num(r.margenVerde, 0)}%)</div>
             <div className="mt-1 font-display text-[20px] tabular text-ink">{eur(r.precioVerde)}</div>
-            <div className="text-[10.5px] text-ink-muted">margen aceptable</div>
+            <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioVerde)} con IVA · margen aceptable</div>
           </div>
           <div className="rounded-md border-med border-sage bg-sage-tint/50 p-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-sage">Precio sugerido ({num(r.margenIdeal, 0)}%)</div>
             <div className="mt-1 font-display text-[22px] tabular text-sage">{eur(r.precioSugerido)}</div>
-            <div className="text-[10.5px] text-ink-muted">sin IVA · redondeado</div>
+            <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioSugerido)} con IVA ({num(ivaPct, 0)}%) · redondeado</div>
           </div>
         </div>
+        <p className="mt-2 text-[11px] text-ink-muted">
+          Del precio sugerido ({eur(r.precioSugerido)}): coste <b className="tabular">{eur(r.costeTotal)}</b> ·
+          comisión <b className="tabular">{eur(r.precioSugerido * (r.comisionPct / 100))}</b> ·
+          tu beneficio <b className="tabular text-sage">{eur(r.precioSugerido * (1 - r.comisionPct / 100) - r.costeTotal)}</b>.
+        </p>
         {r.temporada === "baja" && (
-          <p className="mt-2 text-[11px] text-ink-muted">
+          <p className="mt-1 text-[11px] text-ink-muted">
             ❄️ En temporada baja, si el mes está flojo se puede aceptar desde el precio de
             supervivencia (<b className="tabular">{eur(r.precioSupervivencia)}</b>: cubre directos y comisión;
             los fijos se pagan igual). Antes que bajar precio: regala extras.
