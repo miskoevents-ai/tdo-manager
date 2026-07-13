@@ -45,16 +45,21 @@ function NumInput({
   onChange,
   step = 1,
   sufijo,
+  hint,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   step?: number;
   sufijo?: string;
+  hint?: string;
 }) {
   return (
-    <label className="block text-[11px] text-ink-secondary">
-      <span className="mb-1 block font-semibold uppercase tracking-[0.06em] text-ink-muted">{label}</span>
+    <label className="block text-[11px] text-ink-secondary" title={hint}>
+      <span className="mb-1 block font-semibold uppercase tracking-[0.06em] text-ink-muted">
+        {label}
+        {hint ? " ⓘ" : ""}
+      </span>
       <span className="flex items-center gap-1">
         <Input
           type="number"
@@ -294,7 +299,9 @@ export function CalculadoraPrecio({
             {r.desglose.materiales > 0 && <span>Materiales: <b className="tabular">{eur(r.desglose.materiales)}</b></span>}
             {r.desglose.desgasteMobiliario > 0 && <span>Desgaste mobiliario: <b className="tabular">{eur(r.desglose.desgasteMobiliario)}</b></span>}
             {r.desglose.transporte > 0 && <span>Transporte: <b className="tabular">{eur(r.desglose.transporte)}</b></span>}
-            <span>Contingencia {num(cfg.contingenciaPct, 0)}%: <b className="tabular">{eur(r.desglose.contingencia)}</b></span>
+            <span title="Imprevistos y también la inflación de materiales entre el presupuesto y el evento (flores, fungibles…)">
+              Contingencia {num(cfg.contingenciaPct, 0)}% ⓘ: <b className="tabular">{eur(r.desglose.contingencia)}</b>
+            </span>
             <span>Mermas {num(cfg.mermasPct, 0)}%: <b className="tabular">{eur(r.desglose.mermas)}</b></span>
             <span>Cuota de fijos: <b className="tabular">{eur(r.desglose.cuotaFijos)}</b></span>
           </div>
@@ -379,7 +386,13 @@ export function CalculadoraPrecio({
             <NumInput label="Coste sueldo €/mes" value={cfg.costeMensualEmpleada} onChange={(v) => setCfg({ ...cfg, costeMensualEmpleada: v })} step={10} />
             <NumInput label="% sueldo a eventos" value={cfg.repartoEventosPct} onChange={(v) => setCfg({ ...cfg, repartoEventosPct: v })} sufijo="%" />
             <NumInput label="Eventos / mes" value={cfg.eventosMes} onChange={(v) => setCfg({ ...cfg, eventosMes: v })} />
-            <NumInput label="Contingencia" value={cfg.contingenciaPct} onChange={(v) => setCfg({ ...cfg, contingenciaPct: v })} sufijo="%" />
+            <NumInput
+              label="Contingencia"
+              value={cfg.contingenciaPct}
+              onChange={(v) => setCfg({ ...cfg, contingenciaPct: v })}
+              sufijo="%"
+              hint="Colchón para imprevistos. Sirve también para cubrir la inflación de materiales entre el presupuesto y el evento (flores, fungibles…): si se presupuesta con muchos meses de antelación, conviene subirla."
+            />
             <NumInput label="Mermas" value={cfg.mermasPct} onChange={(v) => setCfg({ ...cfg, mermasPct: v })} sufijo="%" />
             <NumInput label="Desgaste mobiliario" value={cfg.desgasteMobiliarioPct} onChange={(v) => setCfg({ ...cfg, desgasteMobiliarioPct: v })} sufijo="%" />
             <NumInput label="€/h socio" value={cfg.costeHoraSocio} onChange={(v) => setCfg({ ...cfg, costeHoraSocio: v })} step={0.5} />
