@@ -10,6 +10,7 @@ import { normalizarChecklist } from "@/lib/checklist";
 import { registrarActividad } from "@/lib/actividad";
 import { cookies } from "next/headers";
 import { USER_COOKIE, leerCookieUsuario, hashPassword } from "@/lib/auth";
+import { getUsuarioActual } from "@/lib/sesion";
 import type { ChecklistGrupo, ChecklistItem } from "@/lib/types";
 import { runSeed, type SeedData } from "@/lib/seed-core";
 import { getKmPrecio, getFactura } from "@/lib/data";
@@ -92,6 +93,33 @@ export async function crearClienteRapido(
 }
 
 // -------------------------- Oportunidades --------------------------
+
+// Nombre visible del usuario con sesión abierta (o null si es la sesión de la
+// contraseña compartida). Se usa para firmar autoría y el registro.
+async function usuarioActualNombre(sb: ReturnType<typeof createAdminClient>): Promise<string | null> {
+  const pass = process.env.APP_PASSWORD;
+  if (!pass) return null;
+  const jar = await cookies();
+  const u = await leerCookieUsuario(jar.get(USER_COOKIE)?.value, pass, Date.now());
+  if (!u) return null;
+  const { data } = await sb.from("usuarios").select("nombre").eq("usuario", u).maybeSingle();
+  return data?.nombre ?? u;
+}
+
+// Firma quién creó un registro (best-effort: si la columna no existe, se ignora).
+async function sellarCreadoPor(
+  sb: ReturnType<typeof createAdminClient>,
+  tabla: string,
+  id: string | null,
+  nombre: string | null,
+) {
+  if (!id || !nombre) return;
+  try {
+    await sb.from(tabla).update({ creado_por: nombre }).eq("id", id);
+  } catch {
+    /* columna creado_por sin migrar todavía */
+  }
+}
 
 export async function guardarOportunidad(formData: FormData) {
   const sb = createAdminClient();
@@ -194,6 +222,7 @@ export async function guardarOportunidad(formData: FormData) {
     if (res.error) throw new Error(res.error.message);
     opId = res.data.id;
   }
+  if (!id && opId) await sellarCreadoPor(sb, "oportunidades", opId, await usuarioActualNombre(sb));
   revalidatePath("/oportunidades");
   if (opId) revalidatePath(`/oportunidades/${opId}`);
   await registrarActividad({
@@ -1207,6 +1236,86 @@ export async function borrarEquipo(id: string) {
 
 // --------------------------- Usuarios ---------------------------
 
+// Exige que quien llama sea un administrador con sesión de usuario. Devuelve
+// el admin. Con la contraseña compartida (sin identidad) no se permite.
+async function requiereAdmin() {
+  const u = await getUsuarioActual();
+  if (!u) throw new Error("Entra con tu usuario para gestionar el equipo.");
+  if (!u.esAdmin) throw new Error("Solo un administrador puede hacer esto.");
+  return u;
+}
+
+export async function crearUsuario(input: {
+  usuario: string;
+  nombre: string;
+  esAdmin: boolean;
+  password: string;
+}) {
+  await requiereAdmin();
+  const usuario = input.usuario.trim().toLowerCase();
+  const nombre = input.nombre.trim();
+  if (!usuario || !nombre) throw new Error("Usuario y nombre son obligatorios.");
+  if (!/^[a-z0-9._-]+$/.test(usuario)) throw new Error("El usuario solo puede llevar letras, números, punto, guion o guion bajo.");
+  if (!input.password || input.password.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres.");
+  const sb = createAdminClient();
+  const { error } = await sb.from("usuarios").insert({
+    usuario,
+    nombre,
+    es_admin: input.esAdmin,
+    password_hash: await hashPassword(usuario, input.password),
+  });
+  if (error) throw new Error(/duplicate|unique/i.test(error.message) ? "Ese usuario ya existe." : error.message);
+  revalidatePath("/usuarios");
+  await registrarActividad({ accion: "creó un usuario", entidad: "usuario", detalle: nombre });
+}
+
+export async function actualizarUsuario(
+  id: string,
+  patch: { nombre?: string; esAdmin?: boolean; activo?: boolean },
+) {
+  const admin = await requiereAdmin();
+  const sb = createAdminClient();
+  const upd: Record<string, unknown> = {};
+  if (patch.nombre !== undefined) upd.nombre = patch.nombre.trim();
+  if (patch.esAdmin !== undefined) upd.es_admin = patch.esAdmin;
+  if (patch.activo !== undefined) upd.activo = patch.activo;
+  // No permitir quitarte a ti mismo el admin ni desactivarte (evita quedarse sin acceso).
+  const { data: u } = await sb.from("usuarios").select("usuario").eq("id", id).maybeSingle();
+  if (u?.usuario === admin.usuario && (patch.esAdmin === false || patch.activo === false)) {
+    throw new Error("No puedes quitarte a ti mismo el acceso de administrador.");
+  }
+  const { error } = await sb.from("usuarios").update(upd).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/usuarios");
+  await registrarActividad({ accion: "editó un usuario", entidad: "usuario", entidadId: id });
+}
+
+export async function resetPasswordUsuario(id: string, nueva: string) {
+  await requiereAdmin();
+  if (!nueva || nueva.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres.");
+  const sb = createAdminClient();
+  const { data: u, error } = await sb.from("usuarios").select("usuario, nombre").eq("id", id).maybeSingle();
+  if (error || !u) throw new Error("No se encontró el usuario.");
+  const { error: updErr } = await sb
+    .from("usuarios")
+    .update({ password_hash: await hashPassword(u.usuario, nueva) })
+    .eq("id", id);
+  if (updErr) throw new Error(updErr.message);
+  revalidatePath("/usuarios");
+  await registrarActividad({ accion: `reinició la contraseña de ${u.nombre}`, entidad: "usuario", entidadId: id });
+}
+
+export async function borrarUsuario(id: string) {
+  const admin = await requiereAdmin();
+  const sb = createAdminClient();
+  const { data: u } = await sb.from("usuarios").select("usuario, nombre").eq("id", id).maybeSingle();
+  if (u?.usuario === admin.usuario) throw new Error("No puedes borrarte a ti mismo.");
+  const { error } = await sb.from("usuarios").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/usuarios");
+  await registrarActividad({ accion: "borró un usuario", entidad: "usuario", detalle: u?.nombre ?? null });
+}
+
 // Cambia la contraseña del usuario que tiene la sesión abierta. Pide la actual
 // para confirmar. La nueva se guarda hasheada (misma fórmula que el login).
 export async function cambiarMiContrasena(actual: string, nueva: string) {
@@ -2175,6 +2284,7 @@ export async function emitirFactura(oportunidadId: string) {
   }
 
   await sb.from("oportunidades").update({ estado: "facturada" }).eq("id", op.id);
+  await sellarCreadoPor(sb, "facturas", facturaId, await usuarioActualNombre(sb));
   // Genera y guarda su PDF oficial (no bloqueante: si falla, la factura queda igual).
   await generarPdfFactura(facturaId).catch(() => {});
   revalidatePath("/facturas");
@@ -2506,6 +2616,7 @@ export async function crearFactura(input: {
     revalidatePath("/oportunidades");
   }
 
+  await sellarCreadoPor(sb, "facturas", facturaId, await usuarioActualNombre(sb));
   // Genera su PDF oficial (no bloqueante).
   await generarPdfFactura(facturaId).catch(() => {});
   revalidatePath("/facturas");
@@ -2513,6 +2624,12 @@ export async function crearFactura(input: {
   revalidatePath("/contabilidad");
   revalidatePath("/calendario");
   revalidatePath("/");
+  await registrarActividad({
+    accion: "creó una factura",
+    entidad: "factura",
+    entidadId: facturaId,
+    detalle: `Factura ${numero}`,
+  });
   return { id: facturaId };
   } catch (e) {
     // Devolvemos el mensaje (en vez de lanzar) para que se vea de verdad y no

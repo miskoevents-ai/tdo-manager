@@ -14,6 +14,7 @@ import {
   BookOpen,
   ListTodo,
   History,
+  Shield,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ export type NavItem = {
   label: string;
   icon: LucideIcon;
   fase: 1 | 2 | 3 | 4;
+  soloAdmin?: boolean; // solo se muestra a administradores
 };
 
 // Secciones del mockup, en orden.
@@ -40,5 +42,6 @@ export const NAV: NavItem[] = [
   { href: "/clientes", label: "Clientes", icon: Contact, fase: 1 },
   { href: "/fidelizacion", label: "Fidelización", icon: Heart, fase: 4 },
   { href: "/actividad", label: "Actividad", icon: History, fase: 4 },
+  { href: "/usuarios", label: "Usuarios", icon: Shield, fase: 4, soloAdmin: true },
   { href: "/guia", label: "Guía", icon: BookOpen, fase: 4 },
 ];

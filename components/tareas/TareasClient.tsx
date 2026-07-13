@@ -272,12 +272,14 @@ export function TareasClient({
   oportunidades,
   personas,
   equipoInfo = [],
+  yoInicial = "",
   hoy,
 }: {
   tareas: Tarea[];
   oportunidades: OpLite[];
   personas: string[];
   equipoInfo?: EquipoInfo[];
+  yoInicial?: string;
   hoy: string;
 }) {
   const router = useRouter();
@@ -291,13 +293,14 @@ export function TareasClient({
   const [cargado, setCargado] = React.useState(false);
 
   React.useEffect(() => {
-    const guardado = localStorage.getItem("tdo_quien_soy") ?? "";
+    // Si aún no ha elegido "yo soy" a mano, se usa el usuario conectado.
+    const guardado = localStorage.getItem("tdo_quien_soy") || yoInicial;
     setYo(guardado);
     setFiltroPersona(guardado);
     const v = localStorage.getItem("tdo_tareas_vista");
     if (v === "lista" || v === "tablero") setVista(v);
     setCargado(true);
-  }, []);
+  }, [yoInicial]);
 
   function cambiaVista(v: "lista" | "tablero") {
     setVista(v);
