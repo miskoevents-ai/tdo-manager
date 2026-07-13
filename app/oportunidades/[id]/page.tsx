@@ -155,9 +155,20 @@ export default async function Page({
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h2 className="font-display text-h3 font-normal">{op.titulo}</h2>
             <EstadoSelect oportunidadId={op.id} estado={op.estado} />
+            {/* Serie: evento propio vs alquiler/encargo — visible para no confundir
+                (afecta a comisión, horas y a la calculadora de precio). */}
+            {op.serie === "alquiler_encargo" ? (
+              <span className="inline-flex items-center gap-1 rounded-pill bg-clay-tint px-2.5 py-1 text-[11px] font-semibold text-clay-600">
+                📦 Alquiler / encargo
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-pill bg-sage-tint px-2.5 py-1 text-[11px] font-semibold text-sage">
+                🎪 Evento propio
+              </span>
+            )}
           </div>
           <p className="mt-1 text-[12px] text-ink-muted">
             Nº {op.numero} · {TIPO_EVENTO_LABEL[op.tipo_evento] ?? op.tipo_evento}
