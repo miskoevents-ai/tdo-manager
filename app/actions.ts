@@ -1863,6 +1863,74 @@ export async function precargarCostesPrevistos(
   return filas.length;
 }
 
+// Edición inline (estilo Excel) de una línea del plan previsto. Recalcula el
+// importe si cambia cantidad o precio. No se puede editar una línea ya cuadrada.
+export async function updateCosteEstimado(input: {
+  id: string;
+  oportunidadId: string;
+  concepto?: string;
+  cantidad?: number;
+  precioUnitario?: number;
+  equipoId?: string | null;
+  personaExterna?: string | null;
+  pagador?: string | null;
+  caja?: string | null;
+}) {
+  const sb = createAdminClient();
+  const { data: row } = await sb
+    .from("costes_estimados")
+    .select("cantidad, precio_unitario, cuadrado")
+    .eq("id", input.id)
+    .maybeSingle();
+  if (row?.cuadrado) throw new Error("Esta línea ya está cuadrada a real; no se puede editar.");
+  const cantidad = input.cantidad ?? Number(row?.cantidad ?? 1);
+  const precio = input.precioUnitario ?? Number(row?.precio_unitario ?? 0);
+  const patch: Record<string, unknown> = {};
+  if (input.concepto !== undefined) patch.concepto = input.concepto.trim();
+  if (input.cantidad !== undefined) patch.cantidad = cantidad;
+  if (input.precioUnitario !== undefined) patch.precio_unitario = precio;
+  if (input.cantidad !== undefined || input.precioUnitario !== undefined) {
+    patch.importe = Math.round(cantidad * precio * 100) / 100;
+  }
+  if (input.equipoId !== undefined) patch.equipo_id = input.equipoId || null;
+  if (input.personaExterna !== undefined) patch.persona_externa = input.personaExterna?.trim() || null;
+  if (input.pagador !== undefined) patch.pagador = await canonizarPersonaEquipo(sb, input.pagador);
+  if (input.caja !== undefined) patch.caja = input.caja === "amigos" ? "amigos" : null;
+  if (Object.keys(patch).length === 0) return;
+  let { error } = await sb.from("costes_estimados").update(patch).eq("id", input.id);
+  if (error && /caja/.test(error.message) && /column/i.test(error.message)) {
+    const { caja: _c, ...sinCaja } = patch;
+    ({ error } = await sb.from("costes_estimados").update(sinCaja).eq("id", input.id));
+  }
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${input.oportunidadId}`);
+}
+
+// Añade una línea vacía a un módulo del plan previsto (para la edición Excel:
+// creas la fila y luego rellenas las celdas). Importe 0 hasta que se edite.
+export async function anadirLineaEstimada(oportunidadId: string, categoria: string) {
+  const sb = createAdminClient();
+  const fila = {
+    oportunidad_id: oportunidadId,
+    concepto: "",
+    cantidad: 1,
+    precio_unitario: 0,
+    categoria,
+    importe: 0,
+  };
+  let { error } = await sb.from("costes_estimados").insert(fila);
+  if (error && /categoria|cantidad|precio_unitario/.test(error.message) && /column/i.test(error.message)) {
+    throw new Error("Falta ejecutar la migración 021 (detalle de estimados) en Supabase.");
+  }
+  if (error) {
+    if (error.code === "42P01" || /does not exist/i.test(error.message)) {
+      throw new Error("Falta ejecutar la migración 020 (costes estimados) en Supabase.");
+    }
+    throw new Error(error.message);
+  }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
 // Cuadre pre → post: pasa una línea estimada a los costes reales, tal cual o
 // con el importe real ajustado, y la marca como cuadrada. Según su categoría
 // va a partes de horas, desplazamientos o compras.
