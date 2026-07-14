@@ -1,6 +1,6 @@
 import { calcularTotales } from "@/lib/calc";
 import { solapan, disponible } from "@/lib/disponibilidad";
-import type { Oportunidad, Reserva, Tarea } from "@/lib/types";
+import type { Oportunidad, Reserva, Tarea, Reunion, Tesoreria } from "@/lib/types";
 
 export type Aviso = {
   id: string;
@@ -46,9 +46,24 @@ export function calcularAvisos(
   hoyISO: string,
   reservas: Reserva[] = [],
   tareas: Tarea[] = [],
+  reuniones: Reunion[] = [],
+  tesoreria: Tesoreria[] = [],
 ): Aviso[] {
   const avisos: Aviso[] = [];
   const en7 = (f: string) => f >= hoyISO && diasEntre(hoyISO, f) <= 7;
+
+  // Última "señal de vida" por oportunidad: la fecha más reciente entre su
+  // entrada, sus reuniones y sus movimientos de tesorería. Sirve para detectar
+  // oportunidades DORMIDAS (sin movimiento real), no solo por fecha de entrada.
+  const ultimaActividad: Record<string, string> = {};
+  const bump = (opId: string | null | undefined, fecha: string | null | undefined) => {
+    if (!opId || !fecha) return;
+    const f = fecha.slice(0, 10);
+    if (!ultimaActividad[opId] || f > ultimaActividad[opId]) ultimaActividad[opId] = f;
+  };
+  for (const o of oportunidades) bump(o.id, o.fecha_entrada);
+  for (const r of reuniones) bump(r.oportunidad_id, r.fecha);
+  for (const t of tesoreria) bump(t.oportunidad_id, t.fecha);
 
   for (const o of oportunidades) {
     const contratada = ["confirmada", "realizada", "facturada"].includes(o.estado);
@@ -155,22 +170,25 @@ export function calcularAvisos(
       });
     }
 
-    // 6) Lead estancado: contestado / en conversación pero sin avanzar +7 días.
-    if (
-      ["contestada", "en_conversacion"].includes(o.estado) &&
-      o.fecha_entrada &&
-      diasEntre(o.fecha_entrada, hoyISO) >= 7
-    ) {
-      const dias = diasEntre(o.fecha_entrada, hoyISO);
-      avisos.push({
-        id: `lead-${o.id}`,
-        href: `/oportunidades/${o.id}`,
-        titulo: `Lead sin avanzar · ${o.titulo}`,
-        detalle: `En conversación desde hace ${dias} días sin cerrar · hazle seguimiento`,
-        severidad: dias >= 21 ? "alta" : "media",
-        categoria: "lead",
-        oportunidadId: o.id,
-      });
+    // 6) Oportunidad dormida: en el embudo (contestada / en conversación) pero
+    //    SIN MOVIMIENTO REAL (ni reunión ni cobro) desde hace +10 días. Se mide
+    //    desde la última señal de vida, así una tratada hace poco no molesta.
+    if (["contestada", "en_conversacion"].includes(o.estado)) {
+      const ult = ultimaActividad[o.id] ?? o.fecha_entrada;
+      if (ult && ult <= hoyISO) {
+        const dias = diasEntre(ult, hoyISO);
+        if (dias >= 10) {
+          avisos.push({
+            id: `dormida-${o.id}`,
+            href: `/oportunidades/${o.id}`,
+            titulo: `Oportunidad dormida · ${o.titulo}`,
+            detalle: `Sin movimiento desde hace ${dias} días · retoma el contacto antes de perderla`,
+            severidad: dias >= 21 ? "alta" : "media",
+            categoria: "lead",
+            oportunidadId: o.id,
+          });
+        }
+      }
     }
   }
 
