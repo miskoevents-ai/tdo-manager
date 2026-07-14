@@ -1,4 +1,4 @@
-import { getOportunidades, getTesoreria, getReservas } from "@/lib/data";
+import { getOportunidades, getTesoreria, getReservas, getReuniones } from "@/lib/data";
 import { calcularAvisos } from "@/lib/avisos";
 import { calcularTotales } from "@/lib/calc";
 import { restaDias } from "@/lib/cron";
@@ -25,8 +25,13 @@ export async function construirDigest(
   hoyISO: string,
   tipo: TipoDigest = "semanal",
 ): Promise<{ asunto: string; html: string; texto: string; resumen: Record<string, number> }> {
-  const [ops, tesoreria, reservas] = await Promise.all([getOportunidades(), getTesoreria(), getReservas()]);
-  const avisos = calcularAvisos(ops, hoyISO, reservas);
+  const [ops, tesoreria, reservas, reuniones] = await Promise.all([
+    getOportunidades(),
+    getTesoreria(),
+    getReservas(),
+    getReuniones(),
+  ]);
+  const avisos = calcularAvisos(ops, hoyISO, reservas, [], reuniones, tesoreria);
   const cobros = avisos.filter((a) => a.categoria === "cobro");
   const fianzas = avisos.filter((a) => a.categoria === "fianza");
   const presupuestos = avisos.filter((a) => a.categoria === "presupuesto");

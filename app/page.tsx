@@ -98,7 +98,7 @@ export default async function Home() {
   const fianzas = ops.filter((o) => (o.fianza ?? 0) > 0 && !o.fianza_devuelta);
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
 
-  const avisos = calcularAvisos(ops, HOY_ISO, reservas, tareas).slice(0, 10);
+  const avisos = calcularAvisos(ops, HOY_ISO, reservas, tareas, reuniones, tesoreria).slice(0, 10);
   const eventosCal = construirEventos(ops, reservas, tesoreria, reuniones);
 
   // Saludo personalizado: tareas del usuario conectado.
