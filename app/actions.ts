@@ -279,6 +279,40 @@ export async function cambiarEstado(id: string, estado: string) {
   });
 }
 
+// Elimina una oportunidad por completo. Protegido: si tiene factura o cobros
+// registrados, no se borra (mejor marcarla como Rechazada). Borra primero los
+// hijos por si alguna FK no está en cascada.
+export async function borrarOportunidad(id: string) {
+  const sb = createAdminClient();
+  const [{ data: facs }, { data: cobros }] = await Promise.all([
+    sb.from("facturas").select("id").eq("oportunidad_id", id).limit(1),
+    sb.from("tesoreria").select("id").eq("oportunidad_id", id).eq("tipo", "ingreso").eq("estado", "cobrado").limit(1),
+  ]);
+  if (facs && facs.length) {
+    throw new Error("Esta oportunidad tiene factura emitida. Bórrala primero, o márcala como Rechazada en vez de eliminarla.");
+  }
+  if (cobros && cobros.length) {
+    throw new Error("Esta oportunidad tiene cobros registrados. Márcala como Rechazada en vez de eliminarla (o revierte los cobros).");
+  }
+  // Intenta el borrado directo (las FK en cascada limpian los hijos). Si falla
+  // por una FK sin cascada, borra los hijos conocidos y reintenta.
+  let { error } = await sb.from("oportunidades").delete().eq("id", id);
+  if (error && /foreign key|violates|constraint/i.test(error.message)) {
+    const hijos = [
+      "presupuesto_lineas", "costes_estimados", "reservas", "reuniones",
+      "partes_horas", "desplazamientos", "calculos_precio", "presupuesto_versiones", "tesoreria",
+    ];
+    for (const tabla of hijos) {
+      await sb.from(tabla).delete().eq("oportunidad_id", id);
+    }
+    ({ error } = await sb.from("oportunidades").delete().eq("id", id));
+  }
+  if (error) throw new Error(error.message);
+  await registrarActividad({ accion: "eliminó una oportunidad", entidad: "oportunidad", entidadId: id });
+  revalidatePath("/oportunidades");
+  revalidatePath("/");
+}
+
 export async function toggleFianzaDevuelta(id: string, devuelta: boolean) {
   const sb = createAdminClient();
   const { error } = await sb.from("oportunidades").update({ fianza_devuelta: devuelta }).eq("id", id);

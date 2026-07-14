@@ -203,6 +203,14 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                           {ESTADO_META[s].label}
                         </option>
                       ))}
+                      <optgroup label="Cerrar sin venta">
+                        <option value="perdida" style={{ color: "#2B2B2B", background: "#fff" }}>
+                          {ESTADO_META.perdida.label}
+                        </option>
+                        <option value="descartada" style={{ color: "#2B2B2B", background: "#fff" }}>
+                          {ESTADO_META.descartada.label}
+                        </option>
+                      </optgroup>
                     </select>
                   </div>
                 ))}

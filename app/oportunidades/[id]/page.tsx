@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SetupNotice } from "@/components/SetupNotice";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
-import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn, ValidarOportunidadBtn } from "@/components/oportunidades/FichaAcciones";
+import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn, ValidarOportunidadBtn, BorrarOportunidadBtn } from "@/components/oportunidades/FichaAcciones";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { PlanPagos, BorrarPrevistoBtn, MarcarCobradoBtn } from "@/components/oportunidades/PlanPagos";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
@@ -541,6 +541,15 @@ export default async function Page({
           />
         </TabsContent>
       </Tabs>
+
+      {/* Zona de peligro: eliminar la oportunidad (para pruebas o entradas erróneas). */}
+      <div className="flex items-center justify-between gap-2 rounded-lg border-hair border-border-soft bg-white/60 px-4 py-3">
+        <span className="text-[12px] text-ink-muted">
+          ¿Entrada de prueba o errónea? Puedes eliminarla. Si es un cliente real que no cuajó, mejor
+          márcala como <b>Rechazada</b> arriba.
+        </span>
+        <BorrarOportunidadBtn oportunidadId={op.id} titulo={op.titulo} />
+      </div>
     </div>
   );
 }
