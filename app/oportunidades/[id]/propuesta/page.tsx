@@ -7,7 +7,7 @@ import { PrintButton } from "@/components/presupuesto/PrintButton";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
-import { eur, fecha } from "@/lib/format";
+import { eur, fecha, num } from "@/lib/format";
 import { EMPRESA, CONDICIONES_PRESUPUESTO, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
 import { PortadaDoc } from "@/components/PortadaDoc";
@@ -199,6 +199,18 @@ export default async function Page({
           {lineas.length > 0 && (
             <div className="avoid-break mt-8 flex justify-end">
               <div className="w-full max-w-[320px] space-y-1.5 rounded-lg bg-sage-tint/50 p-4 text-[13px]">
+                {dtoPct > 0 && (
+                  <>
+                    <div className="flex justify-between text-ink-secondary">
+                      <span>Subtotal</span>
+                      <span className="tabular">{eur(t.bruto)}</span>
+                    </div>
+                    <div className="flex justify-between text-clay">
+                      <span>Descuento (−{num(dtoPct, 0)}%)</span>
+                      <span className="tabular">−{eur(t.descuento)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between text-ink-secondary">
                   <span>Base</span>
                   <span className="tabular">{eur(t.base)}</span>

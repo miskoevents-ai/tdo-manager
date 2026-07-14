@@ -75,6 +75,7 @@ export type Oportunidad = {
   tipo_operacion: TipoOperacion;
   estado: OportunidadEstado;
   presupuesto_enviado: boolean;
+  presupuesto_enviado_fecha?: string | null;
   fecha_entrada: string | null;
   canal: string | null;
   fecha_evento: string | null;

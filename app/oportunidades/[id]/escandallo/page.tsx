@@ -111,8 +111,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             {grupos.map((g) => {
               const sub = g.lineas.reduce((s, e) => s + Number(e.importe), 0);
               return (
-                <div key={g.key} className="avoid-break mt-6">
-                  <div className="mb-1 flex items-baseline justify-between border-b border-border pb-1">
+                <div key={g.key} className="mt-6">
+                  <div className="avoid-break mb-1 flex items-baseline justify-between border-b border-border pb-1">
                     <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-clay">{g.titulo}</h2>
                     <span className="tabular text-[12.5px] font-semibold">{eur(sub)}</span>
                   </div>
@@ -128,7 +128,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     </thead>
                     <tbody>
                       {g.lineas.map((e) => (
-                        <tr key={e.id}>
+                        <tr key={e.id} className="avoid-break">
                           <td className="border-t border-[#f0eae1] py-1">
                             {e.concepto || "—"}
                             {e.nota ? <span className="ml-1 text-[10.5px] italic text-ink-muted">· {e.nota}</span> : ""}
