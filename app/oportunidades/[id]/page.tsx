@@ -407,6 +407,8 @@ export default async function Page({
           <CostesTab
             oportunidadId={op.id}
             base={t.base}
+            tipoEvento={op.tipo_evento ?? null}
+            serie={op.serie ?? null}
             partes={partes}
             desplazamientos={desplazamientos}
             compras={compras}

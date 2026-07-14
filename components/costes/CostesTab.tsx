@@ -14,7 +14,7 @@ import {
   crearCompra, borrarCompra,
   guardarKmPrecio, guardarDistanciaLugar,
   crearCosteEstimado, borrarCosteEstimado, guardarParamsCostes,
-  adjuntarTicket, cerrarEvento, cuadrarEstimado,
+  adjuntarTicket, cerrarEvento, cuadrarEstimado, precargarCostesPrevistos,
 } from "@/app/actions";
 import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor, CosteEstimado } from "@/lib/types";
 
@@ -23,6 +23,8 @@ type LugarInfo = { id: string; nombre: string; distancia_km: number | null } | n
 export function CostesTab({
   oportunidadId,
   base,
+  tipoEvento = null,
+  serie = null,
   partes,
   desplazamientos,
   compras,
@@ -42,6 +44,8 @@ export function CostesTab({
 }: {
   oportunidadId: string;
   base: number;
+  tipoEvento?: string | null;
+  serie?: string | null;
   partes: ParteHoras[];
   desplazamientos: Desplazamiento[];
   compras: Tesoreria[];
@@ -83,8 +87,11 @@ export function CostesTab({
   // Estimado por categoría, para la comparativa pre vs post.
   const estPorCat = { personal: 0, desplazamiento: 0, material: 0, otro: 0 };
   for (const e of estimados) {
-    const c = (e.categoria ?? "material") as keyof typeof estPorCat;
-    estPorCat[c in estPorCat ? c : "otro"] += Number(e.importe);
+    // Categoría insensible a mayúsculas: 'personal'/'desplazamiento' son claves;
+    // 'material'/null van a material; el resto de etiquetas (Flores, Dietas…) a otro.
+    const c = (e.categoria ?? "material").toLowerCase();
+    const cubo = c === "personal" ? "personal" : c === "desplazamiento" ? "desplazamiento" : c === "material" ? "material" : "otro";
+    estPorCat[cubo] += Number(e.importe);
   }
 
   // Reembolsos a personas aún pendientes (para la validación del cierre).
@@ -272,11 +279,16 @@ export function CostesTab({
                 onDone={r}
               />
             ) : (
-              <p className="py-2 text-[12px] text-ink-muted">
-                Sin plan todavía. Añade líneas con la rejilla de arriba en modo{" "}
-                <b>🧮 Previsto</b>: verás aquí el plan, el precio mínimo sugerido y el cuadre con lo
-                real.
-              </p>
+              <div className="space-y-3 py-2">
+                <p className="text-[12px] text-ink-muted">
+                  Sin plan todavía. Puedes <b>precargar los costes típicos</b> de este tipo de evento
+                  (mano de obra por fases, transporte, dietas y materiales) y luego ajustarlos, o
+                  añadirlos a mano con la rejilla de arriba en modo <b>🧮 Previsto</b>.
+                </p>
+                {!cerrada && (
+                  <PrecargaBtn oportunidadId={oportunidadId} tipoEvento={tipoEvento} serie={serie} onDone={r} />
+                )}
+              </div>
             )}
           </section>
 
@@ -811,7 +823,7 @@ function EstimacionBlock({
           {estimados.map((e) => (
             <tr key={e.id}>
               <Td>{e.concepto}</Td>
-              <Td right>{CATS[e.categoria ?? ""] ?? "—"}</Td>
+              <Td right>{CATS[(e.categoria ?? "").toLowerCase()] ?? e.categoria ?? "—"}</Td>
               <Td right>
                 {e.categoria === "personal"
                   ? nombreEquipo(e.equipo_id) ?? (e.persona_externa ? `${e.persona_externa} (ext.)` : "—")
@@ -993,6 +1005,53 @@ function TicketBtn({ mov, oportunidadId, onDone }: { mov: Tesoreria; oportunidad
 }
 
 // ---------- Subcomponentes ----------
+// Botón que siembra el plan previsto con los costes típicos del tipo de evento
+// (mismo espíritu que las horas precargadas de Cristina en la calculadora).
+function PrecargaBtn({
+  oportunidadId,
+  tipoEvento,
+  serie,
+  onDone,
+}: {
+  oportunidadId: string;
+  tipoEvento: string | null;
+  serie: string | null;
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const label =
+    serie === "alquiler_encargo"
+      ? "alquiler / encargo"
+      : tipoEvento
+        ? tipoEvento.charAt(0).toUpperCase() + tipoEvento.slice(1)
+        : "evento genérico";
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        size="sm"
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            await precargarCostesPrevistos(oportunidadId, tipoEvento, serie);
+            onDone();
+          } catch (e) {
+            setError((e as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+        disabled={busy}
+      >
+        <Zap size={14} /> {busy ? "Precargando…" : `Precargar costes típicos (${label})`}
+      </Button>
+      <span className="text-[11px] text-ink-muted">Valores orientativos · edítalos después</span>
+      {error && <span className="text-[11px] text-error">{error}</span>}
+    </div>
+  );
+}
+
 function Kpi({ label, v, tone }: { label: string; v: string; tone: string }) {
   return (
     <div>
