@@ -6,7 +6,7 @@ import { Calculator, ChevronDown, ChevronUp, Plus, RotateCcw, Save, Settings2, X
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
-import { guardarCalculadoraConfig, guardarCalculoPrecio } from "@/app/actions";
+import { guardarCalculadoraConfig, guardarCalculoPrecio, guardarLineas } from "@/app/actions";
 import {
   calcularPrecio,
   cuotaPorEvento,
@@ -24,6 +24,31 @@ export type CostesReales = {
   materiales: number;
   transporte: number;
 };
+
+const r2 = (n: number) => Math.round(n * 100) / 100;
+const hayCostes = (cr?: CostesReales) =>
+  !!cr && (cr.personas.length > 0 || cr.materiales > 0 || cr.transporte > 0);
+
+// Traduce un bloque de costes (previstos o reales) a las entradas de la
+// calculadora: todas las personas van como líneas (Cristina incluida, a su
+// €/h), las horas de estimación quedan a 0. Conserva el precio tope si lo hay.
+function inputsDesdeCostes(cr: CostesReales, prev?: Partial<CalculoInputs>): CalculoInputs {
+  return {
+    precioTope: prev?.precioTope ?? null,
+    horas: { comercial: 0, pre: 0, durante: 0, post: 0 },
+    personas: cr.personas.map((p) => ({
+      nombre: p.nombre,
+      horas: r2(p.horas),
+      precioHora: r2(p.precioHora),
+      aportado: p.aportado,
+    })),
+    materiales: r2(cr.materiales),
+    transporte: r2(cr.transporte),
+  };
+}
+
+// Concepto por defecto de la línea que se vuelca al presupuesto (editable luego).
+const CONCEPTO_VOLCADO = "Decoración y producción del evento";
 
 const TEMporada_META = {
   alta: { emoji: "🌞", label: "Temporada alta", nota: "hay demanda: vender caro" },
@@ -92,6 +117,7 @@ export function CalculadoraPrecio({
   calculoInicial,
   personasEquipo = [],
   costesReales,
+  costesPrevistos,
 }: {
   oportunidadId: string;
   serie: string | null;
@@ -104,6 +130,7 @@ export function CalculadoraPrecio({
   calculoInicial: unknown;
   personasEquipo?: PersonaOpcion[];
   costesReales?: CostesReales;
+  costesPrevistos?: CostesReales;
 }) {
   const router = useRouter();
   const [cfg, setCfg] = React.useState<CalculadoraConfig>(() => mezclarConfig(configGuardada));
@@ -129,6 +156,9 @@ export function CalculadoraPrecio({
       }
       return { ...g, personas, horasSocio: 0, personalExtra: 0 };
     }
+    // Sin cálculo guardado: se parte de los costes ya metidos en la pestaña
+    // Costes (plan previsto). Así no hay que reteclear nada.
+    if (hayCostes(costesPrevistos)) return inputsDesdeCostes(costesPrevistos!);
     return { horas: { ...precarga }, personas: [], materiales: 0, transporte: 0 };
   });
 
@@ -175,6 +205,8 @@ export function CalculadoraPrecio({
   const [verDesglose, setVerDesglose] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [aviso, setAviso] = React.useState<string | null>(null);
+  // Margen elegido para volcar al presupuesto (null = el sugerido).
+  const [margenSel, setMargenSel] = React.useState<number | null>(null);
 
   // Aviso de incoherencia: una boda/comunión/corporativo marcada como
   // "alquiler/encargo" seguramente es un error (comisión y horas de alquiler).
@@ -191,6 +223,16 @@ export function CalculadoraPrecio({
   });
   const temp = TEMporada_META[r.temporada];
   const sem = r.semaforo ? SEMAFORO_META[r.semaforo] : null;
+
+  // Precio para un margen dado (misma fórmula que la tabla de opciones).
+  const precioDeMargen = (m: number) => {
+    const com = r.comisionPct / 100;
+    const bruto = r.costeTotal / Math.max(0.05, 1 - m / 100 - com);
+    return Math.ceil(bruto / Math.max(1, cfg.redondeo)) * Math.max(1, cfg.redondeo);
+  };
+  // Margen efectivo elegido (o el sugerido) y su precio, que es el que se vuelca.
+  const margenEfectivo = margenSel ?? Math.round(r.margenIdeal);
+  const precioElegido = margenSel == null ? r.precioSugerido : precioDeMargen(margenEfectivo);
   const conIva = (n: number) => eur(n * (1 + ivaPct / 100));
 
   const setHora = (k: keyof CalculoInputs["horas"], v: number) =>
@@ -206,22 +248,16 @@ export function CalculadoraPrecio({
     (calculoInicial as { resultado?: { costeTotal?: number } } | null)?.resultado?.costeTotal ?? 0,
   );
 
-  // Trae los costes reales a la calculadora: personas reales como líneas,
-  // materiales y transporte reales; deja las horas de estimación a 0.
+  // Trae los costes reales a la calculadora (para post-evento: aplicar margen a
+  // lo realmente gastado).
   function usarReales() {
     if (!cr) return;
-    setInputs((i) => ({
-      ...i,
-      horas: { comercial: 0, pre: 0, durante: 0, post: 0 },
-      personas: cr.personas.map((p) => ({
-        nombre: p.nombre,
-        horas: Math.round(p.horas * 100) / 100,
-        precioHora: Math.round(p.precioHora * 100) / 100,
-        aportado: p.aportado,
-      })),
-      materiales: Math.round(cr.materiales * 100) / 100,
-      transporte: Math.round(cr.transporte * 100) / 100,
-    }));
+    setInputs((i) => inputsDesdeCostes(cr, i));
+  }
+  // Re-sincroniza con el plan previsto de la pestaña Costes (si allí se cambió algo).
+  function traerPrevisto() {
+    if (!hayCostes(costesPrevistos)) return;
+    setInputs((i) => inputsDesdeCostes(costesPrevistos!, i));
   }
 
   async function guardarCalculo() {
@@ -230,6 +266,33 @@ export function CalculadoraPrecio({
     try {
       await guardarCalculoPrecio(oportunidadId, inputs, r);
       setAviso("Cálculo guardado ✓");
+      router.refresh();
+    } catch (e) {
+      setAviso((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Vuelca el precio elegido al presupuesto como una sola línea editable.
+  async function volcarAlPresupuesto() {
+    if (
+      presupuestoBase > 0 &&
+      !window.confirm(
+        `Se pondrá el presupuesto en una sola línea de ${eur(precioElegido)} (base, sin IVA), ` +
+          `reemplazando las líneas actuales. Podrás editarla en la pestaña Presupuesto. ¿Continuar?`,
+      )
+    )
+      return;
+    setBusy("volcar");
+    setAviso(null);
+    try {
+      // Antes de volcar, guarda el cálculo para dejar trazabilidad del precio.
+      await guardarCalculoPrecio(oportunidadId, inputs, r);
+      await guardarLineas(oportunidadId, [
+        { concepto: CONCEPTO_VOLCADO, cantidad: 1, precio_unitario: precioElegido, via: "factura" },
+      ]);
+      setAviso(`Precio volcado al presupuesto: ${eur(precioElegido)} (margen ${margenEfectivo}%). Edítalo en Presupuesto.`);
       router.refresh();
     } catch (e) {
       setAviso((e as Error).message);
@@ -277,6 +340,19 @@ export function CalculadoraPrecio({
           <b>Alquiler / encargo</b>, así que la calculadora usa comisión y horas de alquiler. Si en
           realidad lo montáis vosotros, cámbialo en <b>Editar → Tipo de operación</b> y los cálculos
           se ajustarán.
+        </div>
+      )}
+
+      {/* Los costes se leen de la pestaña Costes (plan previsto): fuente única. */}
+      {hayCostes(costesPrevistos) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border-hair border-sage-tint-deep bg-sage-tint/30 px-3 py-2 text-[11.5px]">
+          <span className="text-ink-secondary">
+            💡 Los costes vienen de la pestaña <b>Costes</b> (plan previsto). Si allí cambias algo,
+            púlsalo para actualizar aquí.
+          </span>
+          <Button size="sm" variant="outline" onClick={traerPrevisto} title="Rellena horas, materiales y transporte con el plan de Costes">
+            <RotateCcw size={13} /> Traer costes
+          </Button>
         </div>
       )}
 
@@ -397,7 +473,7 @@ export function CalculadoraPrecio({
         {/* Opciones de margen: el menú completo para elegir con criterio */}
         <div className="mt-3">
           <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-            Opciones de margen — elige el que veas
+            Opciones de margen — pulsa una fila para elegir el precio que se vuelca
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[12.5px]">
@@ -417,11 +493,25 @@ export function CalculadoraPrecio({
                   const beneficio = precio * (1 - com) - r.costeTotal;
                   const verde = m >= r.margenVerde;
                   const esSugerido = Math.round(m) === Math.round(r.margenIdeal);
+                  const seleccionado = m === margenEfectivo;
                   return (
-                    <tr key={m} className={esSugerido ? "bg-sage-tint/40" : verde ? "bg-ok-tint/30" : ""}>
+                    <tr
+                      key={m}
+                      onClick={() => setMargenSel(m)}
+                      className={`cursor-pointer transition-colors ${
+                        seleccionado
+                          ? "bg-sage/15 outline outline-1 outline-sage"
+                          : esSugerido
+                            ? "bg-sage-tint/40"
+                            : verde
+                              ? "bg-ok-tint/30"
+                              : "hover:bg-beige-warm/50"
+                      }`}
+                    >
                       <td className="border-b border-[#f0eae1] py-1.5 font-semibold">
-                        {verde && !esSugerido && <span className="mr-1 text-ok">🟢</span>}
-                        {esSugerido && <span className="mr-1">⭐</span>}
+                        {seleccionado && <span className="mr-1 text-sage">✓</span>}
+                        {verde && !esSugerido && !seleccionado && <span className="mr-1 text-ok">🟢</span>}
+                        {esSugerido && !seleccionado && <span className="mr-1">⭐</span>}
                         {m}%{esSugerido ? " · sugerido" : ""}
                       </td>
                       <td className="border-b border-[#f0eae1] py-1.5 text-right tabular font-semibold">{eur(precio)}</td>
@@ -437,6 +527,18 @@ export function CalculadoraPrecio({
             🟢 = margen sano para este evento (verde desde {num(r.margenVerde, 0)}%). Los eventos grandes
             aceptan menos %; los pequeños piden más. Nunca por debajo del mínimo ({eur(r.precioMinimo)}).
           </p>
+
+          {/* Volcar el precio elegido al presupuesto (una sola línea editable). */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border-med border-sage bg-sage-tint/40 p-3">
+            <div className="text-[12.5px]">
+              <span className="text-ink-secondary">Precio elegido (margen {margenEfectivo}%): </span>
+              <b className="tabular text-[15px] text-sage">{eur(precioElegido)}</b>
+              <span className="text-ink-muted"> · {conIva(precioElegido)} con IVA</span>
+            </div>
+            <Button size="sm" onClick={volcarAlPresupuesto} disabled={busy === "volcar" || precioElegido <= 0}>
+              {busy === "volcar" ? "Volcando…" : "Volcar al presupuesto →"}
+            </Button>
+          </div>
         </div>
         {r.temporada === "baja" && (
           <p className="mt-1 text-[11px] text-ink-muted">
