@@ -341,7 +341,7 @@ export default async function Page({
               <Dato label="Canal" value={op.canal ? (CANAL_LABEL[op.canal] ?? op.canal) : null} />
               <Dato label="Invitados" value={op.n_invitados} />
               <Dato label="Responsable" value={op.responsable} />
-              <Dato label="Serie" value={op.serie === "evento" ? "Evento" : "Alquiler / encargo"} />
+              <Dato label="Serie" value={op.serie === "alquiler_encargo" ? "Alquiler / encargo" : "Evento propio"} />
               <Dato label="IVA" value={`${op.iva_pct}%`} />
               <Dato
                 label="Retención"

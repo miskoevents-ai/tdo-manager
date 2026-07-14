@@ -68,9 +68,12 @@ export function calcularAvisos(
   for (const o of oportunidades) {
     const contratada = ["confirmada", "realizada", "facturada"].includes(o.estado);
     const pendiente = Math.max(0, totalOp(o) - (o.cobrado ?? 0));
+    // Perdida/rechazada: ya no está en juego, no debe generar avisos de fianza,
+    // cobro ni seguimiento (el dinero de la fianza, si lo hubo, se resuelve aparte).
+    const cerradaSinVenta = ["perdida", "descartada"].includes(o.estado);
 
     // 1) Fianza cuya fecha de devolución ya pasó (o es hoy) y sigue sin devolver
-    if ((o.fianza ?? 0) > 0 && !o.fianza_devuelta && o.fecha_devolucion_fianza && o.fecha_devolucion_fianza <= hoyISO) {
+    if (!cerradaSinVenta && (o.fianza ?? 0) > 0 && !o.fianza_devuelta && o.fecha_devolucion_fianza && o.fecha_devolucion_fianza <= hoyISO) {
       avisos.push({
         id: `fianza-${o.id}`,
         href: `/oportunidades/${o.id}?tab=cobros`,
@@ -85,6 +88,7 @@ export function calcularAvisos(
     // 1b) Fianza retenida: evento pasado hace +14 días, sin fecha de devolución
     //     fijada y sin devolver → llevas demasiado tiempo el dinero del cliente.
     if (
+      !cerradaSinVenta &&
       (o.fianza ?? 0) > 0 &&
       !o.fianza_devuelta &&
       !o.fecha_devolucion_fianza &&
@@ -143,13 +147,15 @@ export function calcularAvisos(
       });
     }
 
-    // 4) Presupuesto enviado hace más de 7 días sin confirmar/perder
-    if (o.estado === "presupuesto_enviado" && o.fecha_entrada && diasEntre(o.fecha_entrada, hoyISO) >= 7) {
+    // 4) Presupuesto enviado hace más de 7 días sin confirmar/perder. Se mide
+    //    desde la fecha real de envío (o, si no consta, desde la entrada).
+    const refPresu = o.presupuesto_enviado_fecha ?? o.fecha_entrada;
+    if (o.estado === "presupuesto_enviado" && refPresu && diasEntre(refPresu, hoyISO) >= 7) {
       avisos.push({
         id: `presup-${o.id}`,
         href: `/oportunidades/${o.id}?tab=presupuesto`,
         titulo: `Presupuesto sin respuesta · ${o.titulo}`,
-        detalle: `Enviado hace ${diasEntre(o.fecha_entrada, hoyISO)} días · haz seguimiento`,
+        detalle: `Enviado hace ${diasEntre(refPresu, hoyISO)} días · haz seguimiento`,
         severidad: "media",
         categoria: "presupuesto",
         oportunidadId: o.id,

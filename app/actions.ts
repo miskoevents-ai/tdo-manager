@@ -246,11 +246,17 @@ export async function marcarPresupuestoEnviado(id: string) {
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
-  const patch: Record<string, unknown> = { presupuesto_enviado: true };
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const patch: Record<string, unknown> = { presupuesto_enviado: true, presupuesto_enviado_fecha: hoy };
   if (op && ["nueva", "contestada", "en_conversacion"].includes(op.estado)) {
     patch.estado = "presupuesto_enviado";
   }
-  const { error: updErr } = await sb.from("oportunidades").update(patch).eq("id", id);
+  let { error: updErr } = await sb.from("oportunidades").update(patch).eq("id", id);
+  // Si falta la columna de fecha (migración 047 sin ejecutar), guarda sin ella.
+  if (updErr && /presupuesto_enviado_fecha/.test(updErr.message) && /column/i.test(updErr.message)) {
+    const { presupuesto_enviado_fecha: _f, ...resto } = patch;
+    ({ error: updErr } = await sb.from("oportunidades").update(resto).eq("id", id));
+  }
   if (updErr) throw new Error(updErr.message);
   revalidatePath(`/oportunidades/${id}`);
   revalidatePath("/oportunidades");
