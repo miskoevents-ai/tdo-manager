@@ -105,103 +105,6 @@ function NumInput({
   );
 }
 
-// Editor de las plantillas de costes precargados por tipo de evento. Muta el
-// cfg en memoria; se persiste con «Guardar parámetros» (guardarCalculadoraConfig).
-function PrecargaTipoEditor({
-  cfg,
-  setCfg,
-}: {
-  cfg: CalculadoraConfig;
-  setCfg: (c: CalculadoraConfig) => void;
-}) {
-  const tipos = Object.keys(cfg.manoObraPorTipo);
-  const [tipo, setTipo] = React.useState(tipos[0] ?? "boda");
-  const mo = cfg.manoObraPorTipo[tipo] ?? { montaje: 0, durante: 0, desmontaje: 0 };
-  const tr = cfg.transportePorTipo[tipo] ?? { km: 0 };
-  const di = cfg.dietasPorTipo[tipo] ?? { personas: 0, precioPorPersona: 0 };
-  const mats = cfg.materialesPorTipo[tipo] ?? [];
-  const setMO = (patch: Partial<typeof mo>) =>
-    setCfg({ ...cfg, manoObraPorTipo: { ...cfg.manoObraPorTipo, [tipo]: { ...mo, ...patch } } });
-  const setTR = (patch: Partial<typeof tr>) =>
-    setCfg({ ...cfg, transportePorTipo: { ...cfg.transportePorTipo, [tipo]: { ...tr, ...patch } } });
-  const setDI = (patch: Partial<typeof di>) =>
-    setCfg({ ...cfg, dietasPorTipo: { ...cfg.dietasPorTipo, [tipo]: { ...di, ...patch } } });
-  const setMats = (nuevos: typeof mats) =>
-    setCfg({ ...cfg, materialesPorTipo: { ...cfg.materialesPorTipo, [tipo]: nuevos } });
-  return (
-    <div className="space-y-2 rounded-md border-hair border-sage-tint-deep bg-sage-tint/25 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-sage">
-          Precargas de costes por tipo
-        </span>
-        <Select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-auto py-1 text-[12px]">
-          {tipos.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </Select>
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <NumInput label="Montaje (h)" value={mo.montaje} onChange={(v) => setMO({ montaje: v })} step={0.5} />
-        <NumInput label="Durante (h)" value={mo.durante} onChange={(v) => setMO({ durante: v })} step={0.5} />
-        <NumInput label="Desmontaje (h)" value={mo.desmontaje} onChange={(v) => setMO({ desmontaje: v })} step={0.5} />
-        <NumInput label="Transporte (km)" value={tr.km} onChange={(v) => setTR({ km: v })} />
-        <NumInput label="Dietas: nº pers." value={di.personas} onChange={(v) => setDI({ personas: v })} />
-        <NumInput label="Dietas: €/pers." value={di.precioPorPersona} onChange={(v) => setDI({ precioPorPersona: v })} step={0.5} />
-      </div>
-      <div>
-        <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-ink-muted">
-          Materiales precargados
-        </div>
-        <div className="space-y-1">
-          {mats.map((m, i) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <Input
-                value={m.concepto}
-                onChange={(e) => setMats(mats.map((x, j) => (j === i ? { ...x, concepto: e.target.value } : x)))}
-                placeholder="Concepto"
-                className="flex-1 py-1 text-[12px]"
-              />
-              <Input
-                type="number"
-                step="0.5"
-                value={m.cantidad}
-                onChange={(e) => setMats(mats.map((x, j) => (j === i ? { ...x, cantidad: Number(e.target.value) || 0 } : x)))}
-                title="Cantidad"
-                className="w-[64px] py-1 text-right text-[12px] tabular"
-              />
-              <Input
-                type="number"
-                step="0.01"
-                value={m.precioUnitario}
-                onChange={(e) => setMats(mats.map((x, j) => (j === i ? { ...x, precioUnitario: Number(e.target.value) || 0 } : x)))}
-                title="€/ud"
-                className="w-[80px] py-1 text-right text-[12px] tabular"
-              />
-              <button
-                onClick={() => setMats(mats.filter((_, j) => j !== i))}
-                className="rounded-sm p-1 text-ink-muted hover:bg-error-tint hover:text-error"
-                title="Quitar"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          ))}
-          <button
-            onClick={() => setMats([...mats, { concepto: "", cantidad: 1, precioUnitario: 0 }])}
-            className="inline-flex items-center gap-1 text-[11px] font-semibold text-sage hover:underline"
-          >
-            <Plus size={12} /> Añadir material
-          </button>
-        </div>
-      </div>
-      <p className="text-[10.5px] text-ink-muted">
-        Estos valores se usan al pulsar «Precargar costes típicos» en la pestaña Costes. Recuerda pulsar
-        «Guardar parámetros» abajo para fijarlos para todo el equipo.
-      </p>
-    </div>
-  );
-}
-
 export function CalculadoraPrecio({
   oportunidadId,
   serie,
@@ -793,9 +696,6 @@ export function CalculadoraPrecio({
             <NumInput label="Baja: ideal" value={cfg.margenes.baja.ideal} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, baja: { ...cfg.margenes.baja, ideal: v } } })} sufijo="%" />
             <NumInput label="Beneficio mín. pequeños" value={cfg.tramos.beneficioMinimo} onChange={(v) => setCfg({ ...cfg, tramos: { ...cfg.tramos, beneficioMinimo: v } })} sufijo="€" />
           </div>
-
-          {/* Editor de las precargas de costes por tipo (lo que siembra Costes). */}
-          <PrecargaTipoEditor cfg={cfg} setCfg={setCfg} />
 
           <p className="text-[11px] text-ink-muted">
             Temporadas: 🌞 alta = may, jun, sep, oct, dic · 🌗 media = abr, jul, nov · ❄️ baja = ene,

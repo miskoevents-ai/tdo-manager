@@ -14,7 +14,7 @@ import {
   crearCompra, borrarCompra,
   guardarKmPrecio, guardarDistanciaLugar,
   crearCosteEstimado, borrarCosteEstimado, guardarParamsCostes,
-  adjuntarTicket, cerrarEvento, cuadrarEstimado, precargarCostesPrevistos,
+  adjuntarTicket, cerrarEvento, cuadrarEstimado,
   updateCosteEstimado, anadirLineaEstimada,
 } from "@/app/actions";
 import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor, CosteEstimado } from "@/lib/types";
@@ -24,8 +24,6 @@ type LugarInfo = { id: string; nombre: string; distancia_km: number | null } | n
 export function CostesTab({
   oportunidadId,
   base,
-  tipoEvento = null,
-  serie = null,
   partes,
   desplazamientos,
   compras,
@@ -45,8 +43,6 @@ export function CostesTab({
 }: {
   oportunidadId: string;
   base: number;
-  tipoEvento?: string | null;
-  serie?: string | null;
   partes: ParteHoras[];
   desplazamientos: Desplazamiento[];
   compras: Tesoreria[];
@@ -83,7 +79,6 @@ export function CostesTab({
   const estimadoConColchon = totalEstimado * (1 + contingenciaPct / 100);
   const desviacion = costes - estimadoConColchon;
 
-  const estimadosVisibles = estimados.length > 0;
 
   // Estimado por categoría, para la comparativa pre vs post.
   const estPorCat = { personal: 0, desplazamiento: 0, material: 0, otro: 0 };
@@ -267,30 +262,17 @@ export function CostesTab({
                 {totalEstimado > 0 ? eur(estimadoConColchon) : "—"}
               </span>
             </div>
-            {estimadosVisibles ? (
-              <EstimacionBlock
-                oportunidadId={oportunidadId}
-                estimados={estimados}
-                totalEstimado={totalEstimado}
-                contingenciaPct={contingenciaPct}
-                margenObjetivoPct={margenObjetivoPct}
-                base={base}
-                cerrada={cerrada}
-                equipo={equipo}
-                onDone={r}
-              />
-            ) : (
-              <div className="space-y-3 py-2">
-                <p className="text-[12px] text-ink-muted">
-                  Sin plan todavía. Puedes <b>precargar los costes típicos</b> de este tipo de evento
-                  (mano de obra por fases, transporte, dietas y materiales) y luego ajustarlos, o
-                  añadirlos a mano con la rejilla de arriba en modo <b>🧮 Previsto</b>.
-                </p>
-                {!cerrada && (
-                  <PrecargaBtn oportunidadId={oportunidadId} tipoEvento={tipoEvento} serie={serie} onDone={r} />
-                )}
-              </div>
-            )}
+            <EstimacionBlock
+              oportunidadId={oportunidadId}
+              estimados={estimados}
+              totalEstimado={totalEstimado}
+              contingenciaPct={contingenciaPct}
+              margenObjetivoPct={margenObjetivoPct}
+              base={base}
+              cerrada={cerrada}
+              equipo={equipo}
+              onDone={r}
+            />
           </section>
 
           {/* ✅ REAL */}
@@ -802,23 +784,21 @@ function EstimacionBlock({
   return (
     <div className="space-y-3">
       <p className="text-[11.5px] text-ink-muted">
-        El plan de gastos hecho <b>antes del presupuesto</b> (se añade desde la rejilla de arriba,
-        en modo 🧮 Previsto). No entra en contabilidad; cuando sepas el coste real, <b>cuadra</b> cada
-        línea con la flecha. Para poner precio con margen, temporada y semáforo, usa la{" "}
+        Organiza aquí los costes del evento por módulos, tipo Excel: pulsa <b>«Añadir línea»</b> en
+        cada bloque y rellena las celdas. No entra en contabilidad; cuando sepas el coste real,
+        <b> cuadra</b> cada línea con la flecha. Para poner precio con margen y semáforo, usa la{" "}
         <b>Calculadora</b>.
       </p>
 
-      {estimados.length > 0 && (
-        <ModulosPrevisto
-          oportunidadId={oportunidadId}
-          estimados={estimados}
-          equipo={equipo}
-          cerrada={cerrada}
-          busy={busy}
-          run={run}
-          onDone={onDone}
-        />
-      )}
+      <ModulosPrevisto
+        oportunidadId={oportunidadId}
+        estimados={estimados}
+        equipo={equipo}
+        cerrada={cerrada}
+        busy={busy}
+        run={run}
+        onDone={onDone}
+      />
       {!cerrada && estimados.some((e) => !e.cuadrado) && (
         <p className="text-[11px] text-ink-muted">
           <b>Cuadrar:</b> cuando sepas lo que ha costado de verdad, valida cada línea con la flecha
@@ -1194,53 +1174,6 @@ function TicketBtn({ mov, oportunidadId, onDone }: { mov: Tesoreria; oportunidad
 }
 
 // ---------- Subcomponentes ----------
-// Botón que siembra el plan previsto con los costes típicos del tipo de evento
-// (mismo espíritu que las horas precargadas de Cristina en la calculadora).
-function PrecargaBtn({
-  oportunidadId,
-  tipoEvento,
-  serie,
-  onDone,
-}: {
-  oportunidadId: string;
-  tipoEvento: string | null;
-  serie: string | null;
-  onDone: () => void;
-}) {
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const label =
-    serie === "alquiler_encargo"
-      ? "alquiler / encargo"
-      : tipoEvento
-        ? tipoEvento.charAt(0).toUpperCase() + tipoEvento.slice(1)
-        : "evento genérico";
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button
-        size="sm"
-        onClick={async () => {
-          setBusy(true);
-          setError(null);
-          try {
-            await precargarCostesPrevistos(oportunidadId, tipoEvento, serie);
-            onDone();
-          } catch (e) {
-            setError((e as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-        disabled={busy}
-      >
-        <Zap size={14} /> {busy ? "Precargando…" : `Precargar costes típicos (${label})`}
-      </Button>
-      <span className="text-[11px] text-ink-muted">Valores orientativos · edítalos después</span>
-      {error && <span className="text-[11px] text-error">{error}</span>}
-    </div>
-  );
-}
-
 function Kpi({ label, v, tone }: { label: string; v: string; tone: string }) {
   return (
     <div>
