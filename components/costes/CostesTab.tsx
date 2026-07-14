@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
@@ -15,7 +15,7 @@ import {
   guardarKmPrecio, guardarDistanciaLugar,
   crearCosteEstimado, borrarCosteEstimado, guardarParamsCostes,
   adjuntarTicket, cerrarEvento, cuadrarEstimado,
-  updateCosteEstimado, anadirLineaEstimada,
+  updateCosteEstimado, anadirLineaEstimada, duplicarCosteEstimado,
 } from "@/app/actions";
 import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor, CosteEstimado } from "@/lib/types";
 
@@ -266,6 +266,8 @@ export function CostesTab({
               cerrada={cerrada}
               equipo={equipo}
               onDone={r}
+              lugar={lugar}
+              kmPrecio={kmPrecio}
             />
           </section>
 
@@ -419,6 +421,8 @@ function EstimacionBlock({
   cerrada = false,
   equipo = [],
   onDone,
+  lugar = null,
+  kmPrecio = 0.26,
 }: {
   oportunidadId: string;
   estimados: CosteEstimado[];
@@ -429,6 +433,8 @@ function EstimacionBlock({
   cerrada?: boolean;
   equipo?: Pick<Equipo, "id" | "nombre" | "precio_hora">[];
   onDone: () => void;
+  lugar?: LugarInfo;
+  kmPrecio?: number;
 }) {
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
@@ -470,6 +476,8 @@ function EstimacionBlock({
         busy={busy}
         run={run}
         onDone={onDone}
+        lugar={lugar}
+        kmPrecio={kmPrecio}
       />
       {!cerrada && estimados.some((e) => !e.cuadrado) && (
         <p className="text-[11px] text-ink-muted">
@@ -539,27 +547,19 @@ function EstimacionBlock({
 // Cada módulo agrupa un tipo de coste, con su rejilla editable celda a celda,
 // subtotal y "añadir línea". Mapea 1:1 con lo que consume la Calculadora.
 const MODULOS_PREVISTO = [
-  { key: "manoObra", categoria: "personal", titulo: "Mano de obra", Icon: Users, persona: true, cantLabel: "Horas", precioLabel: "€/h", conceptoLabel: "Tarea / fase" },
-  { key: "transporte", categoria: "desplazamiento", titulo: "Transporte", Icon: Truck, persona: false, cantLabel: "Km", precioLabel: "€/km", conceptoLabel: "Trayecto" },
-  { key: "dietas", categoria: "Dietas y comida", titulo: "Dietas y comida", Icon: Utensils, persona: false, cantLabel: "Nº pers.", precioLabel: "€/pers.", conceptoLabel: "Concepto" },
-  { key: "materiales", categoria: "Material", titulo: "Materiales", Icon: Flower2, persona: false, cantLabel: "Cant.", precioLabel: "€/ud", conceptoLabel: "Concepto" },
-  { key: "alquiler", categoria: "Alquiler externo", titulo: "Alquiler externo", Icon: Package, persona: false, cantLabel: "Cant./días", precioLabel: "€/ud", conceptoLabel: "Concepto" },
+  { key: "manoObra", categoria: "personal", titulo: "Mano de obra", Icon: Users, persona: true, cantLabel: "Horas", precioLabel: "€/h", conceptoLabel: "Tarea / fase",
+    sugerencias: ["Comercial", "Preparación", "Montaje", "Durante el evento", "Recogida", "Desmontaje", "Limpieza", "Post-evento"] },
+  { key: "transporte", categoria: "desplazamiento", titulo: "Transporte", Icon: Truck, persona: false, cantLabel: "Km", precioLabel: "€/km", conceptoLabel: "Trayecto",
+    sugerencias: ["Furgoneta", "Gasolina", "Peaje", "Parking"] },
+  { key: "dietas", categoria: "Dietas y comida", titulo: "Dietas y comida", Icon: Utensils, persona: false, cantLabel: "Nº pers.", precioLabel: "€/pers.", conceptoLabel: "Concepto",
+    sugerencias: ["Comida del equipo", "Dietas de desplazamiento", "Café / desayuno"] },
+  { key: "materiales", categoria: "Material", titulo: "Materiales", Icon: Flower2, persona: false, cantLabel: "Cant.", precioLabel: "€/ud", conceptoLabel: "Concepto",
+    sugerencias: ["Flores y centros", "Mantelería", "Atrezzo", "Fungibles", "Impresión / papelería", "Velas", "Mobiliario decorativo"] },
+  { key: "alquiler", categoria: "Alquiler externo", titulo: "Alquiler externo", Icon: Package, persona: false, cantLabel: "Cant./días", precioLabel: "€/ud", conceptoLabel: "Concepto",
+    sugerencias: ["Furgoneta", "Carpa", "Mobiliario", "Vajilla", "Subcontrata"] },
 ] as const;
 
 type ModuloDef = (typeof MODULOS_PREVISTO)[number];
-
-// Fases habituales de la mano de obra (sugerencias del desplegable; se puede
-// escribir cualquier otra).
-const FASES_MANO_OBRA = [
-  "Comercial",
-  "Preparación",
-  "Montaje",
-  "Durante el evento",
-  "Recogida",
-  "Desmontaje",
-  "Limpieza",
-  "Post-evento",
-];
 
 // A qué módulo pertenece una línea, a partir de su categoría (insensible a
 // mayúsculas). 'personal'/'desplazamiento' son claves; el resto por etiqueta.
@@ -580,6 +580,8 @@ function ModulosPrevisto({
   busy,
   run,
   onDone,
+  lugar,
+  kmPrecio,
 }: {
   oportunidadId: string;
   estimados: CosteEstimado[];
@@ -588,15 +590,19 @@ function ModulosPrevisto({
   busy: boolean;
   run: (fn: () => Promise<void>) => Promise<void>;
   onDone: () => void;
+  lugar: LugarInfo;
+  kmPrecio: number;
 }) {
   return (
     <div className="space-y-3">
-      {/* Sugerencias de fase para la mano de obra (elige o escribe otra). */}
-      <datalist id="fases-mano-obra">
-        {FASES_MANO_OBRA.map((f) => (
-          <option key={f} value={f} />
-        ))}
-      </datalist>
+      {/* Sugerencias de concepto por módulo (se elige una o se escribe otra). */}
+      {MODULOS_PREVISTO.map((m) => (
+        <datalist key={`sug-${m.key}`} id={`sug-${m.key}`}>
+          {m.sugerencias.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      ))}
       {MODULOS_PREVISTO.map((m) => {
         const filas = estimados.filter((e) => moduloDeEstimado(e.categoria) === m.key);
         const subtotal = filas.reduce((s, e) => s + Number(e.importe), 0);
@@ -643,7 +649,17 @@ function ModulosPrevisto({
             {!cerrada && (
               <button
                 onClick={async () => {
-                  await anadirLineaEstimada(oportunidadId, m.categoria);
+                  // En Transporte, si el lugar tiene distancia guardada, la línea
+                  // nueva viene con los km (ida y vuelta) y la tarifa €/km ya puestos.
+                  const prefill =
+                    m.key === "transporte" && lugar?.distancia_km
+                      ? {
+                          concepto: lugar.nombre ? `${lugar.nombre} (ida y vuelta)` : "Ida y vuelta",
+                          cantidad: Number(lugar.distancia_km) * 2,
+                          precioUnitario: kmPrecio,
+                        }
+                      : undefined;
+                  await anadirLineaEstimada(oportunidadId, m.categoria, prefill);
                   onDone();
                 }}
                 className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-sage hover:underline"
@@ -720,7 +736,17 @@ function FilaEstimado({
                 const nombre = (window.prompt("Nombre del externo / amigo") || "").trim();
                 if (nombre) guardar({ equipoId: null, personaExterna: nombre });
               } else {
-                guardar({ equipoId: v || null, personaExterna: null });
+                // Al elegir una persona del equipo, se autorrellena su €/h.
+                const p = equipo.find((x) => x.id === v);
+                const patch: { equipoId: string | null; personaExterna: null; precioUnitario?: number } = {
+                  equipoId: v || null,
+                  personaExterna: null,
+                };
+                if (p?.precio_hora != null) {
+                  patch.precioUnitario = Number(p.precio_hora);
+                  setPrecio(String(Number(p.precio_hora)));
+                }
+                guardar(patch);
               }
             }}
             className="py-1 text-[12px]"
@@ -738,7 +764,7 @@ function FilaEstimado({
         <Input
           value={concepto}
           disabled={bloqueado}
-          list={modulo.persona ? "fases-mano-obra" : undefined}
+          list={`sug-${modulo.key}`}
           onChange={(ev) => setConcepto(ev.target.value)}
           onBlur={() => concepto !== (e.concepto ?? "") && guardar({ concepto })}
           placeholder={modulo.conceptoLabel}
@@ -798,7 +824,16 @@ function FilaEstimado({
       )}
       <td className="border-b border-[#f0eae1] py-1 text-center">
         {!cerrada && !bloqueado && (
-          <Del onClick={async () => { await borrarCosteEstimado(e.id, oportunidadId); onDone(); }} />
+          <span className="inline-flex items-center">
+            <button
+              title="Duplicar línea"
+              onClick={async () => { await duplicarCosteEstimado(e.id, oportunidadId); onDone(); }}
+              className="rounded-sm p-1 text-ink-muted hover:bg-beige-warm hover:text-sage"
+            >
+              <Copy size={13} />
+            </button>
+            <Del onClick={async () => { await borrarCosteEstimado(e.id, oportunidadId); onDone(); }} />
+          </span>
         )}
       </td>
     </tr>
