@@ -595,8 +595,8 @@ function EstimacionBlock({
 const MODULOS_PREVISTO = [
   { key: "manoObra", categoria: "personal", titulo: "Mano de obra", Icon: Users, persona: true, cantLabel: "Horas", precioLabel: "€/h", conceptoLabel: "Tarea / fase",
     sugerencias: ["Comercial", "Preparación", "Montaje", "Durante el evento", "Recogida", "Desmontaje", "Limpieza", "Post-evento"] },
-  { key: "transporte", categoria: "desplazamiento", titulo: "Transporte", Icon: Truck, persona: false, cantLabel: "Km", precioLabel: "€/km", conceptoLabel: "Trayecto",
-    sugerencias: ["Furgoneta", "Gasolina", "Peaje", "Parking"] },
+  { key: "transporte", categoria: "desplazamiento", titulo: "Transporte", Icon: Truck, persona: false, cantLabel: "Cant.", precioLabel: "€/ud", conceptoLabel: "Concepto",
+    sugerencias: ["Gasolina (km)", "Taxi", "Tren", "Bus", "Furgoneta (alquiler)", "Peaje", "Parking", "Kilometraje"] },
   { key: "dietas", categoria: "Dietas y comida", titulo: "Dietas y comida", Icon: Utensils, persona: false, cantLabel: "Nº pers.", precioLabel: "€/pers.", conceptoLabel: "Concepto",
     sugerencias: ["Comida del equipo", "Dietas de desplazamiento", "Café / desayuno"] },
   { key: "materiales", categoria: "Material", titulo: "Materiales", Icon: Flower2, persona: false, cantLabel: "Cant.", precioLabel: "€/ud", conceptoLabel: "Concepto",
@@ -704,17 +704,7 @@ function ModulosPrevisto({
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <button
                   onClick={async () => {
-                    // En Transporte, si el lugar tiene distancia guardada, la línea
-                    // nueva viene con los km (ida y vuelta) y la tarifa €/km ya puestos.
-                    const prefill =
-                      m.key === "transporte" && lugar?.distancia_km
-                        ? {
-                            concepto: lugar.nombre ? `${lugar.nombre} (ida y vuelta)` : "Ida y vuelta",
-                            cantidad: Number(lugar.distancia_km) * 2,
-                            precioUnitario: kmPrecio,
-                          }
-                        : undefined;
-                    await anadirLineaEstimada(oportunidadId, m.categoria, prefill);
+                    await anadirLineaEstimada(oportunidadId, m.categoria);
                     onDone();
                   }}
                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-sage hover:underline"
@@ -722,6 +712,23 @@ function ModulosPrevisto({
                 >
                   <Plus size={12} /> Añadir línea
                 </button>
+                {/* Transporte: atajo de gasolina por km del lugar (ida y vuelta). */}
+                {m.key === "transporte" && lugar?.distancia_km ? (
+                  <button
+                    onClick={async () => {
+                      await anadirLineaEstimada(oportunidadId, m.categoria, {
+                        concepto: lugar.nombre ? `Gasolina · ${lugar.nombre} (ida y vuelta)` : "Gasolina (ida y vuelta)",
+                        cantidad: Number(lugar.distancia_km) * 2,
+                        precioUnitario: kmPrecio,
+                      });
+                      onDone();
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-clay-600 hover:underline"
+                    title={`Gasolina por kilometraje del lugar a ${kmPrecio} €/km`}
+                  >
+                    <Plus size={12} /> Km del lugar ({Number(lugar.distancia_km) * 2} km)
+                  </button>
+                ) : null}
                 {/* Materiales: traer un artículo del catálogo con su coste. */}
                 {m.key === "materiales" && catalogo.length > 0 && (
                   <Select
