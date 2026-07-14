@@ -15,12 +15,13 @@ import {
   guardarKmPrecio, guardarDistanciaLugar,
   crearCosteEstimado, borrarCosteEstimado, guardarParamsCostes,
   adjuntarTicket, cerrarEvento, cuadrarEstimado,
-  updateCosteEstimado, anadirLineaEstimada, duplicarCosteEstimado,
+  updateCosteEstimado, anadirLineaEstimada, duplicarCosteEstimado, copiarCostesDeOportunidad,
 } from "@/app/actions";
 import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor, CosteEstimado } from "@/lib/types";
 
 type LugarInfo = { id: string; nombre: string; distancia_km: number | null } | null;
 type CatalogoItem = { id: string; articulo: string; coste: number };
+type OportunidadLite = { id: string; titulo: string; numero: string };
 
 export function CostesTab({
   oportunidadId,
@@ -33,6 +34,7 @@ export function CostesTab({
   kmPrecio,
   lugar,
   catalogo = [],
+  otrasOportunidades = [],
   estimados = [],
   contingenciaPct = 5,
   margenObjetivoPct = 35,
@@ -53,6 +55,7 @@ export function CostesTab({
   kmPrecio: number;
   lugar: LugarInfo;
   catalogo?: CatalogoItem[];
+  otrasOportunidades?: OportunidadLite[];
   estimados?: CosteEstimado[];
   contingenciaPct?: number;
   margenObjetivoPct?: number;
@@ -272,6 +275,7 @@ export function CostesTab({
               lugar={lugar}
               kmPrecio={kmPrecio}
               catalogo={catalogo}
+              otrasOportunidades={otrasOportunidades}
             />
           </section>
 
@@ -428,6 +432,7 @@ function EstimacionBlock({
   lugar = null,
   kmPrecio = 0.26,
   catalogo = [],
+  otrasOportunidades = [],
 }: {
   oportunidadId: string;
   estimados: CosteEstimado[];
@@ -441,6 +446,7 @@ function EstimacionBlock({
   lugar?: LugarInfo;
   kmPrecio?: number;
   catalogo?: CatalogoItem[];
+  otrasOportunidades?: OportunidadLite[];
 }) {
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
@@ -473,6 +479,39 @@ function EstimacionBlock({
         <b> cuadra</b> cada línea con la flecha. Para poner precio con margen y semáforo, usa la{" "}
         <b>Calculadora</b>.
       </p>
+
+      {!cerrada && otrasOportunidades.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-beige-light/70 px-3 py-2 text-[11.5px]">
+          <span className="text-ink-secondary">¿Partir de un evento parecido?</span>
+          <Select
+            value=""
+            disabled={busy}
+            onChange={(ev) => {
+              const oid = ev.target.value;
+              if (!oid) return;
+              const nombre = otrasOportunidades.find((o) => o.id === oid)?.titulo ?? "ese evento";
+              if (
+                estimados.length > 0 &&
+                !window.confirm(`Se añadirán los costes de «${nombre}» a los que ya hay. ¿Continuar?`)
+              )
+                return;
+              run(async () => {
+                const n = await copiarCostesDeOportunidad(oportunidadId, oid);
+                if (!n) window.alert("Ese evento no tiene costes previstos que copiar.");
+              });
+            }}
+            className="w-auto max-w-[260px] py-1 text-[11.5px]"
+            title="Copia el plan de costes de otra oportunidad, para ajustarlo"
+          >
+            <option value="">Copiar costes de…</option>
+            {otrasOportunidades.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.titulo} ({o.numero})
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <ModulosPrevisto
         oportunidadId={oportunidadId}
