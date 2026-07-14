@@ -654,13 +654,19 @@ function ModulosPrevisto({
       {MODULOS_PREVISTO.map((m) => {
         const filas = estimados.filter((e) => moduloDeEstimado(e.categoria) === m.key);
         const subtotal = filas.reduce((s, e) => s + Number(e.importe), 0);
+        // Horas totales del evento (solo mano de obra) para ver de un vistazo si
+        // un evento come demasiada mano de obra.
+        const horas = m.persona ? filas.reduce((s, e) => s + Number(e.cantidad ?? 0), 0) : 0;
         return (
           <div key={m.key} className="rounded-md border-hair border-border bg-beige-light/40 p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-sage">
                 <m.Icon size={13} /> {m.titulo}
               </span>
-              <span className="tabular text-[12.5px] font-semibold">{eur(subtotal)}</span>
+              <span className="tabular text-[12.5px] font-semibold">
+                {m.persona && horas > 0 && <span className="mr-2 font-normal text-ink-muted">{num(horas, 1)} h</span>}
+                {eur(subtotal)}
+              </span>
             </div>
             {filas.length > 0 && (
               <div className="overflow-x-auto">
@@ -797,9 +803,17 @@ function FilaEstimado({
   }
 
   const personaVal = e.equipo_id ?? (e.persona_externa ? "__cur_ext__" : "");
+  // Línea a medias: tiene concepto pero importe 0 (falta precio/horas), o —en
+  // módulos que no son mano de obra— importe sin concepto (¿qué es?).
+  const incompleta =
+    !bloqueado &&
+    ((concepto.trim() !== "" && total <= 0) || (!modulo.persona && concepto.trim() === "" && total > 0));
 
   return (
-    <tr>
+    <tr
+      className={incompleta ? "bg-warn-tint/40" : ""}
+      title={incompleta ? "Línea a medias: falta el concepto o el importe" : undefined}
+    >
       {modulo.persona && (
         <td className="border-b border-[#f0eae1] py-1 pr-1">
           <Select
