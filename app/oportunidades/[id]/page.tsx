@@ -171,6 +171,35 @@ export default async function Page({
     ),
   };
 
+  // Costes PREVISTOS (plan hecho en Costes antes del presupuesto). Es la fuente
+  // única para la Calculadora: se meten una vez en Costes y la calculadora los
+  // lee sola, sin reteclear. Personal → personas; desplazamiento → transporte;
+  // todo lo demás (material, flores, atrezzo…) → materiales.
+  const nombreDeEquipo = (id: string | null | undefined) => equipo.find((e) => e.id === id)?.nombre ?? null;
+  const previstoPorPersona = new Map<string, { horas: number; coste: number }>();
+  for (const e of costesEstimados) {
+    if (e.categoria !== "personal") continue;
+    const nombre = nombreDeEquipo(e.equipo_id) ?? e.persona_externa ?? "Sin asignar";
+    const acc = previstoPorPersona.get(nombre) ?? { horas: 0, coste: 0 };
+    acc.horas += Number(e.cantidad ?? 1);
+    acc.coste += Number(e.importe);
+    previstoPorPersona.set(nombre, acc);
+  }
+  const costesPrevistos = {
+    personas: Array.from(previstoPorPersona.entries()).map(([nombre, v]) => ({
+      nombre,
+      horas: v.horas,
+      precioHora: v.horas > 0 ? v.coste / v.horas : 0,
+      aportado: esSocioDe(nombre),
+    })),
+    materiales: costesEstimados
+      .filter((e) => e.categoria !== "personal" && e.categoria !== "desplazamiento")
+      .reduce((s, e) => s + Number(e.importe), 0),
+    transporte: costesEstimados
+      .filter((e) => e.categoria === "desplazamiento")
+      .reduce((s, e) => s + Number(e.importe), 0),
+  };
+
   return (
     <div className="space-y-5">
       <Link
@@ -498,6 +527,7 @@ export default async function Page({
             calculoInicial={calculoGuardado}
             personasEquipo={personasCalc}
             costesReales={costesReales}
+            costesPrevistos={costesPrevistos}
           />
         </TabsContent>
       </Tabs>
