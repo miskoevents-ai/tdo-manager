@@ -176,8 +176,13 @@ export default async function Page({
   // Costes PREVISTOS (plan hecho en Costes antes del presupuesto). Es la fuente
   // única para la Calculadora: se meten una vez en Costes y la calculadora los
   // lee sola, sin reteclear. Personal → personas; desplazamiento → transporte;
-  // todo lo demás (material, flores, atrezzo…) → materiales.
+  // material/flores/atrezzo → materiales (con mermas); dietas y alquiler → otros
+  // (sin mermas: no son materiales físicos que se rompan).
   const nombreDeEquipo = (id: string | null | undefined) => equipo.find((e) => e.id === id)?.nombre ?? null;
+  const esDietaOAlquiler = (categoria: string | null | undefined) => {
+    const c = (categoria ?? "").toLowerCase();
+    return c.includes("dieta") || c.includes("comida") || c.includes("alquiler");
+  };
   const previstoPorPersona = new Map<string, { horas: number; coste: number }>();
   for (const e of costesEstimados) {
     if (e.categoria !== "personal") continue;
@@ -195,10 +200,13 @@ export default async function Page({
       aportado: esSocioDe(nombre),
     })),
     materiales: costesEstimados
-      .filter((e) => e.categoria !== "personal" && e.categoria !== "desplazamiento")
+      .filter((e) => e.categoria !== "personal" && e.categoria !== "desplazamiento" && !esDietaOAlquiler(e.categoria))
       .reduce((s, e) => s + Number(e.importe), 0),
     transporte: costesEstimados
       .filter((e) => e.categoria === "desplazamiento")
+      .reduce((s, e) => s + Number(e.importe), 0),
+    otros: costesEstimados
+      .filter((e) => esDietaOAlquiler(e.categoria))
       .reduce((s, e) => s + Number(e.importe), 0),
   };
 
