@@ -20,6 +20,7 @@ import {
 import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor, CosteEstimado } from "@/lib/types";
 
 type LugarInfo = { id: string; nombre: string; distancia_km: number | null } | null;
+type CatalogoItem = { id: string; articulo: string; coste: number };
 
 export function CostesTab({
   oportunidadId,
@@ -31,6 +32,7 @@ export function CostesTab({
   proveedores,
   kmPrecio,
   lugar,
+  catalogo = [],
   estimados = [],
   contingenciaPct = 5,
   margenObjetivoPct = 35,
@@ -50,6 +52,7 @@ export function CostesTab({
   proveedores: Pick<Proveedor, "id" | "nombre">[];
   kmPrecio: number;
   lugar: LugarInfo;
+  catalogo?: CatalogoItem[];
   estimados?: CosteEstimado[];
   contingenciaPct?: number;
   margenObjetivoPct?: number;
@@ -268,6 +271,7 @@ export function CostesTab({
               onDone={r}
               lugar={lugar}
               kmPrecio={kmPrecio}
+              catalogo={catalogo}
             />
           </section>
 
@@ -423,6 +427,7 @@ function EstimacionBlock({
   onDone,
   lugar = null,
   kmPrecio = 0.26,
+  catalogo = [],
 }: {
   oportunidadId: string;
   estimados: CosteEstimado[];
@@ -435,6 +440,7 @@ function EstimacionBlock({
   onDone: () => void;
   lugar?: LugarInfo;
   kmPrecio?: number;
+  catalogo?: CatalogoItem[];
 }) {
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
@@ -478,6 +484,7 @@ function EstimacionBlock({
         onDone={onDone}
         lugar={lugar}
         kmPrecio={kmPrecio}
+        catalogo={catalogo}
       />
       {!cerrada && estimados.some((e) => !e.cuadrado) && (
         <p className="text-[11px] text-ink-muted">
@@ -582,6 +589,7 @@ function ModulosPrevisto({
   onDone,
   lugar,
   kmPrecio,
+  catalogo,
 }: {
   oportunidadId: string;
   estimados: CosteEstimado[];
@@ -592,6 +600,7 @@ function ModulosPrevisto({
   onDone: () => void;
   lugar: LugarInfo;
   kmPrecio: number;
+  catalogo: CatalogoItem[];
 }) {
   return (
     <div className="space-y-3">
@@ -647,29 +656,57 @@ function ModulosPrevisto({
               </div>
             )}
             {!cerrada && (
-              <button
-                onClick={async () => {
-                  // En Transporte, si el lugar tiene distancia guardada, la línea
-                  // nueva viene con los km (ida y vuelta) y la tarifa €/km ya puestos.
-                  const prefill =
-                    m.key === "transporte" && lugar?.distancia_km
-                      ? {
-                          concepto: lugar.nombre ? `${lugar.nombre} (ida y vuelta)` : "Ida y vuelta",
-                          cantidad: Number(lugar.distancia_km) * 2,
-                          precioUnitario: kmPrecio,
-                        }
-                      : undefined;
-                  await anadirLineaEstimada(oportunidadId, m.categoria, prefill);
-                  onDone();
-                }}
-                className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-sage hover:underline"
-                title={`Añadir una línea a ${m.titulo}`}
-              >
-                <Plus size={12} /> Añadir línea
-              </button>
-            )}
-            {filas.length === 0 && (
-              <span className="ml-2 text-[10.5px] text-ink-muted">— sin líneas —</span>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={async () => {
+                    // En Transporte, si el lugar tiene distancia guardada, la línea
+                    // nueva viene con los km (ida y vuelta) y la tarifa €/km ya puestos.
+                    const prefill =
+                      m.key === "transporte" && lugar?.distancia_km
+                        ? {
+                            concepto: lugar.nombre ? `${lugar.nombre} (ida y vuelta)` : "Ida y vuelta",
+                            cantidad: Number(lugar.distancia_km) * 2,
+                            precioUnitario: kmPrecio,
+                          }
+                        : undefined;
+                    await anadirLineaEstimada(oportunidadId, m.categoria, prefill);
+                    onDone();
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-sage hover:underline"
+                  title={`Añadir una línea a ${m.titulo}`}
+                >
+                  <Plus size={12} /> Añadir línea
+                </button>
+                {/* Materiales: traer un artículo del catálogo con su coste. */}
+                {m.key === "materiales" && catalogo.length > 0 && (
+                  <Select
+                    value=""
+                    onChange={async (ev) => {
+                      const art = catalogo.find((c) => c.id === ev.target.value);
+                      if (!art) return;
+                      await anadirLineaEstimada(oportunidadId, "Material", {
+                        concepto: art.articulo,
+                        cantidad: 1,
+                        precioUnitario: art.coste,
+                      });
+                      onDone();
+                    }}
+                    className="w-auto max-w-[240px] py-1 text-[11px]"
+                    title="Añadir un artículo del inventario con su coste"
+                  >
+                    <option value="">＋ Del catálogo…</option>
+                    {catalogo.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.articulo}
+                        {c.coste > 0 ? ` · ${eur(c.coste)}` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+                {filas.length === 0 && (
+                  <span className="text-[10.5px] text-ink-muted">— sin líneas —</span>
+                )}
+              </div>
             )}
           </div>
         );
