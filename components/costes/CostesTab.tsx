@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
@@ -580,12 +580,21 @@ function EstimacionBlock({
             </div>
           )}
           {/* El precio se pone en la Calculadora (única fuente de precio). */}
-          <Link
-            href={`/oportunidades/${oportunidadId}?tab=calculadora`}
-            className="mt-1 inline-flex items-center gap-1 font-semibold text-sage hover:underline"
-          >
-            <Calculator size={13} /> ¿Poner precio? → Calculadora
-          </Link>
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link
+              href={`/oportunidades/${oportunidadId}?tab=calculadora`}
+              className="inline-flex items-center gap-1 font-semibold text-sage hover:underline"
+            >
+              <Calculator size={13} /> ¿Poner precio? → Calculadora
+            </Link>
+            <Link
+              href={`/oportunidades/${oportunidadId}/escandallo`}
+              className="inline-flex items-center gap-1 font-semibold text-ink-secondary hover:text-sage hover:underline"
+              title="Desglose interno de costes para compartir con los socios"
+            >
+              <FileText size={13} /> Escandallo PDF
+            </Link>
+          </div>
         </div>
       </div>
       {error && <p className="text-caption text-error">{error}</p>}
