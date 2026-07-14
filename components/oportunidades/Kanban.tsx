@@ -198,8 +198,8 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                       style={chipStyle(c.estado)}
                       className="mt-2 w-full rounded-sm border-hair px-2 py-1 text-[10.5px] font-semibold"
                     >
-                      {KANBAN_COLS.map((s) => (
-                        <option key={s} value={s} style={{ color: "#2B2B2B", background: "#fff" }}>
+                      {KANBAN_COLS.filter((s) => s !== "facturada" || c.estado === "facturada").map((s) => (
+                        <option key={s} value={s} disabled={s === "facturada"} style={{ color: "#2B2B2B", background: "#fff" }}>
                           {ESTADO_META[s].label}
                         </option>
                       ))}

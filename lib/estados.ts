@@ -44,6 +44,23 @@ export const ESTADOS_TODOS: OportunidadEstado[] = [
   "descartada",
 ];
 
+// Estados que se pueden fijar a mano desde un desplegable. "facturada" NO está:
+// se alcanza solo al emitir la factura (nunca eligiéndolo suelto, o quedaría
+// una oportunidad marcada como facturada sin factura detrás).
+export const ESTADOS_MANUALES: OportunidadEstado[] = ESTADOS_TODOS.filter(
+  (e) => e !== "facturada",
+);
+
+// Estados anteriores a la confirmación (sin venta cerrada todavía).
+export const ESTADOS_PRE_CONFIRMACION: OportunidadEstado[] = [
+  "nueva",
+  "contestada",
+  "en_conversacion",
+  "presupuesto_enviado",
+  "perdida",
+  "descartada",
+];
+
 export const FACTURA_META: Record<FacturaEstado, { label: string; tone: BadgeTone }> = {
   emitida: { label: "Emitida", tone: "clay" },
   cobrada: { label: "Cobrada", tone: "ok" },

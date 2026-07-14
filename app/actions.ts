@@ -258,6 +258,12 @@ export async function marcarPresupuestoEnviado(id: string) {
 
 export async function cambiarEstado(id: string, estado: string) {
   const sb = createAdminClient();
+  // "facturada" no se fija a mano: refleja que hay una factura emitida. Si no
+  // la hay, se rechaza (el estado se alcanza emitiendo la factura).
+  if (estado === "facturada") {
+    const { data: fac } = await sb.from("facturas").select("id").eq("oportunidad_id", id).limit(1).maybeSingle();
+    if (!fac) throw new Error('Para marcar "Facturada" hay que emitir la factura desde la ficha.');
+  }
   const { error } = await sb.from("oportunidades").update({ estado }).eq("id", id);
   if (error) throw new Error(error.message);
   // Al confirmar por primera vez, sella la fecha de confirmación (tiempo de cierre).
@@ -268,6 +274,11 @@ export async function cambiarEstado(id: string, estado: string) {
       .update({ fecha_confirmacion: hoy })
       .eq("id", id)
       .is("fecha_confirmacion", null);
+  }
+  // Al revertir a un estado previo a la confirmación, limpia la fecha para que
+  // el tiempo de cierre y los avisos no queden "sellados" de forma incoherente.
+  if (["nueva", "contestada", "en_conversacion", "presupuesto_enviado", "perdida", "descartada"].includes(estado)) {
+    await sb.from("oportunidades").update({ fecha_confirmacion: null }).eq("id", id);
   }
   revalidatePath("/oportunidades");
   revalidatePath(`/oportunidades/${id}`);
@@ -2498,6 +2509,16 @@ export async function borrarVersionPresupuesto(versionId: string) {
 // Emite una factura a partir de una oportunidad (congela los importes).
 export async function emitirFactura(oportunidadId: string) {
   const sb = createAdminClient();
+  // Evita duplicar factura: si ya hay una emitida para esta oportunidad, corta.
+  const { data: facExistente } = await sb
+    .from("facturas")
+    .select("id, numero")
+    .eq("oportunidad_id", oportunidadId)
+    .limit(1)
+    .maybeSingle();
+  if (facExistente) {
+    throw new Error(`Esta oportunidad ya tiene la factura Nº ${facExistente.numero ?? facExistente.id} emitida.`);
+  }
   const { data: op, error } = await sb
     .from("oportunidades")
     .select("*, presupuesto_lineas(*)")
