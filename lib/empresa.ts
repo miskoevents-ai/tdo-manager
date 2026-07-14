@@ -29,10 +29,33 @@ export const PORTADA_CANDIDATAS: string[] = [
 // Respaldo local si ninguna foto de arriba carga (banda con la marca).
 export const PORTADA_RESPALDO = "/presupuesto-portada.jpg";
 
-// Condiciones por defecto del presupuesto (editables).
-export const CONDICIONES_PRESUPUESTO = [
+// Condiciones para EVENTOS (bodas, comuniones, corporativos, cumpleaños…):
+// el servicio es diseño + producción + montaje/desmontaje. Editables.
+export const CONDICIONES_EVENTO = [
   "Presupuesto válido durante 30 días desde su emisión.",
-  "Para confirmar la reserva de fecha y material se abona una señal del 50 %; el resto antes o el día del evento.",
-  "El material de alquiler se entrega y recoge en las fechas acordadas. Cualquier daño o pérdida se descontará de la fianza.",
+  "Para confirmar la fecha se abona una señal del 50 %; el resto antes o el día del evento.",
+  "El precio incluye el diseño, la producción, el montaje y el desmontaje de la decoración según lo detallado.",
+  "Cualquier cambio sobre lo presupuestado (nº de invitados, materiales o alcance) puede modificar el precio final.",
+  "En caso de cancelación, la señal no es reembolsable: cubre el diseño, la reserva de la fecha y la compra de material.",
   "Precios con IVA incluido según se detalla. Las empresas aplican retención de IRPF del 15 %.",
 ];
+
+// Condiciones para ALQUILER / ENCARGO de material: el servicio es prestar
+// material, con entrega, recogida y fianza. Editables.
+export const CONDICIONES_ALQUILER = [
+  "Presupuesto válido durante 30 días desde su emisión.",
+  "Para reservar el material se abona una señal del 50 % y, en su caso, una fianza reembolsable.",
+  "El material se entrega y se recoge en las fechas y el lugar acordados.",
+  "El cliente es responsable del material durante todo el periodo de alquiler.",
+  "Los daños, roturas o pérdidas, así como la devolución en mal estado o fuera de plazo, se descontarán de la fianza.",
+  "Precios con IVA incluido según se detalla. Las empresas aplican retención de IRPF del 15 %.",
+];
+
+// Devuelve las condiciones que corresponden a la oportunidad según su serie:
+// alquiler/encargo → condiciones de alquiler; el resto → condiciones de evento.
+export function condicionesPara(serie: string | null | undefined): string[] {
+  return serie === "alquiler_encargo" ? CONDICIONES_ALQUILER : CONDICIONES_EVENTO;
+}
+
+// Alias retrocompatible (por defecto, condiciones de evento).
+export const CONDICIONES_PRESUPUESTO = CONDICIONES_EVENTO;

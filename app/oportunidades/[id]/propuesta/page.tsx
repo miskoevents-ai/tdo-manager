@@ -8,7 +8,7 @@ import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { eur, fecha, num } from "@/lib/format";
-import { EMPRESA, CONDICIONES_PRESUPUESTO, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
+import { EMPRESA, condicionesPara, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
 import { PortadaDoc } from "@/components/PortadaDoc";
 import { TIPO_EVENTO_LABEL } from "@/lib/estados";
@@ -243,7 +243,7 @@ export default async function Page({
           <div className="avoid-break mt-8 border-t border-border pt-5 text-[11px] leading-relaxed text-ink-secondary">
             <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">Condiciones</div>
             <ul className="list-disc space-y-0.5 pl-4">
-              {CONDICIONES_PRESUPUESTO.map((c, i) => (
+              {condicionesPara(op.serie).map((c, i) => (
                 <li key={i}>{c}</li>
               ))}
             </ul>
