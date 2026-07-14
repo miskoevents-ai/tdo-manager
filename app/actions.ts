@@ -1998,12 +1998,19 @@ export async function duplicarCosteEstimado(id: string, oportunidadId: string) {
     persona_externa: r.persona_externa ?? null,
     pagador: r.pagador ?? null,
     caja: r.caja ?? null,
+    proveedor_id: r.proveedor_id ?? null,
+    nota: r.nota ?? null,
     importe: r.importe ?? 0,
   };
-  let { error } = await sb.from("costes_estimados").insert(copia);
+  const insertarTolerante = (fila: Record<string, unknown>) => sb.from("costes_estimados").insert(fila);
+  let { error } = await insertarTolerante(copia);
+  if (error && /proveedor_id|nota/.test(error.message) && /column/i.test(error.message)) {
+    const { proveedor_id: _p, nota: _n, ...sinCols } = copia;
+    ({ error } = await insertarTolerante(sinCols));
+  }
   if (error && /caja/.test(error.message) && /column/i.test(error.message)) {
-    const { caja: _c, ...sinCaja } = copia;
-    ({ error } = await sb.from("costes_estimados").insert(sinCaja));
+    const { caja: _c, proveedor_id: _p, nota: _n, ...sinCaja } = copia;
+    ({ error } = await insertarTolerante(sinCaja));
   }
   if (error) throw new Error(error.message);
   revalidatePath(`/oportunidades/${oportunidadId}`);
@@ -2025,12 +2032,17 @@ export async function copiarCostesDeOportunidad(destinoId: string, origenId: str
     persona_externa: r.persona_externa ?? null,
     pagador: r.pagador ?? null,
     caja: r.caja ?? null,
+    proveedor_id: r.proveedor_id ?? null,
+    nota: r.nota ?? null,
     importe: r.importe ?? 0,
   }));
   if (!filas.length) return 0;
   let { error } = await sb.from("costes_estimados").insert(filas);
+  if (error && /proveedor_id|nota/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("costes_estimados").insert(filas.map(({ proveedor_id: _p, nota: _n, ...f }) => f)));
+  }
   if (error && /caja/.test(error.message) && /column/i.test(error.message)) {
-    ({ error } = await sb.from("costes_estimados").insert(filas.map(({ caja: _c, ...f }) => f)));
+    ({ error } = await sb.from("costes_estimados").insert(filas.map(({ caja: _c, proveedor_id: _p, nota: _n, ...f }) => f)));
   }
   if (error) throw new Error(error.message);
   revalidatePath(`/oportunidades/${destinoId}`);
