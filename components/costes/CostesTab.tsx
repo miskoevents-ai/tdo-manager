@@ -930,7 +930,9 @@ function FilaEstimado({
           value={cantidad}
           disabled={bloqueado}
           onChange={(ev) => setCantidad(ev.target.value)}
-          onBlur={() => Number(cantidad) !== Number(e.cantidad ?? 1) && guardar({ cantidad: Number(cantidad) || 0 })}
+          // Manda cantidad y precio juntos: el importe se calcula con ambos
+          // valores actuales, no leyendo el otro (posiblemente obsoleto) de la BD.
+          onBlur={() => Number(cantidad) !== Number(e.cantidad ?? 1) && guardar({ cantidad: Number(cantidad) || 0, precioUnitario: Number(precio) || 0 })}
           className="w-[70px] py-1 text-right text-[12.5px] tabular"
         />
       </td>
@@ -941,7 +943,7 @@ function FilaEstimado({
           value={precio}
           disabled={bloqueado}
           onChange={(ev) => setPrecio(ev.target.value)}
-          onBlur={() => Number(precio) !== Number(e.precio_unitario ?? 0) && guardar({ precioUnitario: Number(precio) || 0 })}
+          onBlur={() => Number(precio) !== Number(e.precio_unitario ?? 0) && guardar({ cantidad: Number(cantidad) || 0, precioUnitario: Number(precio) || 0 })}
           className="w-[75px] py-1 text-right text-[12.5px] tabular"
         />
       </td>

@@ -23,11 +23,12 @@ export type CostesReales = {
   personas: { nombre: string; horas: number; precioHora: number; aportado: boolean }[];
   materiales: number;
   transporte: number;
+  otros?: number; // dietas, alquiler externo… (sin mermas)
 };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const hayCostes = (cr?: CostesReales) =>
-  !!cr && (cr.personas.length > 0 || cr.materiales > 0 || cr.transporte > 0);
+  !!cr && (cr.personas.length > 0 || cr.materiales > 0 || cr.transporte > 0 || (cr.otros ?? 0) > 0);
 
 // Traduce un bloque de costes (previstos o reales) a las entradas de la
 // calculadora: todas las personas van como líneas (Cristina incluida, a su
@@ -44,6 +45,7 @@ function inputsDesdeCostes(cr: CostesReales, prev?: Partial<CalculoInputs>): Cal
     })),
     materiales: r2(cr.materiales),
     transporte: r2(cr.transporte),
+    otros: r2(cr.otros ?? 0),
   };
 }
 
@@ -262,8 +264,8 @@ export function CalculadoraPrecio({
   // Costes reales ya registrados en Costes (para comparar y traer).
   const cr = costesReales;
   const realPersonal = (cr?.personas ?? []).reduce((s, p) => s + p.horas * p.precioHora, 0);
-  const realDirectos = realPersonal + (cr?.materiales ?? 0) + (cr?.transporte ?? 0);
-  const hayReales = !!cr && (cr.personas.length > 0 || cr.materiales > 0 || cr.transporte > 0);
+  const realDirectos = realPersonal + (cr?.materiales ?? 0) + (cr?.transporte ?? 0) + (cr?.otros ?? 0);
+  const hayReales = !!cr && (cr.personas.length > 0 || cr.materiales > 0 || cr.transporte > 0 || (cr.otros ?? 0) > 0);
   // Coste que se estimó al guardar el cálculo (para "estimado vs real").
   const estimadoGuardado = Number(
     (calculoInicial as { resultado?: { costeTotal?: number } } | null)?.resultado?.costeTotal ?? 0,
@@ -446,8 +448,9 @@ export function CalculadoraPrecio({
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <NumInput label="Materiales €" value={inputs.materiales} onChange={(v) => setInputs((i) => ({ ...i, materiales: v }))} />
+        <NumInput label="Materiales €" value={inputs.materiales} onChange={(v) => setInputs((i) => ({ ...i, materiales: v }))} hint="Flores, atrezzo, fungibles… llevan mermas (roturas)" />
         <NumInput label="Transporte €" value={inputs.transporte} onChange={(v) => setInputs((i) => ({ ...i, transporte: v }))} />
+        <NumInput label="Dietas / alquiler €" value={Number(inputs.otros ?? 0)} onChange={(v) => setInputs((i) => ({ ...i, otros: v }))} hint="Dietas, comidas, alquiler externo… sin mermas" />
         <NumInput
           label="Precio tope del cliente €"
           value={Number(inputs.precioTope ?? 0)}
@@ -475,6 +478,7 @@ export function CalculadoraPrecio({
             {r.desglose.personalExtra > 0 && <span>Personal extra: <b className="tabular">{eur(r.desglose.personalExtra)}</b></span>}
             {r.desglose.materiales > 0 && <span>Materiales: <b className="tabular">{eur(r.desglose.materiales)}</b></span>}
             {r.desglose.transporte > 0 && <span>Transporte: <b className="tabular">{eur(r.desglose.transporte)}</b></span>}
+            {r.desglose.otros > 0 && <span>Dietas / alquiler: <b className="tabular">{eur(r.desglose.otros)}</b></span>}
             <span title="Imprevistos y también la inflación de materiales entre el presupuesto y el evento (flores, fungibles…)">
               Contingencia {num(cfg.contingenciaPct, 0)}% ⓘ: <b className="tabular">{eur(r.desglose.contingencia)}</b>
             </span>
@@ -658,6 +662,7 @@ export function CalculadoraPrecio({
             {realPersonal > 0 && <span>Personal: <b className="tabular">{eur(realPersonal)}</b></span>}
             {(cr?.transporte ?? 0) > 0 && <span>Transporte: <b className="tabular">{eur(cr!.transporte)}</b></span>}
             {(cr?.materiales ?? 0) > 0 && <span>Materiales: <b className="tabular">{eur(cr!.materiales)}</b></span>}
+            {(cr?.otros ?? 0) > 0 && <span>Dietas / alquiler: <b className="tabular">{eur(cr!.otros!)}</b></span>}
             <span>Total directo: <b className="tabular text-ink">{eur(realDirectos)}</b></span>
           </div>
           {estimadoGuardado > 0 && (

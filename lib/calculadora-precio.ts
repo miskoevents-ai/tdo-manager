@@ -230,8 +230,9 @@ export type CalculoInputs = {
   // Campos antiguos (cálculos guardados antes de las líneas de persona):
   horasSocio?: number;
   personalExtra?: number;
-  materiales: number; // € materiales/subcontratas
+  materiales: number; // € materiales/subcontratas (sí llevan mermas)
   transporte: number; // € furgoneta + gasolina + km
+  otros?: number; // € dietas, alquiler externo… (NO llevan mermas)
   // Precio tope del cliente (opcional): "tengo X € y punto" → la calculadora
   // trabaja al revés: cuánto coste te puedes permitir para ese precio.
   precioTope?: number | null;
@@ -261,6 +262,7 @@ export type CalculoResultado = {
     personalExtra: number;
     materiales: number;
     transporte: number;
+    otros: number;
     contingencia: number;
     mermas: number;
     cuotaFijos: number;
@@ -320,9 +322,11 @@ export function calcularPrecio(
     personas.filter((p) => !p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
     (soloViejo ? n(inputs.personalExtra) : 0);
   const materiales = n(inputs.materiales);
+  const otros = n(inputs.otros); // dietas, alquiler externo… sin mermas
   const directosSinExtras =
-    costeCristina + costeAportado + costePagado + materiales + n(inputs.transporte);
+    costeCristina + costeAportado + costePagado + materiales + n(inputs.transporte) + otros;
   const contingencia = (directosSinExtras * cfg.contingenciaPct) / 100;
+  // Las mermas (roturas) solo aplican a materiales físicos, no a dietas/alquiler.
   const mermas = (materiales * cfg.mermasPct) / 100;
   const directos = directosSinExtras + contingencia + mermas;
   const costeTotal = directos + cuotaFijos;
@@ -410,6 +414,7 @@ export function calcularPrecio(
       personalExtra: costePagado,
       materiales: Number(inputs.materiales),
       transporte: Number(inputs.transporte),
+      otros,
       contingencia,
       mermas,
       cuotaFijos,
