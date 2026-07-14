@@ -1942,15 +1942,21 @@ export async function updateCosteEstimado(input: {
 
 // Añade una línea vacía a un módulo del plan previsto (para la edición Excel:
 // creas la fila y luego rellenas las celdas). Importe 0 hasta que se edite.
-export async function anadirLineaEstimada(oportunidadId: string, categoria: string) {
+export async function anadirLineaEstimada(
+  oportunidadId: string,
+  categoria: string,
+  prefill?: { concepto?: string; cantidad?: number; precioUnitario?: number },
+) {
   const sb = createAdminClient();
+  const cantidad = Number(prefill?.cantidad ?? 1) || 1;
+  const precio = Number(prefill?.precioUnitario ?? 0) || 0;
   const fila = {
     oportunidad_id: oportunidadId,
-    concepto: "",
-    cantidad: 1,
-    precio_unitario: 0,
+    concepto: prefill?.concepto ?? "",
+    cantidad,
+    precio_unitario: precio,
     categoria,
-    importe: 0,
+    importe: Math.round(cantidad * precio * 100) / 100,
   };
   let { error } = await sb.from("costes_estimados").insert(fila);
   if (error && /categoria|cantidad|precio_unitario/.test(error.message) && /column/i.test(error.message)) {
@@ -1962,6 +1968,33 @@ export async function anadirLineaEstimada(oportunidadId: string, categoria: stri
     }
     throw new Error(error.message);
   }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Duplica una línea del plan previsto (para repetir conceptos parecidos).
+export async function duplicarCosteEstimado(id: string, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { data: row } = await sb.from("costes_estimados").select("*").eq("id", id).maybeSingle();
+  if (!row) return;
+  const r = row as Record<string, unknown>;
+  const copia: Record<string, unknown> = {
+    oportunidad_id: oportunidadId,
+    concepto: r.concepto ?? "",
+    cantidad: r.cantidad ?? 1,
+    precio_unitario: r.precio_unitario ?? 0,
+    categoria: r.categoria ?? null,
+    equipo_id: r.equipo_id ?? null,
+    persona_externa: r.persona_externa ?? null,
+    pagador: r.pagador ?? null,
+    caja: r.caja ?? null,
+    importe: r.importe ?? 0,
+  };
+  let { error } = await sb.from("costes_estimados").insert(copia);
+  if (error && /caja/.test(error.message) && /column/i.test(error.message)) {
+    const { caja: _c, ...sinCaja } = copia;
+    ({ error } = await sb.from("costes_estimados").insert(sinCaja));
+  }
+  if (error) throw new Error(error.message);
   revalidatePath(`/oportunidades/${oportunidadId}`);
 }
 
