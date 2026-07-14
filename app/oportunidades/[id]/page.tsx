@@ -535,6 +535,7 @@ export default async function Page({
             tipoEvento={op.tipo_evento ?? null}
             fechaEvento={op.fecha_evento ?? null}
             presupuestoBase={t.base}
+            presupuestoLineasCount={(op.presupuesto_lineas ?? []).length}
             boteFijos={boteFijos}
             ivaPct={op.iva_pct ?? 21}
             configGuardada={calcConfigRaw}

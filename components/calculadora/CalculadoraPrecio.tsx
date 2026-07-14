@@ -111,6 +111,7 @@ export function CalculadoraPrecio({
   tipoEvento,
   fechaEvento,
   presupuestoBase,
+  presupuestoLineasCount = 0,
   boteFijos,
   ivaPct = 21,
   configGuardada,
@@ -124,6 +125,7 @@ export function CalculadoraPrecio({
   tipoEvento: string | null;
   fechaEvento: string | null;
   presupuestoBase: number;
+  presupuestoLineasCount?: number;
   boteFijos: number;
   ivaPct?: number;
   configGuardada: unknown;
@@ -195,9 +197,14 @@ export function CalculadoraPrecio({
     const key = `${serie}|${tipoEvento}`;
     if (seedRef.current === key) return;
     seedRef.current = key;
-    const pk = serie === "alquiler_encargo" ? "alquiler_encargo" : (tipoEvento ?? "otro");
-    const nuevas = cfg.horasPorTipo[pk] ?? cfg.horasPorTipo.otro;
-    setInputs((i) => ({ ...i, horas: { ...nuevas } }));
+    // Si Cristina ya está planificada como línea (flujo de Costes), no se
+    // recargan sus horas por tipo: se contaría dos veces (bloque + línea).
+    setInputs((i) => {
+      if ((i.personas ?? []).some((p) => /crist/i.test(p.nombre))) return i;
+      const pk = serie === "alquiler_encargo" ? "alquiler_encargo" : (tipoEvento ?? "otro");
+      const nuevas = cfg.horasPorTipo[pk] ?? cfg.horasPorTipo.otro;
+      return { ...i, horas: { ...nuevas } };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serie, tipoEvento]);
 
@@ -227,6 +234,16 @@ export function CalculadoraPrecio({
   });
   const temp = TEMporada_META[r.temporada];
   const sem = r.semaforo ? SEMAFORO_META[r.semaforo] : null;
+  // Cristina planificada como línea de equipo (flujo de Costes): su bloque de
+  // horas por tipo sobra, la llevaría dos veces.
+  const cristinaEnPersonas = (inputs.personas ?? []).some((p) => /crist/i.test(p.nombre));
+  // Filas de la tabla de márgenes: escala fija + el margen sugerido (que en
+  // temporada alta puede ser 45/50), para que nunca quede fuera de la lista.
+  const margenesTabla = Array.from(
+    new Set([15, 20, 25, 30, 35, 40, 45, 50, Math.round(r.margenIdeal), Math.round(r.margenVerde)]),
+  )
+    .filter((m) => m >= 10 && m <= 60)
+    .sort((a, b) => a - b);
 
   // Precio para un margen dado (misma fórmula que la tabla de opciones).
   const precioDeMargen = (m: number) => {
@@ -280,11 +297,16 @@ export function CalculadoraPrecio({
 
   // Vuelca el precio elegido al presupuesto como una sola línea editable.
   async function volcarAlPresupuesto() {
+    // Volcar reemplaza TODAS las líneas del presupuesto por una sola. Si ya hay
+    // líneas (aunque sean de 0 € o en efectivo, con fotos o artículos enlazados)
+    // hay que avisar de que se pierden, no solo cuando la base es > 0.
     if (
-      presupuestoBase > 0 &&
+      presupuestoLineasCount > 0 &&
       !window.confirm(
-        `Se pondrá el presupuesto en una sola línea de ${eur(precioElegido)} (base, sin IVA), ` +
-          `reemplazando las líneas actuales. Podrás editarla en la pestaña Presupuesto. ¿Continuar?`,
+        `El presupuesto ya tiene ${presupuestoLineasCount} línea${presupuestoLineasCount === 1 ? "" : "s"}. ` +
+          `Se reemplazará${presupuestoLineasCount === 1 ? "" : "n"} por una sola línea de ${eur(precioElegido)} ` +
+          `(base, sin IVA), y se perderán las fotos, bloques y artículos enlazados de las actuales. ` +
+          `Podrás editar la línea en la pestaña Presupuesto. ¿Continuar?`,
       )
     )
       return;
@@ -360,22 +382,26 @@ export function CalculadoraPrecio({
         </div>
       )}
 
-      {/* Entradas: lo único que toca Cristina */}
-      <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-          Horas de Cristina (precargadas por tipo de evento)
-        </p>
-        <div className="grid grid-cols-4 gap-2">
-          <NumInput label="Comercial" value={inputs.horas.comercial} onChange={(v) => setHora("comercial", v)} step={0.5} />
-          <NumInput label="Pre-evento" value={inputs.horas.pre} onChange={(v) => setHora("pre", v)} step={0.5} />
-          <NumInput label="Evento" value={inputs.horas.durante} onChange={(v) => setHora("durante", v)} step={0.5} />
-          <NumInput label="Post" value={inputs.horas.post} onChange={(v) => setHora("post", v)} step={0.5} />
+      {/* Horas de Cristina por tipo de evento. Se oculta cuando Cristina ya
+          está planificada como línea (flujo de Costes): allí se llevan sus
+          horas, y mostrar además este bloque la contaría dos veces. */}
+      {!cristinaEnPersonas && (
+        <div>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+            Horas de Cristina (precargadas por tipo de evento)
+          </p>
+          <div className="grid grid-cols-4 gap-2">
+            <NumInput label="Comercial" value={inputs.horas.comercial} onChange={(v) => setHora("comercial", v)} step={0.5} />
+            <NumInput label="Pre-evento" value={inputs.horas.pre} onChange={(v) => setHora("pre", v)} step={0.5} />
+            <NumInput label="Evento" value={inputs.horas.durante} onChange={(v) => setHora("durante", v)} step={0.5} />
+            <NumInput label="Post" value={inputs.horas.post} onChange={(v) => setHora("post", v)} step={0.5} />
+          </div>
         </div>
-      </div>
+      )}
       {/* Más personas: socios, colaboradores, externos — con desplegable del equipo */}
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-          Más personas en el evento
+          {cristinaEnPersonas ? "Equipo del evento (desde Costes)" : "Más personas en el evento"}
         </p>
         <div className="space-y-2">
           {(inputs.personas ?? []).map((p, idx) => (
@@ -490,7 +516,7 @@ export function CalculadoraPrecio({
                 </tr>
               </thead>
               <tbody>
-                {[15, 20, 25, 30, 35, 40].map((m) => {
+                {margenesTabla.map((m) => {
                   const com = r.comisionPct / 100;
                   const bruto = r.costeTotal / Math.max(0.05, 1 - m / 100 - com);
                   const precio = Math.ceil(bruto / Math.max(1, cfg.redondeo)) * Math.max(1, cfg.redondeo);
