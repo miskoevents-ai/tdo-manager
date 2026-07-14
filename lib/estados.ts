@@ -24,7 +24,7 @@ export const ESTADO_META: Record<OportunidadEstado, { label: string; tone: Badge
   realizada: { label: "Realizada", tone: "ok" },
   facturada: { label: "Facturada", tone: "sage" },
   perdida: { label: "Perdida", tone: "error" },
-  descartada: { label: "Descartada", tone: "neutral" },
+  descartada: { label: "Rechazada", tone: "neutral" },
 };
 
 // Columnas del kanban (en orden del pipeline). Perdida/descartada se filtran aparte.

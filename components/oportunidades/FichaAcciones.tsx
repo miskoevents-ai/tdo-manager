@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { FileText, RotateCcw, Mail, CheckCircle2 } from "lucide-react";
+import { FileText, RotateCcw, Mail, CheckCircle2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { emitirFactura, toggleFianzaDevuelta, cambiarEstado, marcarPresupuestoEnviado, validarOportunidad } from "@/app/actions";
+import { emitirFactura, toggleFianzaDevuelta, cambiarEstado, marcarPresupuestoEnviado, validarOportunidad, borrarOportunidad } from "@/app/actions";
 import { ESTADO_META, ESTADO_COLOR } from "@/lib/estados";
 import type { OportunidadEstado } from "@/lib/types";
 
@@ -150,6 +150,48 @@ export function ValidarOportunidadBtn({
       }}
     >
       <CheckCircle2 size={14} /> {loading ? "Validando…" : "Validar y facturar"}
+    </Button>
+  );
+}
+
+// Elimina la oportunidad (con doble confirmación). Para leads que no cuajaron
+// es mejor marcarlas como Rechazada; esto es para pruebas o entradas erróneas.
+export function BorrarOportunidadBtn({
+  oportunidadId,
+  titulo,
+}: {
+  oportunidadId: string;
+  titulo: string;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = React.useState(false);
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      disabled={loading}
+      onClick={async () => {
+        if (
+          !window.confirm(
+            `¿Eliminar definitivamente «${titulo}»?\n\n` +
+              `Se borrará la oportunidad con su presupuesto, costes, reservas y movimientos previstos. ` +
+              `No se puede deshacer.\n\n` +
+              `Si es un cliente real que no cuajó, mejor márcala como Rechazada en vez de borrarla.`,
+          )
+        )
+          return;
+        setLoading(true);
+        try {
+          await borrarOportunidad(oportunidadId);
+          router.push("/oportunidades");
+        } catch (e) {
+          window.alert((e as Error).message);
+          setLoading(false);
+        }
+      }}
+      className="text-error hover:bg-error-tint"
+    >
+      <Trash2 size={14} /> {loading ? "Eliminando…" : "Eliminar"}
     </Button>
   );
 }
