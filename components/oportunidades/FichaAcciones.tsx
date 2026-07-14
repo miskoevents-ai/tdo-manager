@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FileText, RotateCcw, Mail, CheckCircle2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { emitirFactura, toggleFianzaDevuelta, cambiarEstado, marcarPresupuestoEnviado, validarOportunidad, borrarOportunidad } from "@/app/actions";
-import { ESTADO_META, ESTADO_COLOR } from "@/lib/estados";
+import { ESTADO_META, ESTADO_COLOR, ESTADOS_MANUALES } from "@/lib/estados";
 import type { OportunidadEstado } from "@/lib/types";
 
 // Desplegable de estado en la cabecera de la ficha, con el color del kanban.
@@ -19,15 +19,28 @@ export function EstadoSelect({
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const color = ESTADO_COLOR[estado];
+  // "Facturada" no es elegible a mano, pero si ya lo está hay que mostrarlo.
+  const opciones: OportunidadEstado[] = ESTADOS_MANUALES.includes(estado)
+    ? ESTADOS_MANUALES
+    : [estado, ...ESTADOS_MANUALES];
   return (
     <select
       value={estado}
       disabled={busy}
       onChange={async (e) => {
+        const nuevo = e.target.value;
+        if (
+          (nuevo === "perdida" || nuevo === "descartada") &&
+          !window.confirm(`¿Marcar como "${ESTADO_META[nuevo as OportunidadEstado].label}"? Saldrá del pipeline activo.`)
+        ) {
+          return;
+        }
         setBusy(true);
         try {
-          await cambiarEstado(oportunidadId, e.target.value);
+          await cambiarEstado(oportunidadId, nuevo);
           router.refresh();
+        } catch (err) {
+          window.alert((err as Error).message);
         } finally {
           setBusy(false);
         }
@@ -35,8 +48,8 @@ export function EstadoSelect({
       className="cursor-pointer rounded-pill border-med px-3 py-1 text-[12px] font-semibold focus:outline-none disabled:opacity-60"
       style={{ color, background: `${color}1A`, borderColor: `${color}55` }}
     >
-      {(Object.keys(ESTADO_META) as OportunidadEstado[]).map((e) => (
-        <option key={e} value={e}>
+      {opciones.map((e) => (
+        <option key={e} value={e} disabled={e === "facturada"}>
           {ESTADO_META[e].label}
         </option>
       ))}
