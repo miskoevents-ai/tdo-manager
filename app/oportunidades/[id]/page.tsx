@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, FileDown } from "lucide-react";
+import { ArrowLeft, FileDown, Sparkles } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SetupNotice } from "@/components/SetupNotice";
@@ -248,12 +248,20 @@ export default async function Page({
               <FileDown size={15} /> Nota de préstamo PDF
             </Link>
           ) : (
-            <Link
-              href={`/oportunidades/${op.id}/presupuesto`}
-              className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
-            >
-              <FileDown size={15} /> Presupuesto PDF
-            </Link>
+            <>
+              <Link
+                href={`/oportunidades/${op.id}/presupuesto`}
+                className="inline-flex items-center gap-2 rounded-sm border-med border-border-strong bg-white px-4 py-2 text-[13px] font-semibold text-ink-secondary hover:bg-beige-warm"
+              >
+                <FileDown size={15} /> Presupuesto PDF
+              </Link>
+              <Link
+                href={`/oportunidades/${op.id}/propuesta`}
+                className="inline-flex items-center gap-2 rounded-sm border-med border-clay bg-clay/10 px-4 py-2 text-[13px] font-semibold text-clay-600 hover:bg-clay/15"
+              >
+                <Sparkles size={15} /> Propuesta visual
+              </Link>
+            </>
           )}
           <EnviarPresupuestoBtn
             oportunidadId={op.id}
