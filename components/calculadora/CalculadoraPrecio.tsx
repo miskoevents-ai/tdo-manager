@@ -302,8 +302,12 @@ export function CalculadoraPrecio({
   const [verDesglose, setVerDesglose] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [aviso, setAviso] = React.useState<string | null>(null);
-  // Margen elegido para volcar al presupuesto (null = el sugerido).
-  const [margenSel, setMargenSel] = React.useState<number | null>(null);
+  // Margen elegido para volcar al presupuesto (null = el sugerido). Se recuerda
+  // del último cálculo guardado, para que al reabrir no vuelva al sugerido.
+  const [margenSel, setMargenSel] = React.useState<number | null>(() => {
+    const g = (calculoInicial as { inputs?: { margenSel?: number | null } } | null)?.inputs;
+    return typeof g?.margenSel === "number" ? g.margenSel : null;
+  });
 
   // Aviso de incoherencia: una boda/comunión/corporativo marcada como
   // "alquiler/encargo" seguramente es un error (comisión y horas de alquiler).
@@ -361,7 +365,7 @@ export function CalculadoraPrecio({
     setBusy("calculo");
     setAviso(null);
     try {
-      await guardarCalculoPrecio(oportunidadId, inputs, r);
+      await guardarCalculoPrecio(oportunidadId, { ...inputs, margenSel }, r);
       setAviso("Cálculo guardado ✓");
       router.refresh();
     } catch (e) {
@@ -385,7 +389,7 @@ export function CalculadoraPrecio({
     setAviso(null);
     try {
       // Antes de volcar, guarda el cálculo para dejar trazabilidad del precio.
-      await guardarCalculoPrecio(oportunidadId, inputs, r);
+      await guardarCalculoPrecio(oportunidadId, { ...inputs, margenSel }, r);
       await guardarLineas(oportunidadId, [
         { concepto: CONCEPTO_VOLCADO, cantidad: 1, precio_unitario: precioElegido, via: "factura" },
       ]);
