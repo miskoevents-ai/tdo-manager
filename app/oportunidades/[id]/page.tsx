@@ -422,6 +422,7 @@ export default async function Page({
             proveedores={provLite}
             kmPrecio={kmPrecio}
             lugar={lugarInfo}
+            catalogo={inventario.map((i) => ({ id: i.id, articulo: i.articulo, coste: Number(i.coste_unitario ?? 0) }))}
             estimados={costesEstimados}
             contingenciaPct={Number(op.contingencia_pct ?? 5)}
             margenObjetivoPct={Number(op.margen_objetivo_pct ?? 35)}
