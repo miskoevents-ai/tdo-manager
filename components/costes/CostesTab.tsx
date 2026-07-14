@@ -833,8 +833,11 @@ function FilaEstimado({
   const [precio, setPrecio] = React.useState(String(Number(e.precio_unitario ?? 0)));
   const [pagador, setPagador] = React.useState(e.pagador ?? "");
   const [proveedorSel, setProveedorSel] = React.useState(e.proveedor_id ?? "");
-  const [real, setReal] = React.useState(String(Number(e.importe)));
+  // Importe para cuadrar: null hasta que se teclee → muestra el total vivo
+  // (así no se queda obsoleto si se edita la cantidad/precio antes de cuadrar).
+  const [realEdit, setRealEdit] = React.useState<string | null>(null);
   const total = (Number(cantidad) || 0) * (Number(precio) || 0);
+  const real = realEdit ?? String(Math.round(total * 100) / 100);
   const tieneProveedor = modulo.key === "materiales" || modulo.key === "alquiler";
 
   async function guardar(patch: {
@@ -988,7 +991,7 @@ function FilaEstimado({
                 type="number"
                 step="0.01"
                 value={real}
-                onChange={(ev) => setReal(ev.target.value)}
+                onChange={(ev) => setRealEdit(ev.target.value)}
                 title="Importe real para cuadrar"
                 className="w-[72px] py-1 text-right text-[11.5px] tabular"
               />
