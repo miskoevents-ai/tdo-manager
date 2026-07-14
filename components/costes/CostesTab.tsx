@@ -657,6 +657,14 @@ function ModulosPrevisto({
         // Horas totales del evento (solo mano de obra) para ver de un vistazo si
         // un evento come demasiada mano de obra.
         const horas = m.persona ? filas.reduce((s, e) => s + Number(e.cantidad ?? 0), 0) : 0;
+        // Reparto de horas por persona (mano de obra).
+        const horasPersona = new Map<string, number>();
+        if (m.persona) {
+          for (const e of filas) {
+            const nombre = equipo.find((p) => p.id === e.equipo_id)?.nombre ?? e.persona_externa ?? "Sin asignar";
+            horasPersona.set(nombre, (horasPersona.get(nombre) ?? 0) + Number(e.cantidad ?? 0));
+          }
+        }
         return (
           <div key={m.key} className="rounded-md border-hair border-border bg-beige-light/40 p-3">
             <div className="mb-2 flex items-center justify-between">
@@ -677,6 +685,7 @@ function ModulosPrevisto({
                       <th className="border-b border-border py-1 text-left font-semibold">{m.conceptoLabel}</th>
                       <th className="border-b border-border py-1 text-right font-semibold">{m.cantLabel}</th>
                       <th className="border-b border-border py-1 text-right font-semibold">{m.precioLabel}</th>
+                      {!m.persona && <th className="border-b border-border py-1 text-left font-semibold">Paga</th>}
                       <th className="border-b border-border py-1 text-right font-semibold">Total</th>
                       {!cerrada && <th className="border-b border-border py-1 text-right font-semibold">Cuadrar → real</th>}
                       <th className="border-b border-border py-1"></th>
@@ -698,6 +707,17 @@ function ModulosPrevisto({
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {m.persona && horasPersona.size > 1 && (
+              <div className="mt-1.5 text-[10.5px] text-ink-muted">
+                Reparto:{" "}
+                {[...horasPersona.entries()].map(([n, h], i) => (
+                  <span key={n}>
+                    {i > 0 ? " · " : ""}
+                    <b className="font-semibold text-ink-secondary">{n}</b> {num(h, 1)} h
+                  </span>
+                ))}
               </div>
             )}
             {!cerrada && (
@@ -790,6 +810,7 @@ function FilaEstimado({
   const [concepto, setConcepto] = React.useState(e.concepto ?? "");
   const [cantidad, setCantidad] = React.useState(String(Number(e.cantidad ?? 1)));
   const [precio, setPrecio] = React.useState(String(Number(e.precio_unitario ?? 0)));
+  const [pagador, setPagador] = React.useState(e.pagador ?? "");
   const [real, setReal] = React.useState(String(Number(e.importe)));
   const total = (Number(cantidad) || 0) * (Number(precio) || 0);
 
@@ -799,6 +820,7 @@ function FilaEstimado({
     precioUnitario?: number;
     equipoId?: string | null;
     personaExterna?: string | null;
+    pagador?: string | null;
   }) {
     if (bloqueado) return;
     try {
@@ -890,6 +912,25 @@ function FilaEstimado({
           className="w-[75px] py-1 text-right text-[12.5px] tabular"
         />
       </td>
+      {!modulo.persona && (
+        <td className="border-b border-[#f0eae1] py-1 pl-1">
+          <Select
+            value={pagador}
+            disabled={bloqueado}
+            onChange={(ev) => {
+              setPagador(ev.target.value);
+              guardar({ pagador: ev.target.value || null });
+            }}
+            title="¿Quién adelanta este gasto? Si no es TDO, queda como reembolso al cuadrar."
+            className={`py-1 text-[11px] ${pagador ? "font-semibold text-clay" : ""}`}
+          >
+            <option value="">TDO</option>
+            {equipo.map((p) => (
+              <option key={p.id} value={p.nombre}>{p.nombre}</option>
+            ))}
+          </Select>
+        </td>
+      )}
       <td className="border-b border-[#f0eae1] py-1 text-right tabular font-semibold">{eur(total)}</td>
       {!cerrada && (
         <td className="border-b border-[#f0eae1] py-1 text-right">
