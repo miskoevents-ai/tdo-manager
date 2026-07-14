@@ -548,6 +548,19 @@ const MODULOS_PREVISTO = [
 
 type ModuloDef = (typeof MODULOS_PREVISTO)[number];
 
+// Fases habituales de la mano de obra (sugerencias del desplegable; se puede
+// escribir cualquier otra).
+const FASES_MANO_OBRA = [
+  "Comercial",
+  "Preparación",
+  "Montaje",
+  "Durante el evento",
+  "Recogida",
+  "Desmontaje",
+  "Limpieza",
+  "Post-evento",
+];
+
 // A qué módulo pertenece una línea, a partir de su categoría (insensible a
 // mayúsculas). 'personal'/'desplazamiento' son claves; el resto por etiqueta.
 function moduloDeEstimado(categoria: string | null | undefined): string {
@@ -578,6 +591,12 @@ function ModulosPrevisto({
 }) {
   return (
     <div className="space-y-3">
+      {/* Sugerencias de fase para la mano de obra (elige o escribe otra). */}
+      <datalist id="fases-mano-obra">
+        {FASES_MANO_OBRA.map((f) => (
+          <option key={f} value={f} />
+        ))}
+      </datalist>
       {MODULOS_PREVISTO.map((m) => {
         const filas = estimados.filter((e) => moduloDeEstimado(e.categoria) === m.key);
         const subtotal = filas.reduce((s, e) => s + Number(e.importe), 0);
@@ -719,6 +738,7 @@ function FilaEstimado({
         <Input
           value={concepto}
           disabled={bloqueado}
+          list={modulo.persona ? "fases-mano-obra" : undefined}
           onChange={(ev) => setConcepto(ev.target.value)}
           onBlur={() => concepto !== (e.concepto ?? "") && guardar({ concepto })}
           placeholder={modulo.conceptoLabel}
