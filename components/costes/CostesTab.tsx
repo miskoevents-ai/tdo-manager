@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
@@ -276,6 +276,7 @@ export function CostesTab({
               kmPrecio={kmPrecio}
               catalogo={catalogo}
               otrasOportunidades={otrasOportunidades}
+              proveedores={proveedores}
             />
           </section>
 
@@ -433,6 +434,7 @@ function EstimacionBlock({
   kmPrecio = 0.26,
   catalogo = [],
   otrasOportunidades = [],
+  proveedores = [],
 }: {
   oportunidadId: string;
   estimados: CosteEstimado[];
@@ -447,6 +449,7 @@ function EstimacionBlock({
   kmPrecio?: number;
   catalogo?: CatalogoItem[];
   otrasOportunidades?: OportunidadLite[];
+  proveedores?: Pick<Proveedor, "id" | "nombre">[];
 }) {
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
@@ -524,6 +527,7 @@ function EstimacionBlock({
         lugar={lugar}
         kmPrecio={kmPrecio}
         catalogo={catalogo}
+        proveedores={proveedores}
       />
       {!cerrada && estimados.some((e) => !e.cuadrado) && (
         <p className="text-[11px] text-ink-muted">
@@ -629,6 +633,7 @@ function ModulosPrevisto({
   lugar,
   kmPrecio,
   catalogo,
+  proveedores,
 }: {
   oportunidadId: string;
   estimados: CosteEstimado[];
@@ -640,6 +645,7 @@ function ModulosPrevisto({
   lugar: LugarInfo;
   kmPrecio: number;
   catalogo: CatalogoItem[];
+  proveedores: Pick<Proveedor, "id" | "nombre">[];
 }) {
   return (
     <div className="space-y-3">
@@ -686,6 +692,9 @@ function ModulosPrevisto({
                       <th className="border-b border-border py-1 text-right font-semibold">{m.cantLabel}</th>
                       <th className="border-b border-border py-1 text-right font-semibold">{m.precioLabel}</th>
                       {!m.persona && <th className="border-b border-border py-1 text-left font-semibold">Paga</th>}
+                      {(m.key === "materiales" || m.key === "alquiler") && (
+                        <th className="border-b border-border py-1 text-left font-semibold">Proveedor</th>
+                      )}
                       <th className="border-b border-border py-1 text-right font-semibold">Total</th>
                       {!cerrada && <th className="border-b border-border py-1 text-right font-semibold">Cuadrar → real</th>}
                       <th className="border-b border-border py-1"></th>
@@ -699,6 +708,7 @@ function ModulosPrevisto({
                         modulo={m}
                         oportunidadId={oportunidadId}
                         equipo={equipo}
+                        proveedores={proveedores}
                         cerrada={cerrada}
                         busy={busy}
                         run={run}
@@ -792,6 +802,7 @@ function FilaEstimado({
   modulo,
   oportunidadId,
   equipo,
+  proveedores,
   cerrada,
   busy,
   run,
@@ -801,6 +812,7 @@ function FilaEstimado({
   modulo: ModuloDef;
   oportunidadId: string;
   equipo: Pick<Equipo, "id" | "nombre" | "precio_hora">[];
+  proveedores: Pick<Proveedor, "id" | "nombre">[];
   cerrada: boolean;
   busy: boolean;
   run: (fn: () => Promise<void>) => Promise<void>;
@@ -811,8 +823,10 @@ function FilaEstimado({
   const [cantidad, setCantidad] = React.useState(String(Number(e.cantidad ?? 1)));
   const [precio, setPrecio] = React.useState(String(Number(e.precio_unitario ?? 0)));
   const [pagador, setPagador] = React.useState(e.pagador ?? "");
+  const [proveedorSel, setProveedorSel] = React.useState(e.proveedor_id ?? "");
   const [real, setReal] = React.useState(String(Number(e.importe)));
   const total = (Number(cantidad) || 0) * (Number(precio) || 0);
+  const tieneProveedor = modulo.key === "materiales" || modulo.key === "alquiler";
 
   async function guardar(patch: {
     concepto?: string;
@@ -821,6 +835,8 @@ function FilaEstimado({
     equipoId?: string | null;
     personaExterna?: string | null;
     pagador?: string | null;
+    proveedorId?: string | null;
+    nota?: string | null;
   }) {
     if (bloqueado) return;
     try {
@@ -931,6 +947,25 @@ function FilaEstimado({
           </Select>
         </td>
       )}
+      {tieneProveedor && (
+        <td className="border-b border-[#f0eae1] py-1 pl-1">
+          <Select
+            value={proveedorSel}
+            disabled={bloqueado}
+            onChange={(ev) => {
+              setProveedorSel(ev.target.value);
+              guardar({ proveedorId: ev.target.value || null });
+            }}
+            title="¿De qué proveedor es? (para saber a quién pagar)"
+            className="py-1 text-[11px]"
+          >
+            <option value="">—</option>
+            {proveedores.map((p) => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+          </Select>
+        </td>
+      )}
       <td className="border-b border-[#f0eae1] py-1 text-right tabular font-semibold">{eur(total)}</td>
       {!cerrada && (
         <td className="border-b border-[#f0eae1] py-1 text-right">
@@ -963,6 +998,16 @@ function FilaEstimado({
       <td className="border-b border-[#f0eae1] py-1 text-center">
         {!cerrada && !bloqueado && (
           <span className="inline-flex items-center">
+            <button
+              title={e.nota ? `Nota: ${e.nota}` : "Añadir nota"}
+              onClick={() => {
+                const v = (window.prompt("Nota de la línea (matiz, recordatorio…):", e.nota ?? "") ?? "").trim();
+                guardar({ nota: v || null });
+              }}
+              className={`rounded-sm p-1 ${e.nota ? "text-clay" : "text-ink-muted"} hover:bg-beige-warm hover:text-clay`}
+            >
+              <StickyNote size={13} />
+            </button>
             <button
               title="Duplicar línea"
               onClick={async () => { await duplicarCosteEstimado(e.id, oportunidadId); onDone(); }}

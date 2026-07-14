@@ -1909,6 +1909,8 @@ export async function updateCosteEstimado(input: {
   personaExterna?: string | null;
   pagador?: string | null;
   caja?: string | null;
+  proveedorId?: string | null;
+  nota?: string | null;
 }) {
   const sb = createAdminClient();
   const { data: row } = await sb
@@ -1930,11 +1932,20 @@ export async function updateCosteEstimado(input: {
   if (input.personaExterna !== undefined) patch.persona_externa = input.personaExterna?.trim() || null;
   if (input.pagador !== undefined) patch.pagador = await canonizarPersonaEquipo(sb, input.pagador);
   if (input.caja !== undefined) patch.caja = input.caja === "amigos" ? "amigos" : null;
+  if (input.proveedorId !== undefined) patch.proveedor_id = input.proveedorId || null;
+  if (input.nota !== undefined) patch.nota = input.nota?.trim() || null;
   if (Object.keys(patch).length === 0) return;
   let { error } = await sb.from("costes_estimados").update(patch).eq("id", input.id);
+  // Fallbacks tolerantes: si faltan columnas (migración sin ejecutar), reintenta sin ellas.
+  const quitar = (p: Record<string, unknown>, k: string) => {
+    const { [k]: _omit, ...resto } = p;
+    return resto;
+  };
+  if (error && /proveedor_id|nota/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("costes_estimados").update(quitar(quitar(patch, "proveedor_id"), "nota")).eq("id", input.id));
+  }
   if (error && /caja/.test(error.message) && /column/i.test(error.message)) {
-    const { caja: _c, ...sinCaja } = patch;
-    ({ error } = await sb.from("costes_estimados").update(sinCaja).eq("id", input.id));
+    ({ error } = await sb.from("costes_estimados").update(quitar(patch, "caja")).eq("id", input.id));
   }
   if (error) throw new Error(error.message);
   revalidatePath(`/oportunidades/${input.oportunidadId}`);
@@ -2081,7 +2092,7 @@ export async function cuadrarEstimado(input: {
       concepto: e.concepto as string,
       importe,
       fecha: null,
-      proveedorId: null,
+      proveedorId: (e.proveedor_id as string | null) ?? null,
       quienLoPaga: (e.pagador as string | null) ?? null,
       caja,
       categoria: (e.categoria as string | null) ?? null,
