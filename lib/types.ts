@@ -139,6 +139,8 @@ export type CosteEstimado = {
   persona_externa?: string | null; // ayudante externo previsto
   pagador?: string | null; // quién pagará (reembolso al cuadrar)
   caja?: string | null; // caja prevista: 'amigos' o null (oficial)
+  proveedor_id?: string | null; // proveedor del material/alquiler (migración 046)
+  nota?: string | null; // matiz libre de la línea (migración 046)
   created_at: string;
 };
 
