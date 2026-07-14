@@ -1899,6 +1899,18 @@ export async function precargarCostesPrevistos(
 
 // Edición inline (estilo Excel) de una línea del plan previsto. Recalcula el
 // importe si cambia cantidad o precio. No se puede editar una línea ya cuadrada.
+// Comprueba si el evento está cerrado; si lo está, no se debe tocar el plan
+// previsto (es historia). Tolerante a que la columna `cerrada` no exista aún.
+async function eventoCerrado(sb: ReturnType<typeof createAdminClient>, oportunidadId: string) {
+  const { data, error } = await sb
+    .from("oportunidades")
+    .select("cerrada")
+    .eq("id", oportunidadId)
+    .maybeSingle();
+  if (error) return false; // columna ausente / migración pendiente → no bloquear
+  return !!(data as { cerrada?: boolean } | null)?.cerrada;
+}
+
 export async function updateCosteEstimado(input: {
   id: string;
   oportunidadId: string;
@@ -1913,6 +1925,8 @@ export async function updateCosteEstimado(input: {
   nota?: string | null;
 }) {
   const sb = createAdminClient();
+  if (await eventoCerrado(sb, input.oportunidadId))
+    throw new Error("El evento está cerrado; reábrelo para editar los costes previstos.");
   const { data: row } = await sb
     .from("costes_estimados")
     .select("cantidad, precio_unitario, cuadrado")
@@ -1959,6 +1973,8 @@ export async function anadirLineaEstimada(
   prefill?: { concepto?: string; cantidad?: number; precioUnitario?: number },
 ) {
   const sb = createAdminClient();
+  if (await eventoCerrado(sb, oportunidadId))
+    throw new Error("El evento está cerrado; reábrelo para editar los costes previstos.");
   const cantidad = Number(prefill?.cantidad ?? 1) || 1;
   const precio = Number(prefill?.precioUnitario ?? 0) || 0;
   const fila = {
@@ -1985,6 +2001,8 @@ export async function anadirLineaEstimada(
 // Duplica una línea del plan previsto (para repetir conceptos parecidos).
 export async function duplicarCosteEstimado(id: string, oportunidadId: string) {
   const sb = createAdminClient();
+  if (await eventoCerrado(sb, oportunidadId))
+    throw new Error("El evento está cerrado; reábrelo para editar los costes previstos.");
   const { data: row } = await sb.from("costes_estimados").select("*").eq("id", id).maybeSingle();
   if (!row) return;
   const r = row as Record<string, unknown>;

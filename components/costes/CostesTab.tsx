@@ -827,7 +827,9 @@ function FilaEstimado({
   run: (fn: () => Promise<void>) => Promise<void>;
   onDone: () => void;
 }) {
-  const bloqueado = !!e.cuadrado;
+  // Bloqueado si la línea ya está cuadrada (tiene coste real) o si el evento
+  // está cerrado: en ambos casos el plan previsto es historia, no se edita.
+  const bloqueado = !!e.cuadrado || cerrada;
   const [concepto, setConcepto] = React.useState(e.concepto ?? "");
   const [cantidad, setCantidad] = React.useState(String(Number(e.cantidad ?? 1)));
   const [precio, setPrecio] = React.useState(String(Number(e.precio_unitario ?? 0)));
@@ -864,7 +866,10 @@ function FilaEstimado({
   // módulos que no son mano de obra— importe sin concepto (¿qué es?).
   const incompleta =
     !bloqueado &&
-    ((concepto.trim() !== "" && total <= 0) || (!modulo.persona && concepto.trim() === "" && total > 0));
+    ((concepto.trim() !== "" && total <= 0) ||
+      (!modulo.persona && concepto.trim() === "" && total > 0) ||
+      // Mano de obra: persona elegida pero sin importe (falta horas o €/h).
+      (modulo.persona && personaVal !== "" && total <= 0));
 
   return (
     <tr

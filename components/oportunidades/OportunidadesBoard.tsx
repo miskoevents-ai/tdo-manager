@@ -4,8 +4,8 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { Kanban, type KanbanCard } from "@/components/oportunidades/Kanban";
 import { TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
+import { hoyMadrid } from "@/lib/format";
 
-const HOY = "2026-07-01";
 const MESES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesLabel = (ym: string) => `${MESES_CORTO[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
 
@@ -24,6 +24,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
   const [recurrencia, setRecurrencia] = React.useState(sp.get("recurrencia") ?? ""); // "" | nuevos | recurrentes
   const [soloContratadas, setSoloContratadas] = React.useState(sp.get("contratadas") === "1");
   const [soloPipeline, setSoloPipeline] = React.useState(sp.get("pipeline") === "1");
+  const HOY = React.useMemo(() => hoyMadrid(), []);
 
   const filtra = (c: KanbanCard) => {
     if (tipoEvento && c.tipo_evento !== tipoEvento) return false;

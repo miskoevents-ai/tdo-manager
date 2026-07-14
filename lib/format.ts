@@ -48,6 +48,12 @@ export function normaliza(s: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+// Fecha de hoy (YYYY-MM-DD) en la zona horaria de la empresa (Madrid).
+// Sirve tanto en servidor como en cliente; evita fechas fijas por código.
+export function hoyMadrid(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+}
+
 export function iniciales(nombre: string): string {
   return nombre
     .split(/\s+/)
