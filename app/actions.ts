@@ -1998,6 +1998,34 @@ export async function duplicarCosteEstimado(id: string, oportunidadId: string) {
   revalidatePath(`/oportunidades/${oportunidadId}`);
 }
 
+// Copia el plan de costes previstos de otra oportunidad (para partir de un
+// evento parecido). Añade las líneas a las que ya haya. Devuelve cuántas copió.
+export async function copiarCostesDeOportunidad(destinoId: string, origenId: string) {
+  if (!origenId || origenId === destinoId) return 0;
+  const sb = createAdminClient();
+  const { data: origen } = await sb.from("costes_estimados").select("*").eq("oportunidad_id", origenId);
+  const filas = ((origen ?? []) as Record<string, unknown>[]).map((r) => ({
+    oportunidad_id: destinoId,
+    concepto: r.concepto ?? "",
+    cantidad: r.cantidad ?? 1,
+    precio_unitario: r.precio_unitario ?? 0,
+    categoria: r.categoria ?? null,
+    equipo_id: r.equipo_id ?? null,
+    persona_externa: r.persona_externa ?? null,
+    pagador: r.pagador ?? null,
+    caja: r.caja ?? null,
+    importe: r.importe ?? 0,
+  }));
+  if (!filas.length) return 0;
+  let { error } = await sb.from("costes_estimados").insert(filas);
+  if (error && /caja/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("costes_estimados").insert(filas.map(({ caja: _c, ...f }) => f)));
+  }
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${destinoId}`);
+  return filas.length;
+}
+
 // Cuadre pre → post: pasa una línea estimada a los costes reales, tal cual o
 // con el importe real ajustado, y la marca como cuadrada. Según su categoría
 // va a partes de horas, desplazamientos o compras.

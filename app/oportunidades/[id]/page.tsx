@@ -16,6 +16,7 @@ import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import {
   getOportunidad,
+  getOportunidades,
   getClientes,
   getLugares,
   getTesoreriaDeOportunidad,
@@ -68,7 +69,7 @@ export default async function Page({
   const TABS = ["datos", "reuniones", "presupuesto", "material", "costes", "cobros", "calculadora"];
   const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
-  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados, comConfig, gastosFijos, calcConfigRaw, calculoGuardado] =
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados, comConfig, gastosFijos, calcConfigRaw, calculoGuardado, todasOps] =
     await Promise.all([
       getOportunidad(id),
       getClientes(),
@@ -89,6 +90,7 @@ export default async function Page({
       getGastosFijos(),
       getCalculadoraConfigRaw(),
       getCalculoPrecio(id),
+      getOportunidades(),
     ]);
   if (!op) notFound();
   // Comisión del evento: cuenta como coste (afecta al margen).
@@ -423,6 +425,9 @@ export default async function Page({
             kmPrecio={kmPrecio}
             lugar={lugarInfo}
             catalogo={inventario.map((i) => ({ id: i.id, articulo: i.articulo, coste: Number(i.coste_unitario ?? 0) }))}
+            otrasOportunidades={todasOps
+              .filter((o) => o.id !== op.id)
+              .map((o) => ({ id: o.id, titulo: o.titulo, numero: o.numero }))}
             estimados={costesEstimados}
             contingenciaPct={Number(op.contingencia_pct ?? 5)}
             margenObjetivoPct={Number(op.margen_objetivo_pct ?? 35)}
