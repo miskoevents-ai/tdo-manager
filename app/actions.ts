@@ -14,7 +14,8 @@ import { USER_COOKIE, leerCookieUsuario, hashPassword } from "@/lib/auth";
 import { getUsuarioActual } from "@/lib/sesion";
 import type { ChecklistGrupo, ChecklistItem } from "@/lib/types";
 import { runSeed, type SeedData } from "@/lib/seed-core";
-import { getKmPrecio, getFactura } from "@/lib/data";
+import { getKmPrecio, getFactura, getCalculadoraConfigRaw } from "@/lib/data";
+import { mezclarConfig } from "@/lib/calculadora-precio";
 import { renderFacturaPdf } from "@/lib/pdf/factura";
 
 // ---------------------------- Seed (setup) ----------------------------
@@ -1778,6 +1779,88 @@ export async function borrarCosteEstimado(id: string, oportunidadId: string) {
   const { error } = await sb.from("costes_estimados").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Precarga el plan de costes previstos con valores típicos del tipo de evento
+// (mismo patrón que las horas de Cristina): mano de obra por fases, transporte
+// por km, dietas y materiales. Idempotente: no siembra si ya hay costes.
+export async function precargarCostesPrevistos(
+  oportunidadId: string,
+  tipoEvento: string | null,
+  serie: string | null,
+) {
+  const sb = createAdminClient();
+  const { data: existentes } = await sb
+    .from("costes_estimados")
+    .select("id")
+    .eq("oportunidad_id", oportunidadId)
+    .limit(1);
+  if (existentes && existentes.length) {
+    throw new Error(
+      "Ya hay costes previstos en esta oportunidad. Borra los que no quieras antes de precargar.",
+    );
+  }
+  const cfg = mezclarConfig(await getCalculadoraConfigRaw());
+  const kmPrecio = await getKmPrecio();
+  const key = serie === "alquiler_encargo" ? "alquiler_encargo" : tipoEvento ?? "otro";
+  const pick = <T,>(m: Record<string, T>) => m[key in m ? key : "otro"];
+
+  // Persona por defecto de la mano de obra: la empleada (Cristina) si existe.
+  const { data: equipo } = await sb.from("equipo").select("id, nombre, rol").eq("activo", true);
+  const cristina =
+    (equipo ?? []).find((e) => /emplead/i.test(e.rol ?? "") || /cristina/i.test(e.nombre ?? "")) ?? null;
+
+  const mo = pick(cfg.manoObraPorTipo);
+  const tr = pick(cfg.transportePorTipo);
+  const di = pick(cfg.dietasPorTipo);
+  const mats = pick(cfg.materialesPorTipo) ?? [];
+
+  const filas: {
+    concepto: string;
+    cantidad: number;
+    precio: number;
+    categoria: string;
+    equipoId?: string | null;
+  }[] = [];
+  ([
+    ["Montaje", mo.montaje],
+    ["Durante el evento", mo.durante],
+    ["Desmontaje", mo.desmontaje],
+  ] as [string, number][]).forEach(([fase, h]) => {
+    if (h > 0)
+      filas.push({
+        concepto: fase,
+        cantidad: h,
+        precio: cfg.costeHoraEmpleada,
+        categoria: "personal",
+        equipoId: cristina?.id ?? null,
+      });
+  });
+  if (tr.km > 0)
+    filas.push({ concepto: "Transporte (ida y vuelta)", cantidad: tr.km, precio: kmPrecio, categoria: "desplazamiento" });
+  if (di.personas > 0 && di.precioPorPersona > 0)
+    filas.push({ concepto: "Comida del equipo", cantidad: di.personas, precio: di.precioPorPersona, categoria: "Dietas y comida" });
+  for (const m of mats)
+    if (m.cantidad > 0 && m.precioUnitario > 0)
+      filas.push({ concepto: m.concepto, cantidad: m.cantidad, precio: m.precioUnitario, categoria: "Material" });
+
+  for (const f of filas) {
+    await crearCosteEstimado({
+      oportunidadId,
+      concepto: f.concepto,
+      cantidad: f.cantidad,
+      precioUnitario: f.precio,
+      categoria: f.categoria,
+      equipoId: f.equipoId ?? null,
+    });
+  }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  await registrarActividad({
+    accion: `precargó costes típicos (${key})`,
+    entidad: "oportunidad",
+    entidadId: oportunidadId,
+  });
+  return filas.length;
 }
 
 // Cuadre pre → post: pasa una línea estimada a los costes reales, tal cual o

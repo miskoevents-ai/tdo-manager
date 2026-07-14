@@ -37,6 +37,12 @@ export type CalculadoraConfig = {
   };
   horasPorTipo: Record<string, FaseHoras>; // precarga por tipo de evento
   redondeo: number; // redondeo comercial del precio sugerido (€)
+  // Precarga de COSTES por tipo de evento (plan previsto de la pestaña Costes).
+  // Mismo patrón que horasPorTipo: valores orientativos, editables por el equipo.
+  manoObraPorTipo: Record<string, { montaje: number; durante: number; desmontaje: number }>;
+  transportePorTipo: Record<string, { km: number }>;
+  dietasPorTipo: Record<string, { personas: number; precioPorPersona: number }>;
+  materialesPorTipo: Record<string, { concepto: string; cantidad: number; precioUnitario: number }[]>;
 };
 
 export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
@@ -75,6 +81,49 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
     otro: { comercial: 3, pre: 6, durante: 5, post: 2 },
   },
   redondeo: 10,
+  manoObraPorTipo: {
+    boda: { montaje: 12, durante: 10, desmontaje: 4 },
+    corporativo: { montaje: 6, durante: 5, desmontaje: 2 },
+    comunion: { montaje: 8, durante: 6, desmontaje: 3 },
+    cumpleanos: { montaje: 5, durante: 4, desmontaje: 2 },
+    bautizo: { montaje: 5, durante: 4, desmontaje: 2 },
+    navidad: { montaje: 8, durante: 6, desmontaje: 3 },
+    alquiler_encargo: { montaje: 1, durante: 0, desmontaje: 1 },
+    otro: { montaje: 6, durante: 5, desmontaje: 2 },
+  },
+  transportePorTipo: {
+    boda: { km: 120 },
+    corporativo: { km: 80 },
+    comunion: { km: 80 },
+    cumpleanos: { km: 40 },
+    bautizo: { km: 40 },
+    navidad: { km: 60 },
+    alquiler_encargo: { km: 40 },
+    otro: { km: 60 },
+  },
+  dietasPorTipo: {
+    boda: { personas: 3, precioPorPersona: 12 },
+    corporativo: { personas: 2, precioPorPersona: 12 },
+    comunion: { personas: 2, precioPorPersona: 10 },
+    cumpleanos: { personas: 1, precioPorPersona: 10 },
+    bautizo: { personas: 1, precioPorPersona: 10 },
+    navidad: { personas: 2, precioPorPersona: 10 },
+    alquiler_encargo: { personas: 0, precioPorPersona: 0 },
+    otro: { personas: 1, precioPorPersona: 10 },
+  },
+  materialesPorTipo: {
+    boda: [
+      { concepto: "Flores y centros", cantidad: 1, precioUnitario: 300 },
+      { concepto: "Velas y fungibles", cantidad: 1, precioUnitario: 80 },
+    ],
+    corporativo: [{ concepto: "Materiales de decoración", cantidad: 1, precioUnitario: 150 }],
+    comunion: [{ concepto: "Flores y decoración", cantidad: 1, precioUnitario: 150 }],
+    cumpleanos: [{ concepto: "Materiales de decoración", cantidad: 1, precioUnitario: 100 }],
+    bautizo: [{ concepto: "Materiales de decoración", cantidad: 1, precioUnitario: 100 }],
+    navidad: [{ concepto: "Materiales navideños", cantidad: 1, precioUnitario: 150 }],
+    alquiler_encargo: [],
+    otro: [{ concepto: "Materiales de decoración", cantidad: 1, precioUnitario: 100 }],
+  },
 };
 
 // Mezcla la config guardada (parcial) con los valores por defecto, tolerando
@@ -89,6 +138,19 @@ export function mezclarConfig(guardada: unknown): CalculadoraConfig {
     const base = CALCULADORA_DEFAULTS.horasPorTipo[k] ?? CALCULADORA_DEFAULTS.horasPorTipo.otro;
     horas[k] = { ...base, ...(gh[k] ?? {}) };
   }
+  // Merge tolerante de los diccionarios de precarga de costes por tipo.
+  const mergePorTipo = <T,>(def: Record<string, T>, guar: unknown): Record<string, T> => {
+    const out: Record<string, T> = { ...def };
+    const gg = (guar && typeof guar === "object" ? guar : {}) as Record<string, Partial<T>>;
+    for (const k of Object.keys(gg)) {
+      const base = def[k] ?? def.otro;
+      out[k] = { ...(base as object), ...(gg[k] ?? {}) } as T;
+    }
+    return out;
+  };
+  const materiales: CalculadoraConfig["materialesPorTipo"] = { ...CALCULADORA_DEFAULTS.materialesPorTipo };
+  const gmat = (g.materialesPorTipo ?? {}) as Record<string, unknown>;
+  for (const k of Object.keys(gmat)) if (Array.isArray(gmat[k])) materiales[k] = gmat[k] as (typeof materiales)[string];
   return {
     ...CALCULADORA_DEFAULTS,
     ...g,
@@ -102,6 +164,10 @@ export function mezclarConfig(guardada: unknown): CalculadoraConfig {
     mesesAlta: arr(g.mesesAlta, CALCULADORA_DEFAULTS.mesesAlta),
     mesesMedia: arr(g.mesesMedia, CALCULADORA_DEFAULTS.mesesMedia),
     horasPorTipo: horas,
+    manoObraPorTipo: mergePorTipo(CALCULADORA_DEFAULTS.manoObraPorTipo, g.manoObraPorTipo),
+    transportePorTipo: mergePorTipo(CALCULADORA_DEFAULTS.transportePorTipo, g.transportePorTipo),
+    dietasPorTipo: mergePorTipo(CALCULADORA_DEFAULTS.dietasPorTipo, g.dietasPorTipo),
+    materialesPorTipo: materiales,
   };
 }
 
