@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
@@ -15,6 +15,7 @@ import {
   guardarKmPrecio, guardarDistanciaLugar,
   crearCosteEstimado, borrarCosteEstimado, guardarParamsCostes,
   adjuntarTicket, cerrarEvento, cuadrarEstimado, precargarCostesPrevistos,
+  updateCosteEstimado, anadirLineaEstimada,
 } from "@/app/actions";
 import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor, CosteEstimado } from "@/lib/types";
 
@@ -775,12 +776,8 @@ function EstimacionBlock({
   equipo?: Pick<Equipo, "id" | "nombre" | "precio_hora">[];
   onDone: () => void;
 }) {
-  const nombreEquipo = (id: string | null | undefined) =>
-    equipo.find((p) => p.id === id)?.nombre ?? null;
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
-  // Importe real tecleado por línea, para el cuadre pre → post.
-  const [reales, setReales] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -802,13 +799,6 @@ function EstimacionBlock({
   const margenPrevistoPct = base > 0 ? (margenPrevisto / base) * 100 : 0;
   const paramsCambiados = cont !== contingenciaPct || margenObj !== margenObjetivoPct;
 
-  const CATS: Record<string, string> = {
-    material: "Material",
-    personal: "Personal",
-    desplazamiento: "Desplazamiento",
-    otro: "Otro",
-  };
-
   return (
     <div className="space-y-3">
       <p className="text-[11.5px] text-ink-muted">
@@ -819,66 +809,15 @@ function EstimacionBlock({
       </p>
 
       {estimados.length > 0 && (
-        <Tabla headers={["Concepto", "Tipo", "Quién", "Cant.", "€/ud", "Previsto", "Cuadrar → real €", ""]}>
-          {estimados.map((e) => (
-            <tr key={e.id}>
-              <Td>{e.concepto}</Td>
-              <Td right>{CATS[(e.categoria ?? "").toLowerCase()] ?? e.categoria ?? "—"}</Td>
-              <Td right>
-                {e.categoria === "personal"
-                  ? nombreEquipo(e.equipo_id) ?? (e.persona_externa ? `${e.persona_externa} (ext.)` : "—")
-                  : e.pagador ?? "TDO"}
-              </Td>
-              <Td right>{num(Number(e.cantidad ?? 1), 1)}</Td>
-              <Td right>{e.precio_unitario != null ? eur(Number(e.precio_unitario)) : "—"}</Td>
-              <Td right bold>{eur(Number(e.importe))}</Td>
-              <Td right>
-                {e.cuadrado ? (
-                  <span className="inline-flex flex-col items-end gap-0.5">
-                    <span className="inline-flex items-center gap-1 rounded-pill bg-ok-tint px-2 py-0.5 text-[10.5px] font-semibold text-ok">
-                      ✓ {eur(Number(e.importe_real ?? e.importe))}
-                    </span>
-                    {e.importe_real != null && Math.abs(Number(e.importe_real) - Number(e.importe)) > 0.01 && (
-                      <span className={`text-[10px] tabular ${Number(e.importe_real) > Number(e.importe) ? "text-error" : "text-ok"}`}>
-                        {Number(e.importe_real) > Number(e.importe) ? "+" : ""}
-                        {eur(Number(e.importe_real) - Number(e.importe))} vs previsto
-                      </span>
-                    )}
-                  </span>
-                ) : cerrada ? (
-                  <span className="text-[11px] text-ink-muted">—</span>
-                ) : (
-                  <span className="inline-flex items-center gap-1">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={reales[e.id] ?? String(Number(e.importe))}
-                      onChange={(ev) => setReales((r) => ({ ...r, [e.id]: ev.target.value }))}
-                      className="w-[85px] py-1.5 text-right text-[12px] tabular"
-                    />
-                    <button
-                      title="Pasar a costes reales con este importe (tal cual o ajustado)"
-                      disabled={busy}
-                      onClick={() =>
-                        run(async () => {
-                          await cuadrarEstimado({
-                            estimadoId: e.id,
-                            oportunidadId,
-                            importeReal: Number(reales[e.id] ?? e.importe),
-                          });
-                        })
-                      }
-                      className="rounded-sm border-med border-sage bg-sage px-2 py-1.5 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-cream hover:opacity-90"
-                    >
-                      →
-                    </button>
-                  </span>
-                )}
-              </Td>
-              <Td right>{!cerrada && <Del onClick={async () => { await borrarCosteEstimado(e.id, oportunidadId); onDone(); }} />}</Td>
-            </tr>
-          ))}
-        </Tabla>
+        <ModulosPrevisto
+          oportunidadId={oportunidadId}
+          estimados={estimados}
+          equipo={equipo}
+          cerrada={cerrada}
+          busy={busy}
+          run={run}
+          onDone={onDone}
+        />
       )}
       {!cerrada && estimados.some((e) => !e.cuadrado) && (
         <p className="text-[11px] text-ink-muted">
@@ -941,6 +880,256 @@ function EstimacionBlock({
       </div>
       {error && <p className="text-caption text-error">{error}</p>}
     </div>
+  );
+}
+
+// ---------- Módulos del plan previsto (edición estilo Excel) ----------
+// Cada módulo agrupa un tipo de coste, con su rejilla editable celda a celda,
+// subtotal y "añadir línea". Mapea 1:1 con lo que consume la Calculadora.
+const MODULOS_PREVISTO = [
+  { key: "manoObra", categoria: "personal", titulo: "Mano de obra", Icon: Users, persona: true, cantLabel: "Horas", precioLabel: "€/h", conceptoLabel: "Tarea / fase" },
+  { key: "transporte", categoria: "desplazamiento", titulo: "Transporte", Icon: Truck, persona: false, cantLabel: "Km", precioLabel: "€/km", conceptoLabel: "Trayecto" },
+  { key: "dietas", categoria: "Dietas y comida", titulo: "Dietas y comida", Icon: Utensils, persona: false, cantLabel: "Nº pers.", precioLabel: "€/pers.", conceptoLabel: "Concepto" },
+  { key: "materiales", categoria: "Material", titulo: "Materiales", Icon: Flower2, persona: false, cantLabel: "Cant.", precioLabel: "€/ud", conceptoLabel: "Concepto" },
+  { key: "alquiler", categoria: "Alquiler externo", titulo: "Alquiler externo", Icon: Package, persona: false, cantLabel: "Cant./días", precioLabel: "€/ud", conceptoLabel: "Concepto" },
+] as const;
+
+type ModuloDef = (typeof MODULOS_PREVISTO)[number];
+
+// A qué módulo pertenece una línea, a partir de su categoría (insensible a
+// mayúsculas). 'personal'/'desplazamiento' son claves; el resto por etiqueta.
+function moduloDeEstimado(categoria: string | null | undefined): string {
+  const c = (categoria ?? "material").toLowerCase();
+  if (c === "personal") return "manoObra";
+  if (c === "desplazamiento") return "transporte";
+  if (c.includes("dieta") || c.includes("comida")) return "dietas";
+  if (c.includes("alquiler")) return "alquiler";
+  return "materiales";
+}
+
+function ModulosPrevisto({
+  oportunidadId,
+  estimados,
+  equipo,
+  cerrada,
+  busy,
+  run,
+  onDone,
+}: {
+  oportunidadId: string;
+  estimados: CosteEstimado[];
+  equipo: Pick<Equipo, "id" | "nombre" | "precio_hora">[];
+  cerrada: boolean;
+  busy: boolean;
+  run: (fn: () => Promise<void>) => Promise<void>;
+  onDone: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {MODULOS_PREVISTO.map((m) => {
+        const filas = estimados.filter((e) => moduloDeEstimado(e.categoria) === m.key);
+        const subtotal = filas.reduce((s, e) => s + Number(e.importe), 0);
+        return (
+          <div key={m.key} className="rounded-md border-hair border-border bg-beige-light/40 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-sage">
+                <m.Icon size={13} /> {m.titulo}
+              </span>
+              <span className="tabular text-[12.5px] font-semibold">{eur(subtotal)}</span>
+            </div>
+            {filas.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-[12.5px]">
+                  <thead>
+                    <tr className="text-[10px] uppercase tracking-[0.06em] text-ink-muted">
+                      {m.persona && <th className="border-b border-border py-1 text-left font-semibold">Persona</th>}
+                      <th className="border-b border-border py-1 text-left font-semibold">{m.conceptoLabel}</th>
+                      <th className="border-b border-border py-1 text-right font-semibold">{m.cantLabel}</th>
+                      <th className="border-b border-border py-1 text-right font-semibold">{m.precioLabel}</th>
+                      <th className="border-b border-border py-1 text-right font-semibold">Total</th>
+                      {!cerrada && <th className="border-b border-border py-1 text-right font-semibold">Cuadrar → real</th>}
+                      <th className="border-b border-border py-1"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filas.map((e) => (
+                      <FilaEstimado
+                        key={e.id}
+                        e={e}
+                        modulo={m}
+                        oportunidadId={oportunidadId}
+                        equipo={equipo}
+                        cerrada={cerrada}
+                        busy={busy}
+                        run={run}
+                        onDone={onDone}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {!cerrada && (
+              <button
+                onClick={async () => {
+                  await anadirLineaEstimada(oportunidadId, m.categoria);
+                  onDone();
+                }}
+                className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-sage hover:underline"
+                title={`Añadir una línea a ${m.titulo}`}
+              >
+                <Plus size={12} /> Añadir línea
+              </button>
+            )}
+            {filas.length === 0 && (
+              <span className="ml-2 text-[10.5px] text-ink-muted">— sin líneas —</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function FilaEstimado({
+  e,
+  modulo,
+  oportunidadId,
+  equipo,
+  cerrada,
+  busy,
+  run,
+  onDone,
+}: {
+  e: CosteEstimado;
+  modulo: ModuloDef;
+  oportunidadId: string;
+  equipo: Pick<Equipo, "id" | "nombre" | "precio_hora">[];
+  cerrada: boolean;
+  busy: boolean;
+  run: (fn: () => Promise<void>) => Promise<void>;
+  onDone: () => void;
+}) {
+  const bloqueado = !!e.cuadrado;
+  const [concepto, setConcepto] = React.useState(e.concepto ?? "");
+  const [cantidad, setCantidad] = React.useState(String(Number(e.cantidad ?? 1)));
+  const [precio, setPrecio] = React.useState(String(Number(e.precio_unitario ?? 0)));
+  const [real, setReal] = React.useState(String(Number(e.importe)));
+  const total = (Number(cantidad) || 0) * (Number(precio) || 0);
+
+  async function guardar(patch: {
+    concepto?: string;
+    cantidad?: number;
+    precioUnitario?: number;
+    equipoId?: string | null;
+    personaExterna?: string | null;
+  }) {
+    if (bloqueado) return;
+    try {
+      await updateCosteEstimado({ id: e.id, oportunidadId, ...patch });
+      onDone();
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  }
+
+  const personaVal = e.equipo_id ?? (e.persona_externa ? "__cur_ext__" : "");
+
+  return (
+    <tr>
+      {modulo.persona && (
+        <td className="border-b border-[#f0eae1] py-1 pr-1">
+          <Select
+            value={personaVal}
+            disabled={bloqueado}
+            onChange={(ev) => {
+              const v = ev.target.value;
+              if (v === "__cur_ext__") return;
+              if (v === "__ext__") {
+                const nombre = (window.prompt("Nombre del externo / amigo") || "").trim();
+                if (nombre) guardar({ equipoId: null, personaExterna: nombre });
+              } else {
+                guardar({ equipoId: v || null, personaExterna: null });
+              }
+            }}
+            className="py-1 text-[12px]"
+          >
+            <option value="">—</option>
+            {equipo.map((p) => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+            {e.persona_externa && <option value="__cur_ext__">{e.persona_externa} (ext.)</option>}
+            <option value="__ext__">➕ Externo…</option>
+          </Select>
+        </td>
+      )}
+      <td className="border-b border-[#f0eae1] py-1 pr-1">
+        <Input
+          value={concepto}
+          disabled={bloqueado}
+          onChange={(ev) => setConcepto(ev.target.value)}
+          onBlur={() => concepto !== (e.concepto ?? "") && guardar({ concepto })}
+          placeholder={modulo.conceptoLabel}
+          className="py-1 text-[12.5px]"
+        />
+      </td>
+      <td className="border-b border-[#f0eae1] py-1">
+        <Input
+          type="number"
+          step="0.5"
+          value={cantidad}
+          disabled={bloqueado}
+          onChange={(ev) => setCantidad(ev.target.value)}
+          onBlur={() => Number(cantidad) !== Number(e.cantidad ?? 1) && guardar({ cantidad: Number(cantidad) || 0 })}
+          className="w-[70px] py-1 text-right text-[12.5px] tabular"
+        />
+      </td>
+      <td className="border-b border-[#f0eae1] py-1 pl-1">
+        <Input
+          type="number"
+          step="0.01"
+          value={precio}
+          disabled={bloqueado}
+          onChange={(ev) => setPrecio(ev.target.value)}
+          onBlur={() => Number(precio) !== Number(e.precio_unitario ?? 0) && guardar({ precioUnitario: Number(precio) || 0 })}
+          className="w-[75px] py-1 text-right text-[12.5px] tabular"
+        />
+      </td>
+      <td className="border-b border-[#f0eae1] py-1 text-right tabular font-semibold">{eur(total)}</td>
+      {!cerrada && (
+        <td className="border-b border-[#f0eae1] py-1 text-right">
+          {bloqueado ? (
+            <span className="inline-flex items-center gap-1 rounded-pill bg-ok-tint px-2 py-0.5 text-[10px] font-semibold text-ok">
+              ✓ {eur(Number(e.importe_real ?? e.importe))}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1">
+              <Input
+                type="number"
+                step="0.01"
+                value={real}
+                onChange={(ev) => setReal(ev.target.value)}
+                title="Importe real para cuadrar"
+                className="w-[72px] py-1 text-right text-[11.5px] tabular"
+              />
+              <button
+                disabled={busy}
+                onClick={() => run(async () => { await cuadrarEstimado({ estimadoId: e.id, oportunidadId, importeReal: Number(real) }); })}
+                title="Pasar a costes reales con este importe"
+                className="rounded-sm border-med border-sage bg-sage px-1.5 py-1 text-[10px] font-semibold text-cream hover:opacity-90"
+              >
+                →
+              </button>
+            </span>
+          )}
+        </td>
+      )}
+      <td className="border-b border-[#f0eae1] py-1 text-center">
+        {!cerrada && !bloqueado && (
+          <Del onClick={async () => { await borrarCosteEstimado(e.id, oportunidadId); onDone(); }} />
+        )}
+      </td>
+    </tr>
   );
 }
 
