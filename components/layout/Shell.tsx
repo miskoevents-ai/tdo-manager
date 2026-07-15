@@ -135,9 +135,10 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
     NAV.find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))?.label ??
     Object.entries(EXTRA_TITLES).find(([href]) => pathname.startsWith(href))?.[1] ??
     "TDO Manager";
-  // El tablero de oportunidades (kanban) aprovecha todo el ancho: es horizontal
-  // y con muchas solicitudes agradece el espacio. El resto sigue a 1200px.
-  const anchoCompleto = pathname === "/oportunidades";
+  // Toda la herramienta aprovecha el ancho completo de la pantalla. Los
+  // documentos que deben ir estrechos (PDF de presupuesto/propuesta) fijan su
+  // propio ancho por dentro, así que no se ven afectados.
+  const anchoCompleto = true;
 
   return (
     <div id="app-shell" className="min-h-screen md:grid md:grid-cols-[238px_1fr]">
