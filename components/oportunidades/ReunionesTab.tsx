@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Video, MapPin, ExternalLink, Check, FileText } from "lucide-react";
+import { Plus, Trash2, Video, MapPin, ExternalLink, Check, FileText, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/input";
-import { crearReunion, toggleReunionRealizada, borrarReunion, guardarTranscripcionReunion } from "@/app/actions";
+import { crearReunion, toggleReunionRealizada, borrarReunion, guardarTranscripcionReunion, solicitarUnionReunion } from "@/app/actions";
 import { fecha as fmtFecha } from "@/lib/format";
 import type { Reunion } from "@/lib/types";
 
@@ -186,8 +186,23 @@ function ReunionRow({ r, oportunidadId }: { r: Reunion; oportunidadId: string })
   const [verTrans, setVerTrans] = React.useState(false);
   const [texto, setTexto] = React.useState(r.transcripcion ?? "");
   const [guardando, setGuardando] = React.useState(false);
+  const [pidiendo, setPidiendo] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const tieneTrans = Boolean((r.transcripcion ?? "").trim());
+
+  async function pedirUnion() {
+    setPidiendo(true);
+    try {
+      const res = await solicitarUnionReunion(r.id, oportunidadId);
+      if (res.ok) alert(`Aviso enviado a los socios (${res.destinatarios} destinatario${res.destinatarios === 1 ? "" : "s"}).`);
+      else if (res.skipped) alert("El email aún no está configurado (falta la clave de envío o los correos de los socios). Avísame para activarlo.");
+      else alert(`No se pudo enviar: ${res.error ?? "error desconocido"}`);
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setPidiendo(false);
+    }
+  }
 
   async function guardarTrans() {
     setGuardando(true);
@@ -249,6 +264,14 @@ function ReunionRow({ r, oportunidadId }: { r: Reunion; oportunidadId: string })
               <ExternalLink size={12} /> Unirse
             </a>
           )}
+          <button
+            title="Pedir a los socios que se unan (les llega un email con el enlace)"
+            disabled={pidiendo}
+            onClick={pedirUnion}
+            className="inline-flex items-center gap-1.5 rounded-sm border-med border-border-strong px-2.5 py-1.5 text-[11.5px] font-semibold text-ink-secondary hover:bg-beige-warm disabled:opacity-60"
+          >
+            <UserPlus size={13} /> {pidiendo ? "Enviando…" : "Pedir unión"}
+          </button>
           <button
             title={tieneTrans ? "Ver / editar la transcripción" : "Añadir transcripción de la llamada"}
             onClick={() => setVerTrans((v) => !v)}
