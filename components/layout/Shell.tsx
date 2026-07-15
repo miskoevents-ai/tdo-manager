@@ -135,6 +135,9 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
     NAV.find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))?.label ??
     Object.entries(EXTRA_TITLES).find(([href]) => pathname.startsWith(href))?.[1] ??
     "TDO Manager";
+  // El tablero de oportunidades (kanban) aprovecha todo el ancho: es horizontal
+  // y con muchas solicitudes agradece el espacio. El resto sigue a 1200px.
+  const anchoCompleto = pathname === "/oportunidades";
 
   return (
     <div id="app-shell" className="min-h-screen md:grid md:grid-cols-[238px_1fr]">
@@ -169,7 +172,7 @@ export function Shell({ children, usuario = null }: { children: React.ReactNode;
           <UsuarioMenu usuario={usuario} />
         </header>
 
-        <main className="max-w-container px-5 py-6 md:px-7">{children}</main>
+        <main className={cn("px-5 py-6 md:px-7", anchoCompleto ? "max-w-none" : "max-w-container")}>{children}</main>
       </div>
 
       <Asistente />
