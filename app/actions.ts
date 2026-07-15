@@ -13,7 +13,7 @@ import { enviarEmail, destinatariosConfigurados } from "@/lib/email";
 import { cookies } from "next/headers";
 import { USER_COOKIE, leerCookieUsuario, hashPassword } from "@/lib/auth";
 import { getUsuarioActual } from "@/lib/sesion";
-import type { ChecklistGrupo, ChecklistItem } from "@/lib/types";
+import type { ChecklistGrupo, ChecklistItem, PresupuestoLinea } from "@/lib/types";
 import { runSeed, type SeedData } from "@/lib/seed-core";
 import { getKmPrecio, getFactura, getCalculadoraConfigRaw } from "@/lib/data";
 import { mezclarConfig } from "@/lib/calculadora-precio";
@@ -2797,6 +2797,105 @@ export async function emitirFactura(oportunidadId: string) {
     detalle: `Factura ${numeroFactura} · ${op.titulo}`,
   });
   return facturaId;
+}
+
+// El cliente ha aceptado el presupuesto: un botón en la pestaña Presupuesto que
+//  1) confirma la oportunidad (estado → "confirmada", sin retroceder si ya iba
+//     más avanzada) y
+//  2) reserva automáticamente el material del presupuesto que sea artículo del
+//     catálogo (líneas con articulo_id), para las fechas de montaje→recogida.
+// La factura NO se emite aquí: se sigue emitiendo al final del evento. Los
+// costes e imprevistos se pueden seguir añadiendo después en la pestaña Costes.
+export async function validarPresupuesto(oportunidadId: string): Promise<{
+  estadoCambiado: boolean;
+  reservasCreadas: number;
+  reservasOmitidas: number;
+  aviso: string | null;
+}> {
+  const sb = createAdminClient();
+  const { data: op, error } = await sb
+    .from("oportunidades")
+    .select("id, estado, fecha_evento, fecha_montaje, fecha_recogida, fecha_confirmacion, presupuesto_lineas(*)")
+    .eq("id", oportunidadId)
+    .single();
+  if (error) throw new Error(error.message);
+
+  // 1) Confirmar la oportunidad, sin retroceder si ya está más avanzada.
+  const yaAvanzada = ["confirmada", "realizada", "facturada"].includes(op.estado as string);
+  let estadoCambiado = false;
+  if (!["perdida", "descartada"].includes(op.estado as string) && !yaAvanzada) {
+    const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+    const patch: Record<string, unknown> = { estado: "confirmada" };
+    if (!op.fecha_confirmacion) patch.fecha_confirmacion = hoy;
+    let { error: updErr } = await sb.from("oportunidades").update(patch).eq("id", oportunidadId);
+    // Si la columna fecha_confirmacion no existe, confirma solo el estado.
+    if (updErr && /fecha_confirmacion/.test(updErr.message) && /column/i.test(updErr.message)) {
+      ({ error: updErr } = await sb.from("oportunidades").update({ estado: "confirmada" }).eq("id", oportunidadId));
+    }
+    if (updErr) throw new Error(updErr.message);
+    estadoCambiado = true;
+  }
+
+  // 2) Reservar el material del presupuesto (solo líneas con artículo del
+  //    catálogo). Se agrupan las líneas por artículo para no duplicar, y se
+  //    salta lo que ya tenga reserva en esta oportunidad (botón idempotente).
+  const salida = (op.fecha_montaje as string | null) || (op.fecha_evento as string | null) || null;
+  const devolucion = (op.fecha_recogida as string | null) || (op.fecha_evento as string | null) || null;
+
+  const porArticulo = new Map<string, number>();
+  for (const l of (op.presupuesto_lineas ?? []) as PresupuestoLinea[]) {
+    if (!l.articulo_id) continue;
+    porArticulo.set(l.articulo_id, (porArticulo.get(l.articulo_id) ?? 0) + Number(l.cantidad ?? 0));
+  }
+
+  let reservasCreadas = 0;
+  let reservasOmitidas = 0;
+  if (porArticulo.size > 0) {
+    const { data: yaReservado } = await sb
+      .from("reservas_material")
+      .select("articulo_id")
+      .eq("oportunidad_id", oportunidadId);
+    const reservados = new Set((yaReservado ?? []).map((r) => r.articulo_id as string));
+
+    const nuevas: Record<string, unknown>[] = [];
+    for (const [articuloId, cantidad] of porArticulo) {
+      if (reservados.has(articuloId) || cantidad <= 0) {
+        reservasOmitidas += 1;
+        continue;
+      }
+      nuevas.push({
+        oportunidad_id: oportunidadId,
+        articulo_id: articuloId,
+        cantidad: Math.max(1, Math.round(cantidad)),
+        fecha_salida: salida,
+        fecha_devolucion: devolucion,
+        estado: "reservado",
+        notas: "Reservado al validar el presupuesto",
+      });
+    }
+    if (nuevas.length > 0) {
+      const { error: insErr } = await sb.from("reservas_material").insert(nuevas);
+      if (insErr) throw new Error(insErr.message);
+      reservasCreadas = nuevas.length;
+    }
+  }
+
+  let aviso: string | null = null;
+  if (porArticulo.size === 0) {
+    aviso = "No había líneas de catálogo que reservar (el presupuesto es todo texto libre). La oportunidad queda confirmada.";
+  }
+
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/oportunidades");
+  revalidatePath("/inventario");
+  revalidatePath("/");
+  await registrarActividad({
+    accion: "validó el presupuesto",
+    entidad: "oportunidad",
+    entidadId: oportunidadId,
+    detalle: `Confirmada${reservasCreadas > 0 ? ` · ${reservasCreadas} artículo(s) de material reservado(s)` : ""}`,
+  });
+  return { estadoCambiado, reservasCreadas, reservasOmitidas, aviso };
 }
 
 // Valida una oportunidad: la da por cerrada y, si es normal, genera su factura

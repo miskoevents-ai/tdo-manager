@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FileDown, Sparkles } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { FichaTabs } from "@/components/oportunidades/FichaTabs";
 import { SetupNotice } from "@/components/SetupNotice";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
@@ -12,6 +13,7 @@ import { PlanPagos, BorrarPrevistoBtn, MarcarCobradoBtn } from "@/components/opo
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { VersionesPresupuesto } from "@/components/oportunidades/VersionesPresupuesto";
 import { SolicitarValidacionBtn } from "@/components/oportunidades/SolicitarValidacionBtn";
+import { PresupuestoValidadoBtn } from "@/components/oportunidades/PresupuestoValidadoBtn";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -374,7 +376,7 @@ export default async function Page({
         ))}
       </div>
 
-      <Tabs defaultValue={tabInicial}>
+      <FichaTabs tabs={TABS} initial={tabInicial}>
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="reuniones">Reuniones</TabsTrigger>
@@ -457,7 +459,8 @@ export default async function Page({
                 created_at: v.created_at,
               }))}
             />
-            <div className="mt-4 border-t border-border pt-4">
+            <div className="mt-4 space-y-2 border-t border-border pt-4">
+              <PresupuestoValidadoBtn oportunidadId={op.id} estado={op.estado} />
               <SolicitarValidacionBtn oportunidadId={op.id} />
             </div>
           </Card>
@@ -611,7 +614,7 @@ export default async function Page({
             costesPrevistos={costesPrevistos}
           />
         </TabsContent>
-      </Tabs>
+      </FichaTabs>
 
       {/* Zona de peligro: eliminar la oportunidad (para pruebas o entradas erróneas). */}
       <div className="flex items-center justify-between gap-2 rounded-lg border-hair border-border-soft bg-white/60 px-4 py-3">

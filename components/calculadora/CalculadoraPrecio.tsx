@@ -258,6 +258,14 @@ export function CalculadoraPrecio({
   const precioElegido = margenSel == null ? r.precioSugerido : precioDeMargen(margenEfectivo);
   const conIva = (n: number) => eur(n * (1 + ivaPct / 100));
 
+  // Escalera de tarjetas rápidas: mínimo → 10/20/30% → sugerido. No saltamos
+  // directo al sugerido: se ven antes los escalones más baratos. Solo mostramos
+  // un escalón fijo si queda por encima del mínimo (si no, sería pérdida).
+  const margenSugerido = Math.round(r.margenIdeal);
+  const escalonesCard = [10, 20, 30].filter(
+    (m) => precioDeMargen(m) > r.precioMinimo && m < margenSugerido,
+  );
+
   const setHora = (k: keyof CalculoInputs["horas"], v: number) =>
     setInputs((i) => ({ ...i, horas: { ...i.horas, [k]: v } }));
 
@@ -498,22 +506,55 @@ export function CalculadoraPrecio({
           </div>
         )}
 
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <div className="rounded-md border-hair border-border bg-white p-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Precio mínimo</div>
-            <div className="mt-1 font-display text-[20px] tabular text-error">{eur(r.precioMinimo)}</div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {/* Mínimo: suelo informativo, no se elige (por debajo se pierde). */}
+          <div className="min-w-[130px] flex-1 rounded-md border-hair border-border bg-white p-3">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Mínimo</div>
+            <div className="mt-1 font-display text-[19px] tabular text-error">{eur(r.precioMinimo)}</div>
             <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioMinimo)} con IVA · por debajo se pierde</div>
           </div>
-          <div className="rounded-md border-hair border-border bg-white p-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Verde desde ({num(r.margenVerde, 0)}%)</div>
-            <div className="mt-1 font-display text-[20px] tabular text-ink">{eur(r.precioVerde)}</div>
-            <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioVerde)} con IVA · margen aceptable</div>
-          </div>
-          <div className="rounded-md border-med border-sage bg-sage-tint/50 p-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-sage">Precio sugerido ({num(r.margenIdeal, 0)}%)</div>
-            <div className="mt-1 font-display text-[22px] tabular text-sage">{eur(r.precioSugerido)}</div>
+          {/* Escalones intermedios: 10 / 20 / 30 %. Se pueden pulsar para elegir. */}
+          {escalonesCard.map((m) => {
+            const precio = precioDeMargen(m);
+            const verde = m >= r.margenVerde;
+            const seleccionado = margenEfectivo === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMargenSel(m)}
+                className={`min-w-[130px] flex-1 rounded-md p-3 text-left transition-colors ${
+                  seleccionado
+                    ? "border-med border-sage bg-sage/10 outline outline-1 outline-sage"
+                    : "border-hair border-border bg-white hover:bg-beige-warm/50"
+                }`}
+              >
+                <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+                  {verde && <span className="mr-1">🟢</span>}Margen {m}%
+                </div>
+                <div className="mt-1 font-display text-[19px] tabular text-ink">{eur(precio)}</div>
+                <div className="text-[10.5px] text-ink-muted">
+                  ≈ {conIva(precio)} con IVA{verde ? " · margen sano" : ""}
+                </div>
+              </button>
+            );
+          })}
+          {/* Sugerido: el recomendado. Seleccionado por defecto. */}
+          <button
+            type="button"
+            onClick={() => setMargenSel(margenSugerido)}
+            className={`min-w-[130px] flex-1 rounded-md border-med p-3 text-left transition-colors ${
+              margenEfectivo === margenSugerido
+                ? "border-sage bg-sage-tint/60 outline outline-1 outline-sage"
+                : "border-sage/50 bg-sage-tint/40 hover:bg-sage-tint/60"
+            }`}
+          >
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-sage">
+              ⭐ Sugerido ({num(r.margenIdeal, 0)}%)
+            </div>
+            <div className="mt-1 font-display text-[21px] tabular text-sage">{eur(r.precioSugerido)}</div>
             <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioSugerido)} con IVA ({num(ivaPct, 0)}%) · redondeado</div>
-          </div>
+          </button>
         </div>
         {/* Opciones de margen: el menú completo para elegir con criterio */}
         <div className="mt-3">
