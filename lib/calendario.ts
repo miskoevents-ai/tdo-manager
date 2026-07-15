@@ -35,7 +35,15 @@ export function construirEventos(
 ): CalEvento[] {
   const ev: CalEvento[] = [];
 
+  // Las oportunidades cerradas sin venta (perdidas o rechazadas) no deben
+  // aparecer en el calendario ni en "Esta semana": ni su día, ni montaje,
+  // ni recogida, ni sus reservas de material o cobros previstos.
+  const descartadas = new Set(
+    oportunidades.filter((o) => ["perdida", "descartada"].includes(o.estado)).map((o) => o.id),
+  );
+
   for (const r of reuniones) {
+    if (r.oportunidad_id && descartadas.has(r.oportunidad_id)) continue;
     const hora = r.hora ? ` ${r.hora.slice(0, 5)}` : "";
     const con = r.oportunidad?.titulo ?? "cliente";
     const quien = r.atendida_por ? ` (${r.atendida_por})` : "";
@@ -49,6 +57,7 @@ export function construirEventos(
   }
 
   for (const o of oportunidades) {
+    if (descartadas.has(o.id)) continue;
     const href = `/oportunidades/${o.id}`;
     // El día del evento se clasifica por tipo: boda, corporativo u otros.
     const tipoDia: CalTipo =
@@ -61,6 +70,7 @@ export function construirEventos(
   }
 
   for (const r of reservas) {
+    if (r.oportunidad_id && descartadas.has(r.oportunidad_id)) continue;
     const art = r.articulo?.articulo ?? "Material";
     const href = r.oportunidad_id ? `/oportunidades/${r.oportunidad_id}` : undefined;
     if (r.fecha_salida) ev.push({ fecha: r.fecha_salida, tipo: "salida", titulo: `Salida · ${art}`, href });
@@ -68,6 +78,7 @@ export function construirEventos(
   }
 
   for (const t of tesoreria) {
+    if (t.oportunidad_id && descartadas.has(t.oportunidad_id)) continue;
     if (t.tipo === "ingreso" && t.estado === "previsto" && t.fecha) {
       ev.push({
         fecha: t.fecha,

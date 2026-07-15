@@ -95,7 +95,11 @@ export default async function Home() {
   );
   const totalPendiente = cobrosPendientes.reduce((s, x) => s + x.pendiente, 0);
 
-  const fianzas = ops.filter((o) => (o.fianza ?? 0) > 0 && !o.fianza_devuelta);
+  // Las oportunidades cerradas sin venta (perdidas o rechazadas) no cuentan en
+  // ningún resumen del inicio.
+  const cerradaSinVenta = (o: { estado: string }) => ["perdida", "descartada"].includes(o.estado);
+
+  const fianzas = ops.filter((o) => !cerradaSinVenta(o) && (o.fianza ?? 0) > 0 && !o.fianza_devuelta);
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
 
   const avisos = calcularAvisos(ops, HOY_ISO, reservas, tareas, reuniones, tesoreria).slice(0, 10);
@@ -114,7 +118,7 @@ export default async function Home() {
   const misVencidas = misPendientes.filter((t) => t.fecha_limite && t.fecha_limite < HOY_ISO);
 
   const futuros = ops
-    .filter((o) => o.fecha_evento && o.fecha_evento >= HOY_ISO)
+    .filter((o) => !cerradaSinVenta(o) && o.fecha_evento && o.fecha_evento >= HOY_ISO)
     .sort((a, b) => (a.fecha_evento! < b.fecha_evento! ? -1 : 1));
   const proximos = futuros.filter((o) => o.serie === "evento").slice(0, 5);
   const proximosAlquileres = futuros.filter((o) => o.serie === "alquiler_encargo").slice(0, 5);
