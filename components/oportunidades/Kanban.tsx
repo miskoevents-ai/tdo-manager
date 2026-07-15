@@ -124,7 +124,7 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                 }
               }}
               onDrop={() => soltar(col)}
-              className={`flex max-h-[calc(100vh-215px)] w-[250px] shrink-0 flex-col rounded-[14px] p-3 transition-all xl:w-auto xl:min-w-[178px] xl:flex-1 xl:shrink ${
+              className={`flex max-h-[calc(100vh-215px)] w-[250px] shrink-0 flex-col rounded-[14px] p-3 transition-all xl:w-auto xl:min-w-[178px] xl:max-w-[340px] xl:flex-1 xl:shrink ${
                 resaltada ? "bg-sage-tint ring-2 ring-sage-300" : "bg-beige-warm/70"
               }`}
             >
