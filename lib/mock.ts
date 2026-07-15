@@ -13,6 +13,9 @@ import type {
   GastoFijo,
   Equipo,
   Inventario,
+  CosteEstimado,
+  Reunion,
+  Proveedor,
 } from "@/lib/types";
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -32,6 +35,10 @@ function load() {
     gastos_fijos: any[];
     equipo: any[];
     inventario: any[];
+    // Opcionales: enriquecen la demo con el flujo completo de un evento.
+    proveedores?: any[];
+    costes_estimados?: any[]; // keyed por `evento` (numero de la oportunidad)
+    reuniones?: any[]; // keyed por `evento`
   };
 }
 
@@ -48,6 +55,9 @@ let cache: {
   gastosFijos: GastoFijo[];
   equipo: Equipo[];
   inventario: Inventario[];
+  proveedores: Proveedor[];
+  costesEstimados: CosteEstimado[];
+  reuniones: Reunion[];
 } | null = null;
 
 function build() {
@@ -257,7 +267,65 @@ function build() {
     notas: it.notas ?? null,
   }));
 
-  cache = { clientes, lugares, oportunidades, facturas, tesoreria, gastosFijos, equipo, inventario };
+  // Proveedores, costes previstos y reuniones (opcionales en el seed): dan vida
+  // al flujo completo Costes → Calculadora → Presupuesto en la demo.
+  const proveedores: Proveedor[] = (data.proveedores ?? []).map((p, i) => ({
+    id: `prov-${i}`,
+    nombre: p.nombre,
+    tipo_servicio: p.tipo_servicio ?? null,
+    contacto: null,
+    email: null,
+    telefono: null,
+    localidad: p.localidad ?? null,
+    notas: null,
+    created_at: "2026-06-01T00:00:00Z",
+  }));
+  const provByName = Object.fromEntries(proveedores.map((p) => [p.nombre, p]));
+  const opByNum = Object.fromEntries(oportunidades.map((o) => [o.numero, o]));
+  const eqByName = Object.fromEntries(equipo.map((e) => [e.nombre, e]));
+
+  const costesEstimados: CosteEstimado[] = (data.costes_estimados ?? [])
+    .filter((c) => opByNum[c.evento])
+    .map((c, i) => {
+      const cantidad = c.cantidad ?? 1;
+      const precio = c.precio_unitario ?? 0;
+      return {
+        id: `ce-${i}`,
+        oportunidad_id: opByNum[c.evento].id,
+        concepto: c.concepto ?? "",
+        cantidad,
+        precio_unitario: precio,
+        importe: r2(cantidad * precio),
+        categoria: c.categoria ?? "material",
+        cuadrado: Boolean(c.cuadrado),
+        equipo_id: c.persona ? (eqByName[c.persona]?.id ?? null) : null,
+        persona_externa: c.persona && !eqByName[c.persona] ? c.persona : null,
+        pagador: c.pagador ?? null,
+        proveedor_id: c.proveedor ? (provByName[c.proveedor]?.id ?? null) : null,
+        nota: c.nota ?? null,
+        created_at: "2026-06-01T00:00:00Z",
+      } as CosteEstimado;
+    });
+
+  const reuniones: Reunion[] = (data.reuniones ?? [])
+    .filter((r) => opByNum[r.evento])
+    .map((r, i) => ({
+      id: `reu-${i}`,
+      oportunidad_id: opByNum[r.evento].id,
+      fecha: r.fecha,
+      hora: r.hora ?? null,
+      modalidad: r.modalidad === "online" ? "online" : "presencial",
+      atendida_por: r.atendida_por ?? null,
+      enlace: r.enlace ?? null,
+      lugar: r.lugar ?? null,
+      notas: r.notas ?? null,
+      transcripcion: r.transcripcion ?? null,
+      realizada: Boolean(r.realizada),
+      created_at: "2026-06-01T00:00:00Z",
+      oportunidad: { id: opByNum[r.evento].id, titulo: opByNum[r.evento].titulo },
+    }));
+
+  cache = { clientes, lugares, oportunidades, facturas, tesoreria, gastosFijos, equipo, inventario, proveedores, costesEstimados, reuniones };
   return cache;
 }
 
@@ -276,4 +344,8 @@ export const mock = {
   tesoreriaDe: (id: string) => build().tesoreria.filter((t) => t.oportunidad_id === id),
   oportunidad: (id: string) => build().oportunidades.find((o) => o.id === id) ?? null,
   cliente: (id: string) => build().clientes.find((c) => c.id === id) ?? null,
+  proveedores: () => build().proveedores,
+  costesEstimadosDe: (opId: string) => build().costesEstimados.filter((c) => c.oportunidad_id === opId),
+  reunionesDe: (opId: string) => build().reuniones.filter((r) => r.oportunidad_id === opId),
+  reuniones: () => build().reuniones,
 };
