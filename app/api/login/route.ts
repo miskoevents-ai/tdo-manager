@@ -64,6 +64,15 @@ export async function POST(req: Request) {
   if (!pass) {
     return NextResponse.json({ error: "APP_PASSWORD no está configurada en el servidor." }, { status: 500 });
   }
+  // Interruptor de seguridad: con LOGIN_SOLO_USUARIO=1 se desactiva el acceso
+  // por contraseña compartida (todo el mundo entra con su usuario → queda
+  // firmado y se aplican los permisos). Reversible quitando la variable.
+  if (process.env.LOGIN_SOLO_USUARIO === "1") {
+    return NextResponse.json(
+      { error: "Entra con tu usuario y tu contraseña (el acceso compartido está desactivado)." },
+      { status: 401 },
+    );
+  }
   if (password !== pass) {
     return NextResponse.json({ error: "Contraseña incorrecta." }, { status: 401 });
   }

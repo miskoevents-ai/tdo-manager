@@ -20,9 +20,12 @@ export async function middleware(req: NextRequest) {
   const userCookie = req.cookies.get(USER_COOKIE)?.value;
   if (await leerCookieUsuario(userCookie, pass, Date.now())) return dejarPasar();
 
-  // 2) Sesión de la contraseña compartida (respaldo).
-  const cookie = req.cookies.get(AUTH_COOKIE)?.value;
-  if (cookie && cookie === (await tokenDe(pass))) return dejarPasar();
+  // 2) Sesión de la contraseña compartida (respaldo). Se puede desactivar con
+  //    LOGIN_SOLO_USUARIO=1 (entonces solo vale la sesión de usuario firmada).
+  if (process.env.LOGIN_SOLO_USUARIO !== "1") {
+    const cookie = req.cookies.get(AUTH_COOKIE)?.value;
+    if (cookie && cookie === (await tokenDe(pass))) return dejarPasar();
+  }
 
   const url = req.nextUrl.clone();
   url.pathname = "/login";
