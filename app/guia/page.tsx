@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { Card, Overline } from "@/components/ui/card";
+import { getUsuarioActual } from "@/lib/sesion";
+import { puedeAcceder } from "@/lib/secciones";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
-// Guía de uso del TDO Manager, pestaña a pestaña, pensada para el equipo.
-// Texto plano y ejemplos reales; sin datos sensibles.
+// Guía de uso del TDO Manager, pestaña a pestaña, muy paso a paso. Cada
+// sección solo se muestra a quien tiene acceso a esa parte de la herramienta:
+// así el equipo ve exactamente lo que puede usar, sin secciones que le sobren.
 
 function Seccion({
   id,
@@ -29,7 +32,7 @@ function Seccion({
   );
 }
 
-function Paso({ n, children }: { n: number; children: React.ReactNode }) {
+function Paso({ n, children }: { n: number | string; children: React.ReactNode }) {
   return (
     <li className="flex gap-3">
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sage text-[12px] font-semibold text-cream">
@@ -40,365 +43,550 @@ function Paso({ n, children }: { n: number; children: React.ReactNode }) {
   );
 }
 
-const INDICE = [
-  ["ciclo", "El ciclo completo de un evento"],
-  ["inicio", "Inicio"],
-  ["tareas", "Tareas"],
-  ["oportunidades", "Oportunidades"],
-  ["calendario", "Calendario"],
-  ["facturas", "Documentos"],
-  ["tesoreria", "Tesorería"],
-  ["contabilidad", "Contabilidad"],
-  ["cuadro", "Cuadro de mando"],
-  ["inventario", "Inventario"],
-  ["catalogo", "Catálogo"],
-  ["equipo", "Equipo"],
-  ["clientes", "Clientes"],
-  ["fidelizacion", "Fidelización"],
-  ["pautas", "Pautas comerciales"],
-  ["trucos", "Trucos y detalles"],
-] as const;
+// Pregunta frecuente (duda típica → respuesta corta).
+function Duda({ p, children }: { p: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-md bg-beige-light/70 px-3 py-2">
+      <div className="text-[12.5px] font-semibold text-ink">❓ {p}</div>
+      <div className="mt-0.5 text-[12.5px]">{children}</div>
+    </div>
+  );
+}
 
-export default function GuiaPage() {
+export default async function GuiaPage() {
+  // Quién está mirando la guía: los socios (admin) ven todo; el resto ve solo
+  // las secciones de las pestañas a las que tiene acceso. Sesión compartida
+  // (sin usuario) → se muestra todo.
+  const usuario = await getUsuarioActual();
+  const esAdmin = usuario ? usuario.esAdmin : true;
+  const permisos = usuario?.permisos ?? null;
+  const ve = (ruta: string | null) => (ruta === null ? true : esAdmin ? true : puedeAcceder(ruta, permisos));
+
+  // Cada sección con la ruta que la habilita (null = general, siempre visible).
+  const SECCIONES: { id: string; label: string; ruta: string | null }[] = [
+    { id: "ciclo", label: "El ciclo de un evento", ruta: null },
+    { id: "basico", label: "Lo básico de moverse", ruta: null },
+    { id: "inicio", label: "Inicio", ruta: null },
+    { id: "oportunidades", label: "Oportunidades", ruta: "/oportunidades" },
+    { id: "calendario", label: "Calendario", ruta: "/calendario" },
+    { id: "tareas", label: "Tareas", ruta: "/tareas" },
+    { id: "clientes", label: "Clientes", ruta: "/clientes" },
+    { id: "catalogo", label: "Catálogo", ruta: "/catalogo" },
+    { id: "inventario", label: "Inventario", ruta: "/inventario" },
+    { id: "proveedores", label: "Proveedores", ruta: "/proveedores" },
+    { id: "facturas", label: "Documentos", ruta: "/facturas" },
+    { id: "comisiones", label: "Mis comisiones", ruta: null },
+    { id: "fidelizacion", label: "Fidelización", ruta: "/fidelizacion" },
+    { id: "pautas", label: "Pautas comerciales", ruta: null },
+    { id: "tesoreria", label: "Tesorería", ruta: "/tesoreria" },
+    { id: "contabilidad", label: "Contabilidad", ruta: "/contabilidad" },
+    { id: "cuadro", label: "Cuadro de mando", ruta: "/cuadro-mando" },
+    { id: "equipo", label: "Equipo", ruta: "/equipo" },
+    { id: "trucos", label: "Trucos y detalles", ruta: null },
+  ];
+  const indice = SECCIONES.filter((s) => ve(s.ruta));
+
   return (
     <div className="mx-auto max-w-[820px] space-y-5">
       <div>
         <Overline className="!mt-0">Guía del TDO Manager</Overline>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-secondary">
-          Todo lo que hace la plataforma, pestaña a pestaña. La idea de fondo es simple:{" "}
-          <b>cada evento vive en una oportunidad</b>, y desde ahí salen solos el presupuesto, las
-          reuniones, el material, la factura, el cobro y la contabilidad. Si alguna vez dudas dónde
-          se hace algo, empieza por la oportunidad.
+          Esta es <b>tu chuleta</b>. Está todo explicado paso a paso, pantalla por pantalla. Si
+          alguna vez no sabes cómo hacer algo, <b>búscalo aquí primero</b> — casi seguro está. La
+          idea de fondo es sencilla: <b>cada evento vive en una &quot;oportunidad&quot;</b>, y desde
+          ahí salen solos el presupuesto, las reuniones, el material, la factura y el cobro. Si
+          dudas dónde se hace algo, abre la oportunidad y busca la pestaña.
+        </p>
+        <p className="mt-1 text-[12px] text-ink-muted">
+          Solo aparecen las secciones que tú puedes usar. Si te falta algo que necesitas, pídeselo
+          a un socio.
         </p>
       </div>
 
       {/* Índice */}
       <Card>
-        <Overline className="!mt-0">Índice</Overline>
+        <Overline className="!mt-0">Índice — pincha para saltar</Overline>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
-          {INDICE.map(([id, label]) => (
-            <a key={id} href={`#${id}`} className="text-[12.5px] font-semibold text-sage hover:underline">
-              {label}
+          {indice.map((s) => (
+            <a key={s.id} href={`#${s.id}`} className="text-[12.5px] font-semibold text-sage hover:underline">
+              {s.label}
             </a>
           ))}
         </div>
       </Card>
 
-      <Seccion id="ciclo" titulo="El ciclo completo de un evento" emoji="🔄">
-        <p>Así va una boda (o un alquiler) de principio a fin:</p>
+      {/* --------------------------- GENERAL --------------------------- */}
+
+      <Seccion id="ciclo" titulo="El ciclo de un evento (de principio a fin)" emoji="🔄">
+        <p>Así va una boda o un alquiler desde que entra hasta que se cobra. No hace falta memorizarlo: la herramienta te lleva de la mano.</p>
         <ol className="mt-2 space-y-2.5">
           <Paso n={1}>
-            <b>Entra la solicitud</b> → se crea en Oportunidades (estado &quot;Nueva&quot;). Si nadie la
-            contesta en 48 h, salta un aviso en Inicio.
+            <b>Entra la solicitud</b> → creas una oportunidad (estado &quot;Nueva&quot;). Es la ficha
+            donde vivirá todo ese evento.
           </Paso>
           <Paso n={2}>
-            <b>Reunión con los novios</b> → en la ficha, pestaña Reuniones: fecha, hora, presencial u
-            online (con enlace de Teams), y quién la atiende. Sale en el Calendario.
+            <b>Hablas con el cliente</b> → apuntas la reunión en su pestaña Reuniones (sale en el
+            Calendario). Vas cambiando el estado según avanza la conversación.
           </Paso>
           <Paso n={3}>
-            <b>Presupuesto</b> → pestaña Presupuesto: líneas con artículos del inventario, IVA y
-            retención. Botón &quot;Presupuesto PDF&quot; para descargarlo y &quot;Enviar al cliente&quot; para
-            mandarlo por correo (se abre ya redactado; solo hay que adjuntar el PDF).
+            <b>Preparas los costes</b> → en la pestaña Costes apuntas lo que vas a gastar (personas,
+            gasolina, materiales…). La Calculadora lo lee y te dice a cuánto vender.
           </Paso>
           <Paso n={4}>
-            <b>Confirmación</b> → cambia el estado a &quot;Confirmada&quot; (desde el desplegable de la
-            ficha o arrastrando en el kanban). Reserva el material en la pestaña Material para
-            bloquear las fechas.
+            <b>Haces el presupuesto</b> → vuelcas el precio de la Calculadora, lo afinas y lo mandas
+            al cliente en PDF.
           </Paso>
           <Paso n={5}>
-            <b>El día D</b> → montaje, evento y recogida ya están en el Calendario. Los gastos
-            (gasolina, parking, compras de flores…) se apuntan en la pestaña Costes, diciendo{" "}
-            <b>quién los pagó</b>.
+            <b>Confirma</b> → cambias el estado a &quot;Confirmada&quot; y reservas el material en la
+            pestaña Material.
           </Paso>
           <Paso n={6}>
-            <b>Factura</b> → botón &quot;Emitir factura&quot; en la ficha. Se crea con su fecha de
-            vencimiento (según las condiciones de pago del cliente) y deja automáticamente el cobro
-            previsto en Tesorería.
+            <b>El día del evento</b> → montaje, evento y recogida ya están en el Calendario. Los
+            gastos reales se apuntan en Costes.
           </Paso>
           <Paso n={7}>
-            <b>Cobro</b> → cuando llega el dinero, en Facturas se pulsa &quot;Cobrada&quot;. El ingreso
-            entra solo en la Contabilidad del mes. Si vence sin cobrar, avisa en rojo.
+            <b>Factura y cobro</b> → se emite la factura y, cuando llega el dinero, se marca como
+            cobrada.
           </Paso>
           <Paso n={8}>
-            <b>Después</b> → devolver la fianza (avisa solo), pedir la reseña en Fidelización, y a
-            por la siguiente 💪
+            <b>Después</b> → devolver la fianza (te avisa solo) y pedir la reseña en Fidelización. Y
+            a por la siguiente 💪
           </Paso>
         </ol>
       </Seccion>
 
-      <Seccion id="inicio" titulo="Inicio" emoji="🏠">
-        <p>
-          El panel de cada mañana. Arriba, los <b>avisos</b> que piden acción: cobros vencidos,
-          fianzas por devolver, leads sin contestar, eventos a menos de 7 días o dobles reservas de
-          material. Debajo, <b>&quot;Esta semana&quot;</b>: la agenda de los próximos 7 días (reuniones,
-          montajes, eventos, cobros). Y los números gordos: cobros pendientes, fianzas, eventos
-          contratados y pipeline.
-        </p>
-        <p>Regla práctica: si Inicio está &quot;limpio&quot;, no se te escapa nada.</p>
-      </Seccion>
-
-      <Seccion id="oportunidades" titulo="Oportunidades" emoji="🎯">
-        <p>
-          El corazón de la plataforma: <b>cada solicitud, boda, evento corporativo o alquiler es una
-          tarjeta</b> en el tablero. Las columnas son el camino: Nueva → Contestada → En conversación
-          → Presup. enviado → Confirmada → Realizada → Facturada. Se arrastran con el ratón o se
-          cambia el estado con el desplegable de cada tarjeta.
-        </p>
-        <p>
-          Al abrir una tarjeta entras en su <b>ficha</b>, con 6 pestañas:
-        </p>
-        <ul className="list-disc space-y-1 pl-5">
-          <li><b>Datos</b> — cliente, lugar, fechas, canal, IVA/retención y condiciones de pago (ej. &quot;a 30 días&quot;).</li>
-          <li><b>Reuniones</b> — citas con el cliente, con hora, modalidad y botón &quot;Unirse&quot; si es online.</li>
+      <Seccion id="basico" titulo="Lo básico de moverse por la herramienta" emoji="🧭">
+        <ul className="list-disc space-y-1.5 pl-5">
           <li>
-            <b>Presupuesto</b> — las líneas con precios; los totales se calculan solos. Cada línea
-            tiene su <b>vía</b>: &quot;Factura&quot; (lleva IVA, contabilidad oficial) o
-            &quot;Efectivo&quot; (sin IVA, va a la vista Amigos). Así un mismo presupuesto puede ser
-            mixto. El <b>presupuesto muestra el trato completo</b> (las líneas en efectivo salen
-            marcadas como &quot;sin IVA&quot;); la que nunca enseña el efectivo es la{" "}
-            <b>factura</b>: ahí esas líneas se ven solo en pantalla, en el panel interno 🔒 que no
-            se imprime. Cada línea puede llevar <b>foto</b> 📷: de la galería del catálogo o pegando
-            la URL de una imagen nueva (p. ej. creada con IA) — sale en el PDF junto al concepto. Antes de cambiar precios, botón{" "}
-            <b>&quot;Guardar como V1/V2/V3…&quot;</b>: cada versión queda congelada con su PDF, se
-            sabe siempre qué vio el cliente y se puede <b>restaurar</b> si la negociación vuelve
-            atrás.
-          </li>
-          <li><b>Material</b> — qué se reserva del inventario y en qué fechas (controla el stock y avisa si te pasas).</li>
-          <li>
-            <b>Costes</b> — dos niveles: la <b>estimación previa</b> (los gastos que prevés antes
-            del presu, con detalle de cantidad × precio — &quot;4 ramos de petunias a 2 €&quot; —,
-            % de contingencia y margen objetivo → te sugiere el precio mínimo al cliente) y los{" "}
-            <b>costes reales</b> (horas, desplazamientos y compras con su{" "}
-            <b>foto del ticket</b> 📎), que son los que van a contabilidad. Cada línea estimada se{" "}
-            <b>cuadra</b> con la flecha → cuando sabes el coste real (tal cual o ajustado): se crea
-            el gasto real y queda marcada ✓. El resumen compara previsto vs real partida a partida,
-            y en el <b>Cuadro de mando</b> ves la precisión presupuestando de todos los eventos. El
-            apunte rápido tipo Excel mete varios gastos de golpe (con su &quot;pagado por&quot;). Al
-            terminar, botón <b>&quot;Cerrar evento&quot;</b>: valida que no queden cobros ni
-            reembolsos sueltos, congela los costes y deja el margen definitivo (se puede reabrir).
+            <b>El menú de la izquierda</b> son las secciones. Pinchas en una y se abre. La que estás
+            viendo se queda marcada.
           </li>
           <li>
-            <b>Cobros</b> — movimientos de dinero del evento y la fianza. Con el <b>plan de
-            pagos</b> apuntas los cobros previstos (fecha + importe + con/sin IVA) y aparecen en el
-            Calendario y en Tesorería.
+            <b>Las notas azules (ℹ️)</b> de arriba de cada pantalla explican en una frase qué es esa
+            sección. Puedes cerrarlas con la ✕ y no vuelven a salir.
+          </li>
+          <li>
+            <b>Guardar:</b> casi todo se guarda solo al escribir o al salir de la casilla. Cuando
+            hay que pulsar un botón para guardar, lo verás claro (&quot;Guardar…&quot;).
+          </li>
+          <li>
+            <b>Si te equivocas</b>, casi todo se puede editar o borrar. Tranquila, es difícil
+            romper algo.
+          </li>
+          <li>
+            <b>Entra siempre con tu usuario</b> (no con la contraseña general): así todo lo que
+            haces queda firmado con tu nombre y los socios saben quién hizo qué.
+          </li>
+          <li>
+            <b>En el móvil</b> el menú se abre con el botón ☰ de arriba a la izquierda.
           </li>
         </ul>
       </Seccion>
 
-      <Seccion id="tareas" titulo="Tareas" emoji="✅">
+      <Seccion id="inicio" titulo="Inicio — tu panel de cada mañana" emoji="🏠">
+        <p>Lo primero que ves al entrar. De un vistazo sabes qué tienes entre manos hoy.</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            <b>Avisos</b> (arriba): lo que pide atención — leads sin contestar, eventos a menos de 7
+            días, dobles reservas de material, tareas vencidas. Si Inicio está limpio, no se te
+            escapa nada.
+          </li>
+          <li>
+            <b>Esta semana</b>: la agenda de los próximos 7 días (reuniones, montajes, eventos).
+          </li>
+          <li>
+            <b>Próximos eventos y alquileres</b>: lo que viene, con su fecha y estado.
+          </li>
+        </ul>
+        <Duda p="¿Por qué no veo las cifras de dinero (cobros, fianzas)?">
+          Esas cifras (lo que hay pendiente de cobrar, fianzas…) son solo para los socios. Tú ves
+          la parte operativa: agenda, avisos y próximos eventos. Es normal, no te falta nada.
+        </Duda>
+      </Seccion>
+
+      {/* --------------------------- OPORTUNIDADES --------------------------- */}
+
+      {ve("/oportunidades") && (
+        <Seccion id="oportunidades" titulo="Oportunidades — el corazón de todo" emoji="🎯">
+          <p>
+            Aquí vive cada solicitud, boda, evento o alquiler, como una <b>tarjeta</b> en un tablero.
+            Las columnas son el camino que recorre: <b>Nueva → Contestada → En conversación → Presup.
+            enviado → Confirmada → Realizada → Facturada</b>.
+          </p>
+
+          <p className="pt-1 font-semibold text-ink">➕ Crear una oportunidad nueva</p>
+          <ol className="space-y-2">
+            <Paso n={1}>Botón <b>&quot;Nueva oportunidad&quot;</b> (arriba a la derecha).</Paso>
+            <Paso n={2}>
+              Rellena lo que sepas: <b>título</b> (ej. &quot;Boda Ana y Luis&quot;), <b>cliente</b> (lo
+              eliges de la lista o lo creas al vuelo), <b>tipo</b> (boda, corporativo, alquiler…) y la{" "}
+              <b>fecha del evento</b>. Lo demás se puede completar luego.
+            </Paso>
+            <Paso n={3}>
+              Al poner la fecha del evento, se rellenan solas las de montaje y recogida (las puedes
+              cambiar). <b>Si ese día ya hay otro evento, te avisa</b> justo debajo de la fecha.
+            </Paso>
+            <Paso n={4}>Guardar. Ya tienes la tarjeta creada, en la columna &quot;Nueva&quot;.</Paso>
+          </ol>
+
+          <p className="pt-1 font-semibold text-ink">↔️ Mover una tarjeta de columna (cambiar el estado)</p>
+          <p>
+            Dos formas: <b>arrastrarla</b> con el ratón a otra columna, o usar el <b>desplegable</b>{" "}
+            que tiene cada tarjeta abajo. Cada columna muestra cuántas tarjetas tiene. Arriba puedes{" "}
+            <b>buscar</b> y <b>ordenar</b> (por evento más próximo, por entrada reciente…).
+          </p>
+          <Duda p="Un cliente ha dicho que no. ¿Qué hago con su tarjeta?">
+            En el desplegable de la tarjeta (o en la ficha) elige <b>&quot;Perdida&quot;</b> (nos
+            dijeron que no) o <b>&quot;Rechazada&quot;</b> (la descartamos nosotros). Sale del tablero
+            activo y deja de dar la lata en avisos y calendario, pero no se borra: queda guardada en
+            la sección plegable del final por si hay que consultarla.
+          </Duda>
+
+          <p className="pt-2 font-semibold text-ink">📂 La ficha de la oportunidad, pestaña a pestaña</p>
+          <p>Al pinchar una tarjeta entras en su ficha. Arriba, los botones de PDF y acciones; debajo, las pestañas en el orden en que se trabajan:</p>
+
+          <ul className="space-y-2.5">
+            <li>
+              <b>1 · Datos.</b> Cliente, lugar, fechas, canal por el que llegó, IVA/retención y{" "}
+              <b>condiciones de pago</b> (ej. &quot;a 30 días&quot;). También ves <b>&quot;Creada
+              por&quot;</b> (quién dio de alta la oportunidad).
+            </li>
+            <li>
+              <b>2 · Reuniones.</b> Las citas con el cliente.
+              <ol className="mt-1 space-y-1.5">
+                <Paso n="a">
+                  <b>&quot;Nueva reunión&quot;</b> → fecha, hora, presencial u online. Si es online,
+                  pega el enlace de la videollamada (Teams, Meet…). Sale sola en el Calendario.
+                </Paso>
+                <Paso n="b">
+                  Botón <b>&quot;Pedir unión&quot;</b>: manda un email a los socios con el enlace para
+                  que se unan a esa llamada.
+                </Paso>
+                <Paso n="c">
+                  Icono de <b>acta 📄</b>: ahí pegas la <b>transcripción de la llamada</b> (lo que
+                  saque Granola) y queda guardada en el evento.
+                </Paso>
+              </ol>
+            </li>
+            <li>
+              <b>3 · Material.</b> Qué reservas del inventario y en qué fechas. <b>Las reservas se
+              hacen aquí</b>, no en Inventario. Así el stock queda bloqueado y, si dos eventos piden
+              lo mismo el mismo día, la herramienta avisa.
+            </li>
+            <li>
+              <b>4 · Costes.</b> Lo que vas a gastar (o gastaste), organizado por módulos tipo Excel:
+              <b> mano de obra, transporte, dietas, materiales y alquiler externo</b>.
+              <ol className="mt-1 space-y-1.5">
+                <Paso n="a">
+                  En cada módulo, <b>&quot;Añadir línea&quot;</b> y rellena las casillas (persona,
+                  horas, €/hora; o concepto, cantidad, precio). El importe se calcula solo.
+                </Paso>
+                <Paso n="b">
+                  En materiales, <b>&quot;Añadir del catálogo&quot;</b> te trae el artículo con su
+                  precio; y puedes poner el <b>proveedor</b> y una <b>nota</b> por línea.
+                </Paso>
+                <Paso n="c">
+                  Abajo pones el <b>% de contingencia</b> (colchón para imprevistos) y el{" "}
+                  <b>margen objetivo</b>. Con eso la Calculadora ya sabe a cuánto vender.
+                </Paso>
+                <Paso n="d">
+                  ¿Un evento parecido a otro? <b>&quot;Copiar costes de…&quot;</b> trae los de otra
+                  oportunidad para no empezar de cero.
+                </Paso>
+                <Paso n="e">
+                  Cuando el evento pasa y sabes el gasto <b>real</b>, cada línea se <b>cuadra</b> con
+                  la flecha (tal cual o ajustando el importe): se convierte en gasto real y queda
+                  marcada ✓. Al terminar, <b>&quot;Cerrar evento&quot;</b> congela los costes y deja
+                  el margen definitivo (se puede reabrir).
+                </Paso>
+              </ol>
+            </li>
+            <li>
+              <b>5 · Calculadora.</b> Te dice a cuánto vender para ganar dinero. Lee sola los costes
+              que metiste.
+              <ol className="mt-1 space-y-1.5">
+                <Paso n="a">
+                  Te muestra <b>precio mínimo, verde (aceptable) y sugerido</b>, y una tabla con más
+                  márgenes. El <b>semáforo</b> compara el precio del presupuesto: 🟢 bien, 🟡 justo,
+                  🔴 pierdes.
+                </Paso>
+                <Paso n="b">
+                  Si el servicio lleva desplazamiento (furgoneta + montaje), aplica el{" "}
+                  <b>mínimo de proyecto</b> (chip 🚚): el precio no baja de ahí.
+                </Paso>
+                <Paso n="c">
+                  Pulsa la fila del margen que quieras y <b>&quot;Volcar al presupuesto&quot;</b>:
+                  pasa ese precio a la pestaña Presupuesto en una línea que luego puedes editar.
+                </Paso>
+                <Paso n="d">
+                  Botón <b>&quot;Pedir validación a los socios&quot;</b> (en Presupuesto): les manda
+                  un email para que revisen y den el OK. <b>Recuerda pedirlo en los presupuestos de
+                  más de 2.000 €.</b>
+                </Paso>
+              </ol>
+            </li>
+            <li>
+              <b>6 · Presupuesto.</b> Las líneas con precios; los totales se calculan solos.
+              <ol className="mt-1 space-y-1.5">
+                <Paso n="a">
+                  <b>&quot;Añadir línea&quot;</b> a mano, o <b>&quot;Añadir del catálogo&quot;</b> (trae
+                  concepto, precio y foto).
+                </Paso>
+                <Paso n="b">
+                  Cada línea puede llevar <b>foto 📷</b>: de la <b>galería del catálogo</b> (icono de
+                  imagen), <b>subida del ordenador</b>, o <b>pegando un enlace</b>. Sale en el PDF
+                  junto al concepto.
+                </Paso>
+                <Paso n="c">
+                  Botones <b>&quot;Presupuesto PDF&quot;</b> (descargar) y <b>&quot;Propuesta
+                  visual&quot;</b> (versión bonita con fotos). Con <b>&quot;Enviar al cliente&quot;</b>{" "}
+                  se abre el correo ya redactado (solo adjuntas el PDF).
+                </Paso>
+                <Paso n="d">
+                  Antes de cambiar precios, <b>&quot;Guardar como V1/V2…&quot;</b>: congela esa
+                  versión con su PDF, así sabes siempre qué vio el cliente y puedes volver atrás.
+                </Paso>
+              </ol>
+            </li>
+            <li>
+              <b>7 · Cobros.</b> El dinero del evento y la fianza. Con el <b>plan de pagos</b> apuntas
+              los cobros previstos (fecha + importe) y aparecen en el Calendario.
+            </li>
+          </ul>
+        </Seccion>
+      )}
+
+      {/* --------------------------- OPERATIVAS --------------------------- */}
+
+      {ve("/calendario") && (
+        <Seccion id="calendario" titulo="Calendario" emoji="📅">
+          <p>
+            Todo lo que tiene fecha, con colores: <b>bodas</b> (verde), <b>corporativos</b> (azul),{" "}
+            <b>otros eventos</b> (arena), <b>reuniones</b> (morado), montajes, recogidas y
+            devoluciones de material. Las oportunidades perdidas o rechazadas no salen.
+          </p>
+          <p>
+            <b>Filtrar:</b> pulsa un tipo y ves solo ese; vuelve a pulsar para quitarlo;
+            &quot;Todas&quot; lo restaura.
+          </p>
+          <p>
+            <b>En el móvil:</b> se puede sincronizar con el calendario de tu teléfono (Google,
+            Outlook, iPhone) con un enlace privado — pídeselo a Álvaro y se actualiza solo.
+          </p>
+        </Seccion>
+      )}
+
+      {ve("/tareas") && (
+        <Seccion id="tareas" titulo="Tareas" emoji="✅">
+          <p>
+            La lista de recados del equipo. <b>Cualquiera asigna a cualquiera</b> (los socios a ti,
+            tú a los socios…). Cada tarea lleva prioridad, fecha límite y puede ir enganchada a un
+            evento.
+          </p>
+          <ol className="space-y-1.5">
+            <Paso n={1}>Arriba eliges <b>quién eres</b> (se recuerda) y ves tus tareas.</Paso>
+            <Paso n={2}>
+              Cuando terminas una, la marcas <b>Hecha</b>. Si no puedes, pon <b>&quot;No
+              puedo&quot;</b> y deja un comentario.
+            </Paso>
+            <Paso n={3}>Si una tarea vence sin hacerse, salta un aviso en Inicio.</Paso>
+          </ol>
+        </Seccion>
+      )}
+
+      {ve("/clientes") && (
+        <Seccion id="clientes" titulo="Clientes" emoji="📇">
+          <p>
+            La agenda de contactos: nombre, teléfono, email, tipo (particular, empresa, finca,
+            wedding planner), de dónde vino y notas.
+          </p>
+          <p>
+            Al crear una oportunidad eliges el cliente de aquí (o lo creas en el momento). Si es{" "}
+            <b>empresa</b>, el presupuesto sugiere solo la retención del −15%.
+          </p>
+        </Seccion>
+      )}
+
+      {ve("/catalogo") && (
+        <Seccion id="catalogo" titulo="Catálogo" emoji="🖼️">
+          <p>
+            El escaparate: las referencias con foto, nombre y <b>precio de venta</b>, por categorías
+            (centros de mesa, rincones de boda, iluminación, photocall…). Perfecto para enseñar en
+            una reunión o pasar precios rápido.
+          </p>
+          <p>Tiene buscador (ignora acentos y mayúsculas) y las fotos se amplían al tocarlas.</p>
+        </Seccion>
+      )}
+
+      {ve("/inventario") && (
+        <Seccion id="inventario" titulo="Inventario" emoji="📦">
+          <p>
+            Todo el material físico: cuántas unidades hay, precio de alquiler, fianza sugerida y
+            foto.
+          </p>
+          <p>
+            Ojo: <b>las reservas se hacen desde la oportunidad</b> (pestaña Material), no aquí. Aquí
+            solo consultas el material y su disponibilidad por fechas.
+          </p>
+        </Seccion>
+      )}
+
+      {ve("/proveedores") && (
+        <Seccion id="proveedores" titulo="Proveedores" emoji="🚚">
+          <p>
+            La agenda de proveedores: floristas, alquiler de mobiliario, imprenta… con su contacto y
+            sus datos.
+          </p>
+          <p>
+            Los usas al planear los <b>costes</b> de un evento (columna &quot;Proveedor&quot; en las
+            líneas de material y alquiler). Si te falta uno, lo das de alta aquí o directamente desde
+            la casilla de proveedor con la opción <b>&quot;➕ Nuevo proveedor…&quot;</b>.
+          </p>
+        </Seccion>
+      )}
+
+      {ve("/facturas") && (
+        <Seccion id="facturas" titulo="Documentos (facturas y presupuestos)" emoji="🧾">
+          <p>
+            El <b>archivo del negocio</b>: todas las facturas y presupuestos, cada uno con su número,
+            su estado y su botón <b>PDF</b>. Arriba ves el <b>último número de cada serie y el
+            siguiente</b>, para no tener que buscarlo.
+          </p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <b>Emitir factura</b> se hace desde la ficha de la oportunidad (botón &quot;Emitir
+              factura&quot; o &quot;Validar y facturar&quot;). Le pone el número solo y congela sus
+              importes.
+            </li>
+            <li>
+              La columna <b>&quot;Vence&quot;</b> marca el límite de pago. Si pasa sin cobrarse, se
+              pone <b className="text-error">roja</b> y avisa en Inicio.
+            </li>
+            <li>
+              Cuando llega el dinero: botón <b>&quot;Cobrada&quot;</b>. No hay que apuntarlo en ningún
+              otro sitio.
+            </li>
+          </ul>
+        </Seccion>
+      )}
+
+      <Seccion id="comisiones" titulo="Mis comisiones" emoji="％">
         <p>
-          La lista de tareas del equipo: <b>cualquiera asigna a cualquiera</b> (los socios a
-          Cristina, Cristina a los socios…). Cada tarea lleva prioridad, fecha límite, y puede ir
-          vinculada a un evento. Quien la recibe la marca <b>En curso</b>, <b>Hecha</b> o{" "}
-          <b>&quot;No puedo&quot;</b> y puede dejar un comentario de respuesta.
+          Aquí ves <b>tus</b> comisiones: las de las oportunidades en las que figuras como
+          responsable de comisión. Arriba, el resumen (<b>devengado, cobrado y pendiente</b>);
+          debajo, el detalle por evento con su importe y si está pagada o pendiente.
         </p>
-        <p>
-          Arriba eliges <b>quién eres</b> (se recuerda en tu navegador) y ves tu panel con tus
-          tareas; con los filtros ves las de cualquiera o las de todo el equipo. Si una tarea vence
-          sin hacerse, salta un aviso en Inicio.
+        <p className="text-[12.5px] text-ink-muted">
+          Cada persona ve solo las suyas. La comisión se devenga cuando la oportunidad está cobrada.
         </p>
       </Seccion>
 
-      <Seccion id="calendario" titulo="Calendario" emoji="📅">
-        <p>
-          Todo lo que tiene fecha, en un vistazo y con colores: <b>bodas</b> (verde),{" "}
-          <b>corporativos</b> (azul), <b>otros eventos</b> (arena), <b>reuniones</b> (morado),
-          montajes, recogidas, salidas y devoluciones de material, cobros previstos y fianzas.
-        </p>
-        <p>
-          <b>Filtrar:</b> pulsa un tipo y ves solo ese tipo; más pulsaciones suman o quitan;
-          &quot;Todas&quot; lo restaura.
-        </p>
-        <p>
-          <b>En el móvil:</b> el calendario se puede añadir a Google Calendar, Outlook o iPhone con
-          un enlace privado (pedídselo a Álvaro), y se sincroniza solo — sin abrir la app.
-        </p>
-      </Seccion>
+      {ve("/fidelizacion") && (
+        <Seccion id="fidelizacion" titulo="Fidelización" emoji="💚">
+          <p>
+            Después de cada evento: <b>pedir la reseña</b> de Google (hay un botón con el enlace
+            listo para mandar por WhatsApp) y apuntar si el cliente nos recomienda. Un cliente
+            contento que deja reseña vale por dos campañas de publicidad.
+          </p>
+        </Seccion>
+      )}
 
-      <Seccion id="facturas" titulo="Documentos" emoji="🧾">
+      <Seccion id="pautas" titulo="Pautas comerciales — cómo responder a las consultas" emoji="🧭">
         <p>
-          El <b>archivo del negocio</b>: todas las facturas y todos los presupuestos, cada uno con
-          su número, su estado y su botón <b>PDF</b> para ver o imprimir el documento. Arriba se ve
-          de un vistazo el <b>último número de cada serie y el siguiente</b> — se acabó buscar en
-          el OneDrive cuál toca.
+          El criterio acordado por los socios para responder solicitudes sin tener que
+          preguntar cada vez. La clave es distinguir dos tipos de servicio:
         </p>
         <p>
-          Al emitir una factura, el manager le pone <b>su número solo</b> (serie propia: 26016,
-          26017…) y <b>congela sus líneas e importes</b>: aunque luego se toque el presupuesto, la
-          factura no cambia. La columna <b>&quot;Vence&quot;</b> marca el límite de pago según las
-          condiciones del cliente (al momento, a 30 días…). Si una pasa de su fecha sin cobrarse,
-          se pone <b className="text-error">roja con ⚠</b> y avisa en Inicio.
-        </p>
-        <p>
-          Cuando llega el dinero: botón <b>&quot;Cobrada&quot;</b>. Con eso el cobro pasa a Tesorería como
-          cobrado y entra en la Contabilidad del mes — no hay que apuntarlo en ningún otro sitio.
-        </p>
-        <p>
-          Con <b>&quot;Nueva factura&quot;</b> se crea una factura a mano, sin pasar por una oportunidad:
-          cliente con sus datos fiscales (o alta nueva), fechas, y líneas con su vía. Se puede{" "}
-          <b>partir de un presupuesto enviado</b>: precarga cliente, líneas e impuestos y solo hay
-          que retocar lo que cambie — menos teclear, menos errores. Las líneas en{" "}
-          <b>efectivo no salen en el documento del cliente</b>: quedan como parte interna 🔒 (se ve
-          debajo del documento, pero no se imprime) y su importe entra solo en la contabilidad de
-          amigos.
-        </p>
-      </Seccion>
-
-      <Seccion id="tesoreria" titulo="Tesorería" emoji="💶">
-        <p>
-          <b>El dinero de verdad</b>: cada euro que entra o sale, con su fecha y estado (previsto o
-          pagado/cobrado). Aquí viven los cobros de facturas, los gastos de eventos, los gastos
-          fijos del mes y los reembolsos.
-        </p>
-        <p>
-          El donut de <b>deudas</b> responde a &quot;¿a quién le debe dinero la sociedad ahora
-          mismo?&quot;: proveedores pendientes y personas que adelantaron dinero de su bolsillo
-          (gasolina, parking, flores…). Cuando se paga o se reembolsa, se marca con el check y
-          desaparece de la deuda.
-        </p>
-      </Seccion>
-
-      <Seccion id="contabilidad" titulo="Contabilidad" emoji="📊">
-        <p>
-          ¿El negocio <b>gana o pierde</b>? Es el resumen mensual de Tesorería, pero filtrado: solo
-          cuenta lo que computa de verdad (facturas propias cobradas y gastos fijos, desde junio
-          2026). Los gastos de cada evento no van aquí — esos se miran en el margen de su ficha.
-        </p>
-        <p>
-          Diferencia clave con Tesorería: <b>Tesorería = caja</b> (cuándo se mueve el dinero);{" "}
-          <b>Contabilidad = resultado</b> (cómo va el negocio mes a mes).
-        </p>
-        <p>
-          Tiene <b>tres vistas</b>: <b>Oficial</b> (la de siempre, §5.4), <b>Amigos</b> (las
-          aportaciones sin factura de los préstamos a amigos) y <b>Global</b> (todo junto). Los
-          préstamos a amigos se crean como oportunidad con operación &quot;Amigos/préstamo&quot; — así
-          su material queda reservado igual — y su dinerillo entra solo en la vista Amigos.
-        </p>
-      </Seccion>
-
-      <Seccion id="cuadro" titulo="Cuadro de mando" emoji="📈">
-        <p>
-          Los indicadores del negocio para mirar con perspectiva: facturación, conversión de
-          solicitudes, canales que traen clientes, tiempos de cierre… Para las decisiones de
-          socios, no para el día a día.
-        </p>
-      </Seccion>
-
-      <Seccion id="inventario" titulo="Inventario" emoji="📦">
-        <p>
-          Todo el material físico: cuántas unidades hay, precio de alquiler, fianza sugerida y
-          foto. El buscador ignora acentos y mayúsculas.
-        </p>
-        <p>
-          Lo importante: <b>las reservas se hacen desde la oportunidad</b> (pestaña Material), no
-          aquí. Así el stock queda bloqueado por fechas y si dos eventos piden lo mismo el mismo
-          día, salta un aviso de doble reserva.
-        </p>
-      </Seccion>
-
-      <Seccion id="catalogo" titulo="Catálogo" emoji="🖼️">
-        <p>
-          El escaparate: las referencias con foto, nombre y <b>precio de venta</b> (tarifario 2026),
-          organizadas por categorías (centros de mesa, rincones de boda, iluminación, photocall…).
-          Perfecto para enseñar en una reunión con novios o pasar precios rápido. Tiene buscador y
-          las fotos se amplían al tocarlas.
-        </p>
-      </Seccion>
-
-      <Seccion id="equipo" titulo="Equipo" emoji="👥">
-        <p>
-          Las personas que trabajan en los eventos, con su precio/hora. Se usa al imputar horas en
-          los Costes de cada evento y para saber quién atiende cada reunión. También alimenta el
-          desplegable de &quot;quién pagó&quot; los gastos.
-        </p>
-      </Seccion>
-
-      <Seccion id="clientes" titulo="Clientes" emoji="📇">
-        <p>
-          La agenda: contacto, tipo (particular, empresa, finca, wedding planner), de dónde vino y
-          sus notas. Al crear una oportunidad se elige el cliente de aquí (o se crea al vuelo). Si
-          es <b>empresa</b>, el presupuesto sugiere la retención del −15% solo.
-        </p>
-      </Seccion>
-
-      <Seccion id="fidelizacion" titulo="Fidelización" emoji="💚">
-        <p>
-          Después de cada evento: <b>pedir la reseña</b> de Google (hay botón con el enlace listo
-          para mandar por WhatsApp) y apuntar si el cliente nos recomienda. Un cliente contento que
-          deja reseña y recomienda vale por dos campañas de publicidad.
-        </p>
-      </Seccion>
-
-      <Seccion id="pautas" titulo="Pautas comerciales" emoji="🧭">
-        <p>
-          El criterio para responder consultas, acordado por los socios. La clave es distinguir
-          dos tipos de servicio:
-        </p>
-        <p>
-          <b>1 · Alquiler con recogida en el estudio.</b> Se acepta <b>siempre</b>, aunque haya
-          evento ese día: no consume equipo ni furgoneta. Precio de tarifa + fianza.
+          <b>1 · Alquiler con recogida en el estudio</b> (columpio, sofá, Chester…). Se acepta{" "}
+          <b>siempre</b>, aunque haya evento ese día: no gasta equipo ni furgoneta. Precio de tarifa
+          + fianza.
         </p>
         <p>
           <b>2 · Proyecto con desplazamiento</b> (furgoneta + montaje + desmontaje). Lleva un{" "}
-          <b>mínimo de proyecto</b> (por defecto 450 € de base; el valor vigente se ve y se cambia
-          en Calculadora → Parámetros del modelo). La calculadora lo aplica sola y pone el
-          semáforo en rojo si el presupuesto queda por debajo. Un photocall suelto montado:
+          <b>mínimo de proyecto</b> (por defecto 450 € de base). La Calculadora lo aplica sola y
+          pone el semáforo en rojo si el precio queda por debajo. Un <b>photocall</b> montado:
           orientativamente desde 600 €, o como añadido a otro servicio del mismo día.
         </p>
         <p>
           <b>¿Mismo día que una boda?</b> Montajes ligeros (tipo photocall) sí, siempre que los
-          cubra alguien que no esté en la boda (p. ej. Juan Carlos) y no pisen nuestra ventana de
-          montaje. Un <b>segundo proyecto completo no se rechaza de entrada</b>: se pasa a los
-          socios, se mete en la herramienta con el coste del refuerzo externo y, si el margen sale
-          verde y hay material y furgoneta, se acepta. La ficha avisa sola cuando hay otro evento
-          el mismo día.
+          cubra alguien que no esté en la boda (p. ej. Juan Carlos). Un <b>segundo proyecto
+          completo no se rechaza de entrada</b>: pásaselo a los socios, se mete en la herramienta
+          con el coste del refuerzo externo y, si sale rentable y hay material y furgoneta, se coge.
         </p>
         <p>
-          <b>Una sola pieza (cartel, etc.):</b> recogida en estudio o envío; no se desplaza al
-          equipo. Si piden entrega, se aplica el cargo de entrega (por defecto 75 €, también en
-          Parámetros).
+          <b>Una sola pieza (cartel…):</b> recogida en estudio o envío; no desplazamos al equipo. Si
+          piden entrega, se aplica el cargo de entrega (por defecto 75 €).
         </p>
         <p>
-          <b>Piezas que no tenemos</b> (p. ej. un espejo concreto): ofrecer primero una
-          alternativa del catálogo; si el cliente insiste, consultarlo — se compra solo si el
-          proyecto la paga entera o si es una pieza que volveremos a alquilar (se amortiza en 2–3
-          alquileres; ver ROI en Inventario).
+          <b>Piezas que no tenemos:</b> ofrece primero una alternativa del catálogo; si insisten,
+          consúltalo — se compra solo si el proyecto la paga entera o si la vamos a realquilar.
         </p>
       </Seccion>
 
-      <Seccion id="trucos" titulo="Trucos y detalles que molan" emoji="✨">
+      {/* --------------------------- SOLO SOCIOS --------------------------- */}
+
+      {ve("/tesoreria") && (
+        <Seccion id="tesoreria" titulo="Tesorería" emoji="💶">
+          <p>
+            <b>El dinero de verdad</b>: cada euro que entra o sale, con su fecha y estado. Cobros de
+            facturas, gastos de eventos, gastos fijos y reembolsos. El donut de <b>deudas</b>{" "}
+            responde a &quot;¿a quién le debe dinero la sociedad ahora mismo?&quot;.
+          </p>
+        </Seccion>
+      )}
+
+      {ve("/contabilidad") && (
+        <Seccion id="contabilidad" titulo="Contabilidad" emoji="📊">
+          <p>
+            ¿El negocio gana o pierde? Resumen mensual filtrado (solo lo que computa de verdad).{" "}
+            <b>Tesorería = caja</b> (cuándo se mueve el dinero); <b>Contabilidad = resultado</b>{" "}
+            (cómo va el negocio). Tres vistas: Oficial, Amigos y Global.
+          </p>
+        </Seccion>
+      )}
+
+      {ve("/cuadro-mando") && (
+        <Seccion id="cuadro" titulo="Cuadro de mando" emoji="📈">
+          <p>
+            Los indicadores del negocio con perspectiva: facturación, conversión, canales, tiempos
+            de cierre. Para las decisiones de socios, no para el día a día.
+          </p>
+        </Seccion>
+      )}
+
+      {ve("/equipo") && (
+        <Seccion id="equipo" titulo="Equipo" emoji="👥">
+          <p>
+            Las personas que trabajan en los eventos, con su precio/hora. Alimenta la imputación de
+            horas en Costes y el desplegable de &quot;quién pagó&quot; los gastos.
+          </p>
+        </Seccion>
+      )}
+
+      <Seccion id="trucos" titulo="Trucos y detalles que ayudan" emoji="✨">
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
-            <b>Pago a 30 días:</b> se pone en la ficha (Datos → Condiciones de pago) y las alarmas
-            de cobro respetan el plazo — no dan la lata antes de tiempo.
+            <b>Pago a 30 días:</b> se pone en la ficha (Datos → Condiciones de pago) y las alarmas de
+            cobro respetan el plazo — no dan la lata antes de tiempo.
           </li>
           <li>
-            <b>¿Pagaste algo de tu bolsillo?</b> Apúntalo en Costes con tu nombre en &quot;Pagado
-            por&quot; y quedará como reembolso pendiente hasta que la sociedad te lo devuelva.
+            <b>¿Pagaste algo de tu bolsillo?</b> Apúntalo en Costes con tu nombre en &quot;quién
+            paga&quot; y queda como reembolso pendiente hasta que la sociedad te lo devuelva.
           </li>
           <li>
-            <b>Proveedor nuevo:</b> en las compras, última opción del desplegable &quot;➕ Nuevo
-            proveedor…&quot; — se crea su ficha sin salir del formulario.
+            <b>Enviar presupuesto en 30 segundos:</b> &quot;Presupuesto PDF&quot; (descargar) +
+            &quot;Enviar al cliente&quot; (abre el correo) + adjuntar el PDF.
           </li>
           <li>
-            <b>Enviar presupuesto:</b> &quot;Presupuesto PDF&quot; (descargar) + &quot;Enviar al
-            cliente&quot; (abre el correo redactado) + adjuntar el PDF = 30 segundos.
+            <b>El tablero en el móvil</b> se desliza en horizontal; las columnas del final están a la
+            derecha.
           </li>
           <li>
-            <b>El kanban en el móvil</b> se desliza en horizontal — las columnas del final
-            (Realizada, Facturada) están a la derecha.
-          </li>
-          <li>
-            <b>Las notas azules</b> de cada pantalla (ℹ️) explican qué es cada sección; se pueden
-            cerrar y no vuelven a salir.
-          </li>
-          <li>
-            <b>Contraseña:</b> la app es privada del equipo. Si se cambia la contraseña, todas las
-            sesiones se cierran solas.
+            <b>Contraseña:</b> la app es privada del equipo. Entra siempre con tu usuario.
           </li>
         </ul>
         <p className="pt-1">
-          ¿Algo que no cuadra o una idea nueva? Se lo decís a Álvaro y su asistente lo monta 😉
+          ¿Algo no cuadra o se te ocurre una idea? Díselo a Álvaro y su asistente lo monta 😉
         </p>
       </Seccion>
 
