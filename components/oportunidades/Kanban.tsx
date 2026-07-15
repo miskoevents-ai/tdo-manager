@@ -15,6 +15,7 @@ export type KanbanCard = {
   estado: OportunidadEstado;
   cliente: string | null;
   fecha_evento: string | null;
+  fecha_entrada?: string | null;
   tipo_evento: string;
   total: number;
   pendiente: number;
@@ -112,6 +113,7 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
             );
           }
 
+          const totalCol = items.reduce((s, c) => s + (c.total || 0), 0);
           return (
             <div
               key={col}
@@ -122,25 +124,30 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                 }
               }}
               onDrop={() => soltar(col)}
-              className={`flex w-[250px] shrink-0 flex-col rounded-[14px] p-3 transition-all xl:w-auto xl:min-w-[168px] xl:flex-1 xl:shrink ${
+              className={`flex max-h-[calc(100vh-215px)] w-[250px] shrink-0 flex-col rounded-[14px] p-3 transition-all xl:w-auto xl:min-w-[178px] xl:flex-1 xl:shrink ${
                 resaltada ? "bg-sage-tint ring-2 ring-sage-300" : "bg-beige-warm/70"
               }`}
             >
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full" style={dotStyle(col)} />
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={dotStyle(col)} />
                   <span
-                    className="text-[10.5px] font-semibold uppercase tracking-[0.1em]"
+                    className="truncate text-[10.5px] font-semibold uppercase tracking-[0.1em]"
                     style={{ color: COLOR[col] }}
                   >
                     {meta.label}
                   </span>
                 </div>
-                <span className="rounded-pill bg-white/70 px-2 text-[11px] font-semibold text-ink-muted">
+                <span className="shrink-0 rounded-pill bg-white/70 px-2 text-[11px] font-semibold text-ink-muted">
                   {items.length}
                 </span>
               </div>
-              <div className="flex flex-col gap-2">
+              {totalCol > 0 && (
+                <div className="mb-2 mt-1 border-b border-border/60 pb-2 text-[11px] tabular text-ink-muted">
+                  {eur(totalCol)}
+                </div>
+              )}
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
                 {items.map((c) => (
                   <div
                     key={c.id}
