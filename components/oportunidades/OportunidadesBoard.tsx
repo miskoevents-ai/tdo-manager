@@ -24,6 +24,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
   const [recurrencia, setRecurrencia] = React.useState(sp.get("recurrencia") ?? ""); // "" | nuevos | recurrentes
   const [soloContratadas, setSoloContratadas] = React.useState(sp.get("contratadas") === "1");
   const [soloPipeline, setSoloPipeline] = React.useState(sp.get("pipeline") === "1");
+  const [orden, setOrden] = React.useState("prox"); // prox | reciente | importe
   const HOY = React.useMemo(() => hoyMadrid(), []);
 
   const filtra = (c: KanbanCard) => {
@@ -53,7 +54,18 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
     return true;
   };
 
-  const filtradas = cards.filter(filtra);
+  // Orden dentro de cada columna. "Próximo evento" es el más útil para el día
+  // a día (lo que viene antes, arriba); también por entrada reciente o importe.
+  const ordena = (a: KanbanCard, b: KanbanCard) => {
+    if (orden === "importe") return (b.total || 0) - (a.total || 0);
+    if (orden === "reciente") return (b.fecha_entrada ?? "").localeCompare(a.fecha_entrada ?? "");
+    // prox: por fecha de evento ascendente, sin fecha al final
+    const fa = a.fecha_evento || "9999-12-31";
+    const fb = b.fecha_evento || "9999-12-31";
+    return fa.localeCompare(fb);
+  };
+
+  const filtradas = cards.filter(filtra).sort(ordena);
   const activas = filtradas.filter((c) => !["perdida", "descartada"].includes(c.estado));
   const perdidas = filtradas.filter((c) => c.estado === "perdida");
   const descartadas = filtradas.filter((c) => c.estado === "descartada");
@@ -107,6 +119,11 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
           <option value="">Cliente</option>
           <option value="nuevos">Nuevos</option>
           <option value="recurrentes">Recurrentes</option>
+        </select>
+        <select value={orden} onChange={(e) => setOrden(e.target.value)} className={selectCls} title="Orden de las tarjetas dentro de cada columna">
+          <option value="prox">Orden: evento próximo</option>
+          <option value="reciente">Orden: entrada reciente</option>
+          <option value="importe">Orden: mayor importe</option>
         </select>
         {mes && (
           <span className="inline-flex items-center gap-1.5 rounded-pill border-hair border-sage-tint-deep bg-sage-tint/60 px-3 py-1.5 text-[12px] font-medium text-sage">

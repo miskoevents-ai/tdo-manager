@@ -43,6 +43,7 @@ export default async function OportunidadesPage() {
       estado: o.estado,
       cliente: o.cliente?.nombre ?? null,
       fecha_evento: o.fecha_evento,
+      fecha_entrada: o.fecha_entrada,
       tipo_evento: o.tipo_evento,
       total: t.total,
       pendiente: Math.max(0, t.total - (o.cobrado ?? 0)),
