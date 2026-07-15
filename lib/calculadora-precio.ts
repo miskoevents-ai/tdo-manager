@@ -294,7 +294,10 @@ export function calcularPrecio(
     presupuestoBase: number | null;
   },
 ): CalculoResultado {
-  const temporada = temporadaDeFecha(ctx.fechaEvento, cfg);
+  // La temporada (alta/baja) solo afecta a las BODAS: son las que tienen pico
+  // de demanda estacional. El resto (corporativo, comunión, alquiler…) va a
+  // temporada media, sin ajuste por fecha.
+  const temporada: Temporada = ctx.tipoEvento === "boda" ? temporadaDeFecha(ctx.fechaEvento, cfg) : "media";
   const com = comisionPct(ctx.serie, ctx.tipoEvento, cfg) / 100;
   // Los alquileres cargan la cuota de estructura completa, igual que un evento
   // (los gastos fijos —local, wifi, gestoría, parte estructural del sueldo— se
