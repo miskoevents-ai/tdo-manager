@@ -55,6 +55,7 @@ const INDICE = [
   ["equipo", "Equipo"],
   ["clientes", "Clientes"],
   ["fidelizacion", "Fidelización"],
+  ["pautas", "Pautas comerciales"],
   ["trucos", "Trucos y detalles"],
 ] as const;
 
@@ -325,6 +326,43 @@ export default function GuiaPage() {
           Después de cada evento: <b>pedir la reseña</b> de Google (hay botón con el enlace listo
           para mandar por WhatsApp) y apuntar si el cliente nos recomienda. Un cliente contento que
           deja reseña y recomienda vale por dos campañas de publicidad.
+        </p>
+      </Seccion>
+
+      <Seccion id="pautas" titulo="Pautas comerciales" emoji="🧭">
+        <p>
+          El criterio para responder consultas, acordado por los socios. La clave es distinguir
+          dos tipos de servicio:
+        </p>
+        <p>
+          <b>1 · Alquiler con recogida en el estudio.</b> Se acepta <b>siempre</b>, aunque haya
+          evento ese día: no consume equipo ni furgoneta. Precio de tarifa + fianza.
+        </p>
+        <p>
+          <b>2 · Proyecto con desplazamiento</b> (furgoneta + montaje + desmontaje). Lleva un{" "}
+          <b>mínimo de proyecto</b> (por defecto 450 € de base; el valor vigente se ve y se cambia
+          en Calculadora → Parámetros del modelo). La calculadora lo aplica sola y pone el
+          semáforo en rojo si el presupuesto queda por debajo. Un photocall suelto montado:
+          orientativamente desde 600 €, o como añadido a otro servicio del mismo día.
+        </p>
+        <p>
+          <b>¿Mismo día que una boda?</b> Montajes ligeros (tipo photocall) sí, siempre que los
+          cubra alguien que no esté en la boda (p. ej. Juan Carlos) y no pisen nuestra ventana de
+          montaje. Un <b>segundo proyecto completo no se rechaza de entrada</b>: se pasa a los
+          socios, se mete en la herramienta con el coste del refuerzo externo y, si el margen sale
+          verde y hay material y furgoneta, se acepta. La ficha avisa sola cuando hay otro evento
+          el mismo día.
+        </p>
+        <p>
+          <b>Una sola pieza (cartel, etc.):</b> recogida en estudio o envío; no se desplaza al
+          equipo. Si piden entrega, se aplica el cargo de entrega (por defecto 75 €, también en
+          Parámetros).
+        </p>
+        <p>
+          <b>Piezas que no tenemos</b> (p. ej. un espejo concreto): ofrecer primero una
+          alternativa del catálogo; si el cliente insiste, consultarlo — se compra solo si el
+          proyecto la paga entera o si es una pieza que volveremos a alquilar (se amortiza en 2–3
+          alquileres; ver ROI en Inventario).
         </p>
       </Seccion>
 

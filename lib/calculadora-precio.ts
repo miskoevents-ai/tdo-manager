@@ -37,6 +37,11 @@ export type CalculadoraConfig = {
   };
   horasPorTipo: Record<string, FaseHoras>; // precarga por tipo de evento
   redondeo: number; // redondeo comercial del precio sugerido (€)
+  // Pautas comerciales: mínimo de proyecto para servicios con desplazamiento
+  // (furgoneta + montaje + desmontaje), sobre la base imponible; y cargo de
+  // entrega para piezas sueltas que se llevan sin montaje (cartel, etc.).
+  minimoDesplazado: number;
+  cargoEntrega: number;
   // Precarga de COSTES por tipo de evento (plan previsto de la pestaña Costes).
   // Mismo patrón que horasPorTipo: valores orientativos, editables por el equipo.
   manoObraPorTipo: Record<string, { montaje: number; durante: number; desmontaje: number }>;
@@ -70,6 +75,8 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
     ajusteMuyGrande: -10,
     beneficioMinimo: 400,
   },
+  minimoDesplazado: 450,
+  cargoEntrega: 75,
   horasPorTipo: {
     boda: { comercial: 6, pre: 12, durante: 10, post: 4 },
     corporativo: { comercial: 3, pre: 6, durante: 5, post: 2 },
@@ -279,6 +286,8 @@ export type CalculoResultado = {
   beneficioPorHora: number | null; // €/hora de Cristina con el precio actual
   semaforo: "verde" | "ambar" | "rojo" | null;
   tope: AnalisisTope | null; // si el cliente puso precio tope
+  // Mínimo de proyecto aplicado por ser servicio con desplazamiento (o null).
+  minimoDesplazado: number | null;
 };
 
 const redondeaArriba = (n: number, paso: number) => Math.ceil(n / Math.max(1, paso)) * Math.max(1, paso);
@@ -369,6 +378,16 @@ export function calcularPrecio(
   precioSugerido = redondeaArriba(precioSugerido, cfg.redondeo);
   precioVerde = redondeaArriba(precioVerde, cfg.redondeo);
 
+  // Pauta comercial: si el servicio lleva desplazamiento (hay transporte),
+  // el proyecto tiene un precio mínimo (base) por sacar furgoneta + montar +
+  // desmontar. La recogida en estudio (transporte 0) no lo lleva.
+  const minimoDesplazado =
+    n(inputs.transporte) > 0 && n(cfg.minimoDesplazado) > 0 ? n(cfg.minimoDesplazado) : null;
+  if (minimoDesplazado) {
+    precioVerde = Math.max(precioVerde, redondeaArriba(minimoDesplazado, cfg.redondeo));
+    precioSugerido = Math.max(precioSugerido, precioVerde);
+  }
+
   // Evaluación contra el presupuesto actual.
   const base = ctx.presupuestoBase && ctx.presupuestoBase > 0 ? ctx.presupuestoBase : null;
   let margenPrevisto: number | null = null;
@@ -381,6 +400,8 @@ export function calcularPrecio(
     beneficioPorHora = horasCristina > 0 ? beneficioPrevisto / horasCristina : null;
     const sueloRojo = temporada === "baja" ? precioSupervivencia : precioMinimo;
     semaforo = base >= precioVerde ? "verde" : base >= sueloRojo ? "ambar" : "rojo";
+    // Por debajo del mínimo de servicio desplazado → rojo (pauta comercial).
+    if (minimoDesplazado && base < minimoDesplazado) semaforo = "rojo";
   }
 
   // Precio tope del cliente: cálculo inverso (precio → coste admisible).
@@ -395,7 +416,10 @@ export function calcularPrecio(
     tope = {
       precio: precioTope,
       // Mismo criterio de suelo redondeado que el semáforo principal (coherencia).
-      semaforo: precioTope >= precioVerde ? "verde" : precioTope >= sueloRojo ? "ambar" : "rojo",
+      semaforo:
+        minimoDesplazado && precioTope < minimoDesplazado
+          ? "rojo"
+          : precioTope >= precioVerde ? "verde" : precioTope >= sueloRojo ? "ambar" : "rojo",
       margenPct: (beneficioTope / precioTope) * 100,
       beneficio: beneficioTope,
       costeMaxVerde,
@@ -433,5 +457,6 @@ export function calcularPrecio(
     beneficioPorHora,
     semaforo,
     tope,
+    minimoDesplazado,
   };
 }

@@ -359,6 +359,14 @@ export function CalculadoraPrecio({
           <span className="rounded-pill bg-beige-warm px-2 py-1 font-semibold text-ink-secondary">
             comisión {num(r.comisionPct, 0)}%
           </span>
+          {r.minimoDesplazado != null && (
+            <span
+              className="rounded-pill bg-clay-tint px-2 py-1 font-semibold text-clay-600"
+              title="Servicio con desplazamiento (furgoneta + montaje + desmontaje): el proyecto no baja de este mínimo. La recogida en estudio no lo lleva."
+            >
+              🚚 mínimo {eur(r.minimoDesplazado)}
+            </span>
+          )}
           <span className="rounded-pill bg-beige-warm px-2 py-1 font-semibold text-ink-secondary">
             {TAMANO_LABEL[r.tamano]}
           </span>
@@ -604,6 +612,12 @@ export function CalculadoraPrecio({
               el beneficio que se queda en caja es {eur(r.beneficioPrevisto + r.desglose.costeSocio)}.
             </p>
           )}
+          {r.minimoDesplazado != null && r.presupuestoBase < r.minimoDesplazado && (
+            <p className="mt-1 text-[11px] font-semibold">
+              🚚 Por debajo del mínimo de servicio desplazado ({eur(r.minimoDesplazado)}): súbelo,
+              conviértelo en recogida en estudio, o añádelo a otro servicio del mismo día.
+            </p>
+          )}
         </div>
       ) : (
         <p className="text-[12px] text-ink-muted">
@@ -722,6 +736,8 @@ export function CalculadoraPrecio({
             <NumInput label="Comisión boda" value={cfg.comisiones.boda} onChange={(v) => setCfg({ ...cfg, comisiones: { ...cfg.comisiones, boda: v } })} sufijo="%" />
             <NumInput label="Comisión corporativo" value={cfg.comisiones.corporativo} onChange={(v) => setCfg({ ...cfg, comisiones: { ...cfg.comisiones, corporativo: v } })} sufijo="%" />
             <NumInput label="Redondeo precio" value={cfg.redondeo} onChange={(v) => setCfg({ ...cfg, redondeo: v })} sufijo="€" />
+            <NumInput label="Mínimo desplazado" value={cfg.minimoDesplazado} onChange={(v) => setCfg({ ...cfg, minimoDesplazado: v })} step={10} sufijo="€" hint="Precio mínimo (base) de cualquier servicio con furgoneta + montaje + desmontaje. La recogida en estudio no lo lleva." />
+            <NumInput label="Cargo entrega pieza" value={cfg.cargoEntrega} onChange={(v) => setCfg({ ...cfg, cargoEntrega: v })} step={5} sufijo="€" hint="Cargo por entregar una pieza suelta sin montaje (cartel, etc.) cuando el cliente no recoge en el estudio." />
             <NumInput label="Alta: verde desde" value={cfg.margenes.alta.verde} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, alta: { ...cfg.margenes.alta, verde: v } } })} sufijo="%" />
             <NumInput label="Alta: ideal" value={cfg.margenes.alta.ideal} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, alta: { ...cfg.margenes.alta, ideal: v } } })} sufijo="%" />
             <NumInput label="Media: verde desde" value={cfg.margenes.media.verde} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, media: { ...cfg.margenes.media, verde: v } } })} sufijo="%" />

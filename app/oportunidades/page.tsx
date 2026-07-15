@@ -62,7 +62,19 @@ export default async function OportunidadesPage() {
       <InfoNote id="oportunidades">Cada solicitud y evento, desde que entra el lead hasta que se factura. Aquí gestionas los estados, los presupuestos y el seguimiento del pipeline.</InfoNote>
       <div className="flex items-center justify-between">
         <Overline className="!mt-0">{activas.length} oportunidades activas</Overline>
-        <OportunidadDialog clientes={clientes} lugares={lugares} responsables={responsables} equipo={equipoLite} />
+        <OportunidadDialog
+          clientes={clientes}
+          lugares={lugares}
+          responsables={responsables}
+          equipo={equipoLite}
+          ocupadas={activas
+            .filter((c) => c.fecha_evento)
+            .map((c) => ({
+              fecha: c.fecha_evento!,
+              titulo: c.titulo,
+              contratada: ["confirmada", "realizada", "facturada"].includes(c.estado),
+            }))}
+        />
       </div>
 
       <OportunidadesBoard cards={cards} />
