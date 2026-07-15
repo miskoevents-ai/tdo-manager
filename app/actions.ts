@@ -836,6 +836,28 @@ export async function toggleReunionRealizada(id: string, realizada: boolean, opo
   revalidatePath("/calendario");
 }
 
+// Guarda la transcripción/acta de una reunión (texto pegado de Granola u otra
+// herramienta). Tolerante: si la columna no existe (migración 048 pendiente),
+// avisa con un mensaje claro en vez de un error críptico.
+export async function guardarTranscripcionReunion(
+  id: string,
+  oportunidadId: string,
+  transcripcion: string,
+) {
+  const sb = createAdminClient();
+  const { error } = await sb
+    .from("reuniones")
+    .update({ transcripcion: transcripcion.trim() || null })
+    .eq("id", id);
+  if (error) {
+    if (/transcripcion/.test(error.message) && /column/i.test(error.message)) {
+      throw new Error("Falta ejecutar la migración 048 (transcripción de reuniones) en Supabase.");
+    }
+    throw new Error(error.message);
+  }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
 export async function borrarReunion(id: string, oportunidadId: string) {
   const sb = createAdminClient();
   const { error } = await sb.from("reuniones").delete().eq("id", id);

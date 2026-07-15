@@ -395,6 +395,7 @@ export type Reunion = {
   enlace: string | null;
   lugar: string | null;
   notas: string | null;
+  transcripcion?: string | null;
   realizada: boolean;
   created_at: string;
   oportunidad?: { id: string; titulo: string } | null;
