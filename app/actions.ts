@@ -2799,6 +2799,25 @@ export async function emitirFactura(oportunidadId: string) {
   return facturaId;
 }
 
+// Fija la fianza de la oportunidad (botón "Poner fianza sugerida" cuando el
+// presupuesto lleva material en alquiler: la pauta es el 50% de ese material).
+export async function fijarFianza(oportunidadId: string, importe: number) {
+  const sb = createAdminClient();
+  const fianza = Math.max(0, Math.round(Number(importe) || 0));
+  const { error } = await sb
+    .from("oportunidades")
+    .update({ fianza, fianza_devuelta: false })
+    .eq("id", oportunidadId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  await registrarActividad({
+    accion: "fijó la fianza",
+    entidad: "oportunidad",
+    entidadId: oportunidadId,
+    detalle: `Fianza ${fianza} € (50% del material en alquiler)`,
+  });
+}
+
 // El cliente ha aceptado el presupuesto: un botón en la pestaña Presupuesto que
 //  1) confirma la oportunidad (estado → "confirmada", sin retroceder si ya iba
 //     más avanzada) y

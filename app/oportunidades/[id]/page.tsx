@@ -14,6 +14,7 @@ import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { VersionesPresupuesto } from "@/components/oportunidades/VersionesPresupuesto";
 import { SolicitarValidacionBtn } from "@/components/oportunidades/SolicitarValidacionBtn";
 import { PresupuestoValidadoBtn } from "@/components/oportunidades/PresupuestoValidadoBtn";
+import { FianzaSugerida } from "@/components/oportunidades/FianzaSugerida";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -459,6 +460,36 @@ export default async function Page({
                 created_at: v.created_at,
               }))}
             />
+            {(() => {
+              // Pauta: material en alquiler → fianza del 50% de ese material.
+              // Alquiler/encargo: toda la base; evento: las líneas de catálogo.
+              const dtoGlobal = 1 - Number(op.descuento_pct ?? 0) / 100;
+              const baseCatalogo = (op.presupuesto_lineas ?? [])
+                .filter((l) => l.articulo_id)
+                .reduce(
+                  (s, l) =>
+                    s + Number(l.cantidad) * Number(l.precio_unitario) * (1 - Number(l.descuento_pct ?? 0) / 100),
+                  0,
+                ) * dtoGlobal;
+              const baseAlquiler = op.serie === "alquiler_encargo" ? t.base : baseCatalogo;
+              const fianzaSugerida = Math.round(baseAlquiler * 0.5);
+              const fianzaActual = Number(op.fianza ?? 0);
+              const mostrar =
+                fianzaSugerida >= 1 &&
+                fianzaActual < fianzaSugerida - 0.5 &&
+                !["perdida", "descartada"].includes(op.estado);
+              if (!mostrar) return null;
+              return (
+                <div className="mt-4">
+                  <FianzaSugerida
+                    oportunidadId={op.id}
+                    baseAlquiler={baseAlquiler}
+                    fianzaActual={fianzaActual}
+                    fianzaSugerida={fianzaSugerida}
+                  />
+                </div>
+              );
+            })()}
             <div className="mt-4 space-y-2 border-t border-border pt-4">
               <PresupuestoValidadoBtn oportunidadId={op.id} estado={op.estado} />
               <SolicitarValidacionBtn oportunidadId={op.id} />

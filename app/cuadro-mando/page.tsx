@@ -4,8 +4,10 @@ import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { CuadroMando, type OpRow } from "@/components/cuadro/CuadroMando";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getTesoreria, getCostesEstimadosTodos, getPartesHorasTodas } from "@/lib/data";
+import { getOportunidades, getTesoreria, getCostesEstimadosTodos, getPartesHorasTodas, getGastosFijos, getCalculadoraConfigRaw, getComisionesConfig } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
+import { boteFijosMes, mezclarConfig } from "@/lib/calculadora-precio";
+import { comisionDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha, num } from "@/lib/format";
 import { TIPO_EVENTO_LABEL } from "@/lib/estados";
 
@@ -51,17 +53,33 @@ type PrecisionRow = {
   desvPct: number;
 };
 
+// Cobertura de fijos del mes: la "máquina" (gastos fijos + parte estructural
+// del sueldo) contra la contribución que dejan los eventos del mes (base −
+// costes − comisión). Es la pregunta que importa: ¿llegamos a fin de mes?
+type Cobertura = {
+  ym: string;
+  bote: number;
+  estructural: number;
+  maquina: number;
+  contribucion: number;
+  eventos: { id: string; titulo: string; fecha: string | null; contribucion: number; sinCostes: boolean }[];
+};
+
 export default async function CuadroMandoPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
   let rows: OpRow[];
   let precision: PrecisionRow[] = [];
+  let cobertura: Cobertura | null = null;
   try {
-    const [ops, tesoreria, estimadosTodos, partesTodas] = await Promise.all([
+    const [ops, tesoreria, estimadosTodos, partesTodas, gastosFijos, calcRaw, comConfig] = await Promise.all([
       getOportunidades(),
       getTesoreria(),
       getCostesEstimadosTodos(),
       getPartesHorasTodas(),
+      getGastosFijos(),
+      getCalculadoraConfigRaw(),
+      getComisionesConfig(),
     ]);
 
     // Precisión presupuestando: estimado (+contingencia) vs coste real por
@@ -126,6 +144,40 @@ export default async function CuadroMandoPage() {
       return isNaN(ms) ? null : Math.max(0, Math.round(ms / 86_400_000));
     };
 
+    // Cobertura de fijos del mes actual. Contribución por evento = base sin IVA
+    // − costes (reales si hay; si no, el plan previsto con su contingencia) −
+    // comisión. Cuentan los eventos contratados con fecha en este mes,
+    // alquileres incluidos: todos ayudan a pagar la máquina.
+    const hoyYm = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date()).slice(0, 7);
+    const cfgCalc = mezclarConfig(calcRaw);
+    const bote = boteFijosMes(gastosFijos, hoyYm);
+    const estructural = cfgCalc.costeMensualEmpleada * (1 - cfgCalc.repartoEventosPct / 100);
+    const eventosCobertura = ops
+      .filter((o) => CONTRATADAS.includes(o.estado) && o.fecha_evento?.slice(0, 7) === hoyYm)
+      .map((o) => {
+        const t = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0);
+        const real = (gastoEventoPorOp.get(o.id) ?? 0) + (horasPorOp.get(o.id) ?? 0);
+        const previsto = (estPorOp.get(o.id) ?? 0) * (1 + Number(o.contingencia_pct ?? 5) / 100);
+        const costes = real > 0 ? real : previsto;
+        const comision = comisionDeOportunidad(o, comConfig);
+        return {
+          id: o.id,
+          titulo: o.titulo,
+          fecha: o.fecha_evento,
+          contribucion: t.base - costes - comision,
+          sinCostes: costes <= 0,
+        };
+      })
+      .sort((a, b) => b.contribucion - a.contribucion);
+    cobertura = {
+      ym: hoyYm,
+      bote,
+      estructural,
+      maquina: bote + estructural,
+      contribucion: eventosCobertura.reduce((s, e) => s + e.contribucion, 0),
+      eventos: eventosCobertura,
+    };
+
     rows = ops.map((o) => {
       const total = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).total;
       const cobrado = o.cobrado ?? 0;
@@ -168,6 +220,8 @@ export default async function CuadroMandoPage() {
           no incluye horas de personal salvo que se registren como gasto.
         </p>
       </div>
+      {cobertura && <CoberturaFijos c={cobertura} />}
+
       <CuadroMando rows={rows} />
 
       {/* Rentabilidad por tipo de evento y por cliente (solo contratadas) */}
@@ -261,6 +315,70 @@ export default async function CuadroMandoPage() {
         </>
       )}
     </div>
+  );
+}
+
+// La barra de "¿cubrimos la máquina este mes?": fijos + parte estructural del
+// sueldo contra la contribución acumulada de los eventos del mes.
+function CoberturaFijos({ c }: { c: Cobertura }) {
+  const pct = c.maquina > 0 ? (c.contribucion / c.maquina) * 100 : 0;
+  const cubierta = pct >= 100;
+  const sobrante = c.contribucion - c.maquina;
+  const mesLabel = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }).format(
+    new Date(`${c.ym}-01T00:00:00Z`),
+  );
+  const sinCostes = c.eventos.filter((e) => e.sinCostes).length;
+  return (
+    <Card>
+      <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+          Cobertura de fijos — {mesLabel}
+        </div>
+        <div className="text-[12px] text-ink-muted">
+          La máquina: fijos {eur(c.bote)} + parte estructural del sueldo {eur(c.estructural)} ={" "}
+          <b className="tabular text-ink">{eur(c.maquina)}/mes</b>
+        </div>
+      </div>
+      <div className="mt-2 h-4 overflow-hidden rounded-full bg-beige-warm">
+        <div
+          className={`h-full rounded-full transition-all ${cubierta ? "bg-ok" : pct >= 60 ? "bg-[#c9a24b]" : "bg-clay"}`}
+          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+        />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[13px]">
+        <span>
+          Contribución de los eventos del mes: <b className="tabular">{eur(c.contribucion)}</b>{" "}
+          <span className="text-ink-muted">({num(pct, 0)}% de la máquina)</span>
+        </span>
+        {cubierta ? (
+          <span className="font-semibold text-ok">
+            ✓ Máquina cubierta — todo lo que entre ya es beneficio (+{eur(sobrante)})
+          </span>
+        ) : (
+          <span className="font-semibold text-clay">Faltan {eur(-sobrante)} para cubrir el mes</span>
+        )}
+      </div>
+      {c.eventos.length > 0 && (
+        <div className="mt-3 border-t border-border pt-2 text-[12px] text-ink-secondary">
+          {c.eventos.map((e) => (
+            <span key={e.id} className="mr-4 inline-block">
+              <Link href={`/oportunidades/${e.id}?tab=costes`} className="hover:text-clay">
+                {e.titulo}
+              </Link>
+              : <b className={`tabular ${e.contribucion >= 0 ? "" : "text-error"}`}>{eur(e.contribucion)}</b>
+              {e.sinCostes && <span title="Sin costes apuntados: cuenta solo la comisión">*</span>}
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="mt-2 text-[11px] text-ink-muted">
+        Contribución = base sin IVA − costes del evento − comisión. Cuentan los eventos contratados con fecha
+        este mes, alquileres incluidos: todos ayudan a pagar la máquina.
+        {sinCostes > 0 && (
+          <> Los marcados con * no tienen costes apuntados (su cifra está inflada): apúntales el plan en Costes.</>
+        )}
+      </p>
+    </Card>
   );
 }
 
