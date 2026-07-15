@@ -25,6 +25,7 @@ export function OportunidadDialog({
   responsables = [],
   equipo = [],
   triggerLabel,
+  ocupadas = [],
 }: {
   clientes: Cliente[];
   lugares: Lugar[];
@@ -32,6 +33,8 @@ export function OportunidadDialog({
   responsables?: string[];
   equipo?: { id: string; nombre: string }[]; // para asignar comisión a una persona
   triggerLabel?: string; // texto del botón al crear (por defecto "Nueva oportunidad")
+  // Fechas ya ocupadas por otras oportunidades vivas (para avisar del solape).
+  ocupadas?: { fecha: string; titulo: string; contratada: boolean }[];
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -49,6 +52,8 @@ export function OportunidadDialog({
   // decoración; alquiler/encargo → salida/devolución del material.
   const [serie, setSerie] = React.useState(oportunidad?.serie ?? "evento");
   const esAlquiler = serie === "alquiler_encargo";
+  // Otras oportunidades vivas en la fecha elegida (aviso de solape).
+  const solapes = evento ? ocupadas.filter((o) => o.fecha === evento) : [];
   const [fianzaFecha, setFianzaFecha] = React.useState(oportunidad?.fecha_devolucion_fianza ?? "");
   // La fecha de devolución solo tiene sentido si hay fianza (> 0).
   const [fianza, setFianza] = React.useState(String(oportunidad?.fianza ?? ""));
@@ -320,6 +325,14 @@ export function OportunidadDialog({
             </div>
             <Field label="Fecha del evento">
               <Input type="date" name="fecha_evento" value={evento} onChange={(e) => onEvento(e.target.value)} />
+              {/* Aviso de solape: ese día ya hay otra oportunidad viva. No
+                  bloquea (la pauta es estudiarlo con refuerzo), solo avisa. */}
+              {evento && solapes.length > 0 && (
+                <p className={`mt-1 text-[11px] ${solapes.some((s) => s.contratada) ? "font-semibold text-[#7a5a1a]" : "text-ink-muted"}`}>
+                  {solapes.some((s) => s.contratada) ? "⚠️ Ese día ya hay evento contratado: " : "ℹ️ Ese día ya hay en el pipeline: "}
+                  {solapes.map((s) => s.titulo).join(" · ")}
+                </p>
+              )}
             </Field>
           </div>
 

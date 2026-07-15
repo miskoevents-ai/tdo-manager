@@ -42,7 +42,7 @@ import { CalculadoraPrecio } from "@/components/calculadora/CalculadoraPrecio";
 import { calcularTotales } from "@/lib/calc";
 import { comisionDeOportunidad, comisionDetalleDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha } from "@/lib/format";
-import { TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, CANAL_LABEL, ESTADO_META } from "@/lib/estados";
 
 export const dynamic = "force-dynamic";
 
@@ -211,6 +211,22 @@ export default async function Page({
       .reduce((s, e) => s + Number(e.importe), 0),
   };
 
+  // Conflicto de fechas: otras oportunidades vivas el mismo día del evento.
+  // No bloquea (la pauta es "se estudia con refuerzo"), pero avisa: los eventos
+  // contratados en ámbar fuerte, y lo que está en conversación como nota suave.
+  const CONTRATADA = ["confirmada", "realizada", "facturada"];
+  const mismoDia =
+    op.fecha_evento && !["perdida", "descartada"].includes(op.estado)
+      ? todasOps.filter(
+          (o2) =>
+            o2.id !== op.id &&
+            o2.fecha_evento === op.fecha_evento &&
+            !["perdida", "descartada"].includes(o2.estado),
+        )
+      : [];
+  const conflictosFirmes = mismoDia.filter((o2) => CONTRATADA.includes(o2.estado));
+  const conflictosPipeline = mismoDia.filter((o2) => !CONTRATADA.includes(o2.estado));
+
   return (
     <div className="space-y-5">
       <Link
@@ -250,6 +266,13 @@ export default async function Page({
             oportunidad={op}
             responsables={equipo.filter((e) => e.activo).map((e) => e.nombre)}
             equipo={equipo.filter((e) => e.activo).map((e) => ({ id: e.id, nombre: e.nombre }))}
+            ocupadas={todasOps
+              .filter((o2) => o2.id !== op.id && o2.fecha_evento && !["perdida", "descartada"].includes(o2.estado))
+              .map((o2) => ({
+                fecha: o2.fecha_evento!,
+                titulo: o2.titulo,
+                contratada: CONTRATADA.includes(o2.estado),
+              }))}
           />
           {op.tipo_operacion === "amigos_prestamo" ? (
             <Link
@@ -298,6 +321,36 @@ export default async function Page({
           )}
         </div>
       </div>
+
+      {/* Conflicto de fechas: mismo día que otro evento */}
+      {conflictosFirmes.length > 0 && (
+        <div className="rounded-md border-med border-[#e7d3a6] bg-warn-tint px-4 py-3 text-[13px] text-[#7a5a1a]">
+          ⚠️ <b>Ese día ya hay {conflictosFirmes.length === 1 ? "un evento contratado" : `${conflictosFirmes.length} eventos contratados`}:</b>{" "}
+          {conflictosFirmes.map((c, i) => (
+            <span key={c.id}>
+              {i > 0 && " · "}
+              <Link href={`/oportunidades/${c.id}`} className="font-semibold underline hover:opacity-80">
+                {c.titulo}
+              </Link>
+            </span>
+          ))}
+          . Comprueba equipo, furgoneta y material — valora refuerzo externo antes de comprometer.
+        </div>
+      )}
+      {conflictosPipeline.length > 0 && (
+        <p className="text-[12px] text-ink-muted">
+          ℹ️ Ese mismo día también hay en el pipeline:{" "}
+          {conflictosPipeline.map((c, i) => (
+            <span key={c.id}>
+              {i > 0 && " · "}
+              <Link href={`/oportunidades/${c.id}`} className="underline hover:text-sage">
+                {c.titulo}
+              </Link>{" "}
+              ({ESTADO_META[c.estado].label})
+            </span>
+          ))}
+        </p>
+      )}
 
       {/* Resumen económico */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
