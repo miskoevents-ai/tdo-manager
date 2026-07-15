@@ -15,6 +15,7 @@ import {
   ListTodo,
   History,
   Shield,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,6 +39,7 @@ export const NAV: NavItem[] = [
   { href: "/cuadro-mando", label: "Cuadro de mando", icon: LineChart, fase: 4 },
   { href: "/inventario", label: "Inventario", icon: Package, fase: 3 },
   { href: "/catalogo", label: "Catálogo", icon: Images, fase: 3 },
+  { href: "/proveedores", label: "Proveedores", icon: Truck, fase: 3 },
   { href: "/equipo", label: "Equipo", icon: Users, fase: 2 },
   { href: "/clientes", label: "Clientes", icon: Contact, fase: 1 },
   { href: "/fidelizacion", label: "Fidelización", icon: Heart, fase: 4 },

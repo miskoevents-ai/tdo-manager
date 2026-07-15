@@ -100,7 +100,9 @@ export function ActividadClient({ registros }: { registros: RegistroActividad[] 
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">{dia}</p>
               <div className="overflow-hidden rounded-lg border-hair border-border bg-white">
                 {items.map((it) => {
-                  const quien = it.usuario ?? "Alguien";
+                  // Sin usuario = sesión con la contraseña compartida (anónima).
+                  // Se etiqueta como tal, no como un misterio.
+                  const quien = it.usuario ?? "Sesión compartida";
                   const href = enlaceDe(it);
                   const contenido = (
                     <div className="flex items-start gap-3 px-4 py-3">

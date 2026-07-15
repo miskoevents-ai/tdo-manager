@@ -102,11 +102,18 @@ export default async function Home() {
   const fianzas = ops.filter((o) => !cerradaSinVenta(o) && (o.fianza ?? 0) > 0 && !o.fianza_devuelta);
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
 
-  const avisos = calcularAvisos(ops, HOY_ISO, reservas, tareas, reuniones, tesoreria).slice(0, 10);
+  const avisosTodos = calcularAvisos(ops, HOY_ISO, reservas, tareas, reuniones, tesoreria);
   const eventosCal = construirEventos(ops, reservas, tesoreria, reuniones);
 
   // Saludo personalizado: tareas del usuario conectado.
   const usuario = await getUsuarioActual();
+  // Solo los socios (admin) ven las cifras de dinero del inicio (cobros
+  // pendientes, fianzas y los avisos financieros de impago/fianza). El resto
+  // del equipo ve lo operativo, sin importes.
+  const puedeVerDinero = Boolean(usuario?.esAdmin);
+  const avisos = (
+    puedeVerDinero ? avisosTodos : avisosTodos.filter((a) => !["cobro", "fianza"].includes(a.categoria))
+  ).slice(0, 10);
   const yoNombre = usuario ? canonizarNombre(usuario.nombre, responsables) : null;
   const misPendientes = yoNombre
     ? tareas.filter((t) => {
@@ -161,20 +168,24 @@ export default async function Home() {
 
       <Overline>Resumen</Overline>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi
-          label="Cobros pendientes"
-          value={eur(totalPendiente)}
-          sub={`${cobrosPendientes.length} eventos`}
-          tone="clay"
-          href="/oportunidades?cobro=pendiente&contratadas=1"
-        />
-        <Kpi
-          label="Fianzas por devolver"
-          value={eur(totalFianzas)}
-          sub={`${fianzas.length} fianzas activas`}
-          tone="warn"
-          href="/oportunidades?fianza=si"
-        />
+        {puedeVerDinero && (
+          <Kpi
+            label="Cobros pendientes"
+            value={eur(totalPendiente)}
+            sub={`${cobrosPendientes.length} eventos`}
+            tone="clay"
+            href="/oportunidades?cobro=pendiente&contratadas=1"
+          />
+        )}
+        {puedeVerDinero && (
+          <Kpi
+            label="Fianzas por devolver"
+            value={eur(totalFianzas)}
+            sub={`${fianzas.length} fianzas activas`}
+            tone="warn"
+            href="/oportunidades?fianza=si"
+          />
+        )}
         <Kpi
           label="Eventos contratados"
           value={String(contratadas.length)}
@@ -192,28 +203,30 @@ export default async function Home() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardTitle>
-            Cobros pendientes
-            <span className="font-body text-[11px] font-medium tracking-[0.03em] text-ink-muted">
-              {eur(totalPendiente)}
-            </span>
-          </CardTitle>
-          {cobrosPendientes.length === 0 && (
-            <p className="py-2 text-small text-ink-muted">Todo cobrado. 🎉</p>
-          )}
-          {cobrosPendientes.map(({ o, pendiente }) => (
-            <CobroRow
-              key={o.id}
-              id={o.id}
-              titulo={o.titulo}
-              cliente={o.cliente?.nombre ?? null}
-              fechaEvento={o.fecha_evento}
-              pendiente={pendiente}
-              responsables={responsables}
-            />
-          ))}
-        </Card>
+        {puedeVerDinero && (
+          <Card>
+            <CardTitle>
+              Cobros pendientes
+              <span className="font-body text-[11px] font-medium tracking-[0.03em] text-ink-muted">
+                {eur(totalPendiente)}
+              </span>
+            </CardTitle>
+            {cobrosPendientes.length === 0 && (
+              <p className="py-2 text-small text-ink-muted">Todo cobrado. 🎉</p>
+            )}
+            {cobrosPendientes.map(({ o, pendiente }) => (
+              <CobroRow
+                key={o.id}
+                id={o.id}
+                titulo={o.titulo}
+                cliente={o.cliente?.nombre ?? null}
+                fechaEvento={o.fecha_evento}
+                pendiente={pendiente}
+                responsables={responsables}
+              />
+            ))}
+          </Card>
+        )}
 
         <Card>
           <CardTitle>
@@ -281,30 +294,32 @@ export default async function Home() {
           })}
         </Card>
 
-        <Card className="lg:col-span-2">
-          <CardTitle>
-            Fianzas por devolver
-            <span className="font-body text-[11px] font-medium tracking-[0.03em] text-ink-muted">
-              {eur(totalFianzas)}
-            </span>
-          </CardTitle>
-          {fianzas.length === 0 && (
-            <p className="py-2 text-small text-ink-muted">No hay fianzas pendientes.</p>
-          )}
-          {fianzas.map((o) => (
-            <Link
-              key={o.id}
-              href={`/oportunidades/${o.id}`}
-              className="flex items-center justify-between border-t border-border py-[10px] text-[13px] first:border-t-0 hover:text-clay"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span>{o.titulo}</span>
-                <small className="text-[11.5px] text-ink-muted">{o.cliente?.nombre ?? "—"}</small>
-              </div>
-              <span className="tabular font-semibold text-warn">{eur(o.fianza ?? 0)}</span>
-            </Link>
-          ))}
-        </Card>
+        {puedeVerDinero && (
+          <Card className="lg:col-span-2">
+            <CardTitle>
+              Fianzas por devolver
+              <span className="font-body text-[11px] font-medium tracking-[0.03em] text-ink-muted">
+                {eur(totalFianzas)}
+              </span>
+            </CardTitle>
+            {fianzas.length === 0 && (
+              <p className="py-2 text-small text-ink-muted">No hay fianzas pendientes.</p>
+            )}
+            {fianzas.map((o) => (
+              <Link
+                key={o.id}
+                href={`/oportunidades/${o.id}`}
+                className="flex items-center justify-between border-t border-border py-[10px] text-[13px] first:border-t-0 hover:text-clay"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span>{o.titulo}</span>
+                  <small className="text-[11.5px] text-ink-muted">{o.cliente?.nombre ?? "—"}</small>
+                </div>
+                <span className="tabular font-semibold text-warn">{eur(o.fianza ?? 0)}</span>
+              </Link>
+            ))}
+          </Card>
+        )}
       </div>
     </div>
   );
