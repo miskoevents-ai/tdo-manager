@@ -21,8 +21,9 @@ export const SECCIONES: Seccion[] = [
   { key: "/actividad", label: "Actividad", prefijos: ["/actividad"] },
 ];
 
-// Inicio y Guía están siempre disponibles (no se pueden quitar).
-const SIEMPRE = ["/", "/guia"];
+// Inicio, Guía y "Mis comisiones" están siempre disponibles (cada uno ve solo
+// las suyas), no se pueden quitar.
+const SIEMPRE = ["/", "/guia", "/mis-comisiones"];
 
 function coincide(path: string, prefijo: string): boolean {
   if (prefijo === "/") return path === "/";
