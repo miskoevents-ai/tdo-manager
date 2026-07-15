@@ -901,7 +901,7 @@ function FilaEstimado({
                 guardar(patch);
               }
             }}
-            className="py-1 text-[12px]"
+            className="min-w-[96px] py-1 text-[12px]"
           >
             <option value="">—</option>
             {equipo.map((p) => (
@@ -913,6 +913,9 @@ function FilaEstimado({
         </td>
       )}
       <td className="border-b border-[#f0eae1] py-1 pr-1">
+        {/* Ancho mínimo legible: sin él, en pantallas medianas la celda se
+            comprimía hasta dejar el concepto en 2 letras (el módulo ya tiene
+            scroll horizontal propio para absorberlo). */}
         <Input
           value={concepto}
           disabled={bloqueado}
@@ -920,7 +923,7 @@ function FilaEstimado({
           onChange={(ev) => setConcepto(ev.target.value)}
           onBlur={() => concepto !== (e.concepto ?? "") && guardar({ concepto })}
           placeholder={modulo.conceptoLabel}
-          className="py-1 text-[12.5px]"
+          className="min-w-[150px] py-1 text-[12.5px]"
         />
       </td>
       <td className="border-b border-[#f0eae1] py-1">

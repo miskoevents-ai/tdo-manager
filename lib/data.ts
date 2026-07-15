@@ -177,7 +177,7 @@ const tablaNoExiste = (e: { code?: string; message: string }) =>
   e.code === "42P01" || /does not exist/i.test(e.message);
 
 export async function getReuniones(): Promise<Reunion[]> {
-  if (mock.enabled) return [];
+  if (mock.enabled) return mock.reuniones();
   const sb = createAdminClient();
   const { data, error } = await sb
     .from("reuniones")
@@ -191,7 +191,7 @@ export async function getReuniones(): Promise<Reunion[]> {
 }
 
 export async function getReunionesDeOportunidad(oportunidadId: string): Promise<Reunion[]> {
-  if (mock.enabled) return [];
+  if (mock.enabled) return mock.reunionesDe(oportunidadId);
   const sb = createAdminClient();
   const { data, error } = await sb
     .from("reuniones")
@@ -298,7 +298,7 @@ export async function getInventario(): Promise<Inventario[]> {
 }
 
 export async function getProveedores(): Promise<Proveedor[]> {
-  if (mock.enabled) return [];
+  if (mock.enabled) return mock.proveedores();
   const sb = createAdminClient();
   const { data, error } = await sb.from("proveedores").select("*").order("nombre");
   if (error) throw new Error(error.message);
@@ -482,7 +482,7 @@ export async function getVersionPresupuesto(id: string): Promise<PresupuestoVers
 // Costes estimados antes del presupuesto. Si la tabla aún no existe
 // (migración 020 sin ejecutar) devuelve vacío para no romper la ficha.
 export async function getCostesEstimados(oportunidadId: string): Promise<CosteEstimado[]> {
-  if (mock.enabled) return [];
+  if (mock.enabled) return mock.costesEstimadosDe(oportunidadId);
   const sb = createAdminClient();
   const { data, error } = await sb
     .from("costes_estimados")
