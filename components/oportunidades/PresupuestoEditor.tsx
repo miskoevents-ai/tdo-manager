@@ -476,12 +476,26 @@ function FotoPicker({
   const [error, setError] = React.useState<string | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
+  // Galería = fotos del inventario (URL en la BD) + todas las fotos del
+  // catálogo (packs y productos del bucket). Así se puede colgar en la línea
+  // cualquier imagen ya existente, no solo las del inventario.
   const galeria = React.useMemo(() => {
     const t = normaliza(q.trim());
-    return catalogo
-      .filter((c) => c.foto_url)
-      .filter((c) => !t || normaliza(c.articulo).includes(t))
-      .slice(0, 60);
+    const items: { key: string; nombre: string; src: string; valor: string }[] = [];
+    const vistos = new Set<string>();
+    for (const c of catalogo) {
+      if (!c.foto_url || vistos.has(c.foto_url)) continue;
+      vistos.add(c.foto_url);
+      items.push({ key: `inv-${c.id}`, nombre: c.articulo, src: c.foto_url, valor: c.foto_url });
+    }
+    CATALOGO.forEach((c, i) => {
+      if (!c.archivo || vistos.has(c.archivo)) return;
+      vistos.add(c.archivo);
+      const src = fotoUrl(c.archivo);
+      if (!src) return; // sin BASE de Storage no hay URL que mostrar
+      items.push({ key: `cat-${i}`, nombre: c.nombre?.trim() || c.descripcion || "Catálogo", src, valor: c.archivo! });
+    });
+    return items.filter((x) => !t || normaliza(x.nombre).includes(t)).slice(0, 120);
   }, [q, catalogo]);
 
   function cerrar() {
@@ -577,25 +591,27 @@ function FotoPicker({
               <div className="mt-3 grid max-h-[300px] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
                 {galeria.map((it) => (
                   <button
-                    key={it.id}
-                    title={it.articulo}
+                    key={it.key}
+                    title={it.nombre}
                     onClick={() => {
-                      onPick(it.foto_url!);
+                      onPick(it.valor);
                       cerrar();
                     }}
                     className="group overflow-hidden rounded-md border-med border-border text-left hover:border-sage"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={it.foto_url!} alt={it.articulo} className="aspect-square w-full object-cover" />
+                    <img src={it.src} alt={it.nombre} className="aspect-square w-full object-cover" />
                     <div className="truncate px-1.5 py-1 text-[10.5px] text-ink-secondary group-hover:text-sage">
-                      {it.articulo}
+                      {it.nombre}
                     </div>
                   </button>
                 ))}
               </div>
             ) : (
               <p className="mt-3 text-[12px] text-ink-muted">
-                Sin fotos en el catálogo (todavía): se irán añadiendo desde Inventario.
+                {q.trim()
+                  ? "Ninguna foto coincide con la búsqueda."
+                  : "Aún no hay fotos en el catálogo ni en el inventario."}
               </p>
             )}
 
