@@ -2,8 +2,9 @@ import { Overline } from "@/components/ui/card";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { UsuariosClient } from "@/components/usuarios/UsuariosClient";
+import { AvisosEmailsForm } from "@/components/usuarios/AvisosEmailsForm";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getUsuarios, getUsoSemanal, semanaActual } from "@/lib/data";
+import { getUsuarios, getUsoSemanal, semanaActual, getAvisosEmails } from "@/lib/data";
 import { getUsuarioActual } from "@/lib/sesion";
 import type { Usuario } from "@/lib/types";
 
@@ -26,8 +27,9 @@ export default async function UsuariosPage() {
 
   let usuarios: Usuario[];
   let usoSemana: Record<string, number>;
+  let avisosEmails = "";
   try {
-    [usuarios, usoSemana] = await Promise.all([getUsuarios(), getUsoSemanal()]);
+    [usuarios, usoSemana, avisosEmails] = await Promise.all([getUsuarios(), getUsoSemanal(), getAvisosEmails()]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
   }
@@ -43,6 +45,9 @@ export default async function UsuariosPage() {
       </InfoNote>
       <Overline className="!mt-0">Usuarios del equipo</Overline>
       <UsuariosClient usuarios={usuarios} yoUsuario={yo?.usuario ?? ""} usoSemana={usoSemana} rangoSemana={rango} />
+
+      <Overline>Avisos por email</Overline>
+      <AvisosEmailsForm inicial={avisosEmails} />
     </div>
   );
 }

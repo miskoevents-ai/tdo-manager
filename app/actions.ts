@@ -865,13 +865,28 @@ const APP_URL = process.env.APP_URL || "https://tdo-manager.vercel.app";
 
 type EmailResultUI = { ok: boolean; skipped?: boolean; error?: string; destinatarios: number };
 
-// Correos de los socios/destinatarios: DIGEST_EMAILS si está configurado; si no,
-// los emails del equipo activo (mejor configurar DIGEST_EMAILS con Jero y Cris).
+// Correos a los que llegan los avisos (validar presupuesto, unirse a reunión).
+// Orden: el ajuste "avisos_emails" (editable en la app) → DIGEST_EMAILS →
+// los emails del equipo activo.
 async function emailsSocios(sb: ReturnType<typeof createAdminClient>): Promise<string[]> {
+  const { data: aj } = await sb.from("ajustes").select("valor").eq("clave", "avisos_emails").maybeSingle();
+  const desdeAjuste = String(aj?.valor ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (desdeAjuste.length) return desdeAjuste;
   const fijos = destinatariosConfigurados();
   if (fijos.length) return fijos;
   const { data } = await sb.from("equipo").select("email, activo").eq("activo", true);
   return ((data ?? []) as { email: string | null }[]).map((e) => e.email).filter((e): e is string => !!e);
+}
+
+// Guarda (admins) los correos de avisos, separados por comas.
+export async function guardarAvisosEmails(raw: string) {
+  const sb = createAdminClient();
+  const limpio = raw.split(",").map((s) => s.trim()).filter(Boolean).join(", ");
+  const { error } = await sb
+    .from("ajustes")
+    .upsert({ clave: "avisos_emails", valor: limpio, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  revalidatePath("/usuarios");
 }
 
 // Envuelve el cuerpo en una plantilla sencilla con la marca y un botón.
