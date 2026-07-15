@@ -350,9 +350,12 @@ export function CalculadoraPrecio({
           <span className="font-display text-[17px]">Calculadora de precio</span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-          <span className="rounded-pill bg-beige-warm px-2 py-1 font-semibold text-ink-secondary" title={temp.nota}>
-            {temp.emoji} {temp.label}
-          </span>
+          {/* La temporada solo influye en bodas; en el resto no se muestra. */}
+          {tipoEvento === "boda" && (
+            <span className="rounded-pill bg-beige-warm px-2 py-1 font-semibold text-ink-secondary" title={temp.nota}>
+              {temp.emoji} {temp.label}
+            </span>
+          )}
           <span className="rounded-pill bg-beige-warm px-2 py-1 font-semibold text-ink-secondary">
             comisión {num(r.comisionPct, 0)}%
           </span>
