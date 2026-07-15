@@ -24,6 +24,10 @@ export type CalculadoraConfig = {
     media: { verde: number; ideal: number };
     baja: { verde: number; ideal: number };
   };
+  // Banda de margen propia por tipo de evento: pisa la de temporada. Los
+  // corporativos van del 15 (verde) al 45 (ideal): aceptan margen bajo porque
+  // amortizan estructura, pero se intenta vender arriba.
+  margenesPorTipo: Record<string, { verde: number; ideal: number }>;
   mesesAlta: number[]; // 1-12
   mesesMedia: number[]; // el resto = baja
   tramos: {
@@ -63,6 +67,9 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
     alta: { verde: 40, ideal: 45 },
     media: { verde: 35, ideal: 40 },
     baja: { verde: 25, ideal: 30 },
+  },
+  margenesPorTipo: {
+    corporativo: { verde: 15, ideal: 45 },
   },
   mesesAlta: [5, 6, 9, 10, 12],
   mesesMedia: [4, 7, 11],
@@ -167,6 +174,7 @@ export function mezclarConfig(guardada: unknown): CalculadoraConfig {
       media: { ...CALCULADORA_DEFAULTS.margenes.media, ...(g.margenes?.media ?? {}) },
       baja: { ...CALCULADORA_DEFAULTS.margenes.baja, ...(g.margenes?.baja ?? {}) },
     },
+    margenesPorTipo: mergePorTipo(CALCULADORA_DEFAULTS.margenesPorTipo, g.margenesPorTipo),
     tramos: { ...CALCULADORA_DEFAULTS.tramos, ...(g.tramos ?? {}) },
     mesesAlta: arr(g.mesesAlta, CALCULADORA_DEFAULTS.mesesAlta),
     mesesMedia: arr(g.mesesMedia, CALCULADORA_DEFAULTS.mesesMedia),
@@ -345,7 +353,11 @@ export function calcularPrecio(
 
   // Tamaño del evento por su MAGNITUD intrínseca (precio natural por costes), no
   // por lo que ofrezca el cliente: así el precio sugerido es objetivo y estable.
-  const margenBase = cfg.margenes[temporada];
+  // Si el tipo de evento tiene banda propia (corporativo: 15–45), pisa la de
+  // temporada; solo se usa si está completa (verde e ideal numéricos).
+  const porTipo = cfg.margenesPorTipo?.[ctx.tipoEvento ?? ""];
+  const bandaTipo = Boolean(porTipo && Number.isFinite(porTipo.verde) && Number.isFinite(porTipo.ideal));
+  const margenBase = bandaTipo ? porTipo! : cfg.margenes[temporada];
   const sugeridoSinAjuste = costeTotal / factor(margenBase.ideal);
   const baseRef = sugeridoSinAjuste;
   const tamano =
@@ -353,8 +365,11 @@ export function calcularPrecio(
     : baseRef >= cfg.tramos.grandeMin ? "grande"
     : baseRef < cfg.tramos.pequenoMax ? "pequeno"
     : "medio";
-  const ajuste =
-    tamano === "pequeno" ? cfg.tramos.ajustePequeno
+  // La banda por tipo (corporativo 15–45) es una decisión comercial exacta:
+  // no se le suma el ajuste por tamaño. El suelo de beneficio mínimo en
+  // eventos pequeños sí sigue aplicando (protege del jaleo barato).
+  const ajuste = bandaTipo ? 0
+    : tamano === "pequeno" ? cfg.tramos.ajustePequeno
     : tamano === "grande" ? cfg.tramos.ajusteGrande
     : tamano === "muy_grande" ? cfg.tramos.ajusteMuyGrande
     : 0;

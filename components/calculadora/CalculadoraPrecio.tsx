@@ -807,6 +807,8 @@ export function CalculadoraPrecio({
             <NumInput label="Media: ideal" value={cfg.margenes.media.ideal} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, media: { ...cfg.margenes.media, ideal: v } } })} sufijo="%" />
             <NumInput label="Baja: verde desde" value={cfg.margenes.baja.verde} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, baja: { ...cfg.margenes.baja, verde: v } } })} sufijo="%" />
             <NumInput label="Baja: ideal" value={cfg.margenes.baja.ideal} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, baja: { ...cfg.margenes.baja, ideal: v } } })} sufijo="%" />
+            <NumInput label="Corporativo: verde desde" value={cfg.margenesPorTipo?.corporativo?.verde ?? 15} onChange={(v) => setCfg({ ...cfg, margenesPorTipo: { ...cfg.margenesPorTipo, corporativo: { ...(cfg.margenesPorTipo?.corporativo ?? { verde: 15, ideal: 45 }), verde: v } } })} sufijo="%" hint="Banda propia de los corporativos (pisa la de temporada): aceptan margen bajo porque amortizan estructura." />
+            <NumInput label="Corporativo: ideal" value={cfg.margenesPorTipo?.corporativo?.ideal ?? 45} onChange={(v) => setCfg({ ...cfg, margenesPorTipo: { ...cfg.margenesPorTipo, corporativo: { ...(cfg.margenesPorTipo?.corporativo ?? { verde: 15, ideal: 45 }), ideal: v } } })} sufijo="%" />
             <NumInput label="Beneficio mín. pequeños" value={cfg.tramos.beneficioMinimo} onChange={(v) => setCfg({ ...cfg, tramos: { ...cfg.tramos, beneficioMinimo: v } })} sufijo="€" />
           </div>
 

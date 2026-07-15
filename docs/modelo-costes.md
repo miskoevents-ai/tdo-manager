@@ -143,7 +143,7 @@ Recomendación:
 | Tipo | Verde | Ideal | Nota |
 |---|---:|---:|---|
 | Bodas / eventos grandes | 40 % | 45 % | Son los que cargan la máquina |
-| Corporativo | 35 % | 40 % | |
+| Corporativo | 15 % | 45 % | **Decidido (jul 2026)**: banda propia, del 15 al 45. Aceptan margen bajo porque amortizan estructura; se intenta vender arriba |
 | Temporada baja (solo bodas) | 25 % | 30 % | Ya implementado |
 | **Alquileres** | — | — | **Sin %**: markup fijo (×2,5–3 sobre coste de desgaste/manejo) con los mínimos 450/75 como suelo |
 
