@@ -9,6 +9,7 @@ import { computaSegunNaturaleza } from "@/lib/computa";
 import { normalizarChecklist } from "@/lib/checklist";
 import { campoDeCategoria } from "@/lib/categorias-gastos";
 import { registrarActividad } from "@/lib/actividad";
+import { enviarEmail, destinatariosConfigurados } from "@/lib/email";
 import { cookies } from "next/headers";
 import { USER_COOKIE, leerCookieUsuario, hashPassword } from "@/lib/auth";
 import { getUsuarioActual } from "@/lib/sesion";
@@ -856,6 +857,88 @@ export async function guardarTranscripcionReunion(
     throw new Error(error.message);
   }
   revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// --------------------------- Avisos por email a los socios ---------------------------
+
+const APP_URL = process.env.APP_URL || "https://tdo-manager.vercel.app";
+
+type EmailResultUI = { ok: boolean; skipped?: boolean; error?: string; destinatarios: number };
+
+// Correos de los socios/destinatarios: DIGEST_EMAILS si está configurado; si no,
+// los emails del equipo activo (mejor configurar DIGEST_EMAILS con Jero y Cris).
+async function emailsSocios(sb: ReturnType<typeof createAdminClient>): Promise<string[]> {
+  const fijos = destinatariosConfigurados();
+  if (fijos.length) return fijos;
+  const { data } = await sb.from("equipo").select("email, activo").eq("activo", true);
+  return ((data ?? []) as { email: string | null }[]).map((e) => e.email).filter((e): e is string => !!e);
+}
+
+// Envuelve el cuerpo en una plantilla sencilla con la marca y un botón.
+function emailWrap(titulo: string, cuerpoHtml: string, ctaText: string, ctaUrl: string): string {
+  return `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;color:#2B2B2B;max-width:560px;margin:0 auto">
+    <div style="font-size:18px;font-weight:600;color:#3F4A36;margin-bottom:12px">${titulo}</div>
+    <div style="font-size:14px;line-height:1.6">${cuerpoHtml}</div>
+    <div style="margin-top:20px">
+      <a href="${ctaUrl}" style="display:inline-block;background:#3F4A36;color:#FCFAF5;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600">${ctaText}</a>
+    </div>
+    <div style="margin-top:16px;font-size:11px;color:#8a8a8a">TDO Manager · Tu Decoración Original</div>
+  </div>`;
+}
+
+// Cristina (o quien sea) pide a los socios que validen un presupuesto por email.
+export async function solicitarValidacionPresupuesto(oportunidadId: string): Promise<EmailResultUI> {
+  const sb = createAdminClient();
+  const { data: op, error } = await sb
+    .from("oportunidades")
+    .select("numero, titulo, iva_pct, retencion_pct, descuento_pct, presupuesto_lineas(*), cliente:clientes(nombre)")
+    .eq("id", oportunidadId)
+    .single();
+  if (error) throw new Error(error.message);
+  const t = calcularTotales(op.presupuesto_lineas ?? [], op.iva_pct, op.retencion_pct, op.descuento_pct ?? 0);
+  const quien = (await usuarioActualNombre(sb)) ?? "El equipo";
+  const cliente = (op.cliente as { nombre?: string } | null)?.nombre ?? "—";
+  const url = `${APP_URL}/oportunidades/${oportunidadId}?tab=presupuesto`;
+  const to = await emailsSocios(sb);
+  const eur0 = (n: number) => `${new Intl.NumberFormat("es-ES", { maximumFractionDigits: 2 }).format(n)} €`;
+  const cuerpo = `<p><b>${quien}</b> pide que valid&eacute;is el presupuesto <b>N&ordm; ${op.numero}</b> &mdash; ${op.titulo}.</p>
+    <p>Cliente: ${cliente}<br>Total: <b>${eur0(t.total)}</b> (IVA incluido)</p>
+    <p>Rev&iacute;salo y confirma si sale.</p>`;
+  const res = await enviarEmail({
+    to,
+    subject: `Validar presupuesto Nº ${op.numero} — ${op.titulo}`,
+    html: emailWrap("Validación de presupuesto", cuerpo, "Ver el presupuesto", url),
+    text: `${quien} pide validar el presupuesto Nº ${op.numero} — ${op.titulo}. Total ${eur0(t.total)}. ${url}`,
+  });
+  await registrarActividad({ accion: "pidió validar el presupuesto por email", entidad: "oportunidad", entidadId: oportunidadId });
+  return { ...res, destinatarios: to.length };
+}
+
+// Pide a los socios unirse a una reunión (les llega el enlace de la videollamada).
+export async function solicitarUnionReunion(reunionId: string, oportunidadId: string): Promise<EmailResultUI> {
+  const sb = createAdminClient();
+  const { data: r, error } = await sb
+    .from("reuniones")
+    .select("fecha, hora, modalidad, enlace, oportunidad:oportunidades(titulo)")
+    .eq("id", reunionId)
+    .single();
+  if (error) throw new Error(error.message);
+  const quien = (await usuarioActualNombre(sb)) ?? "El equipo";
+  const titulo = (r.oportunidad as { titulo?: string } | null)?.titulo ?? "una oportunidad";
+  const fechaES = String(r.fecha).split("-").reverse().join("/");
+  const hora = r.hora ? ` a las ${String(r.hora).slice(0, 5)}h` : "";
+  const url = `${APP_URL}/oportunidades/${oportunidadId}?tab=reuniones`;
+  const to = await emailsSocios(sb);
+  const cuerpo = `<p><b>${quien}</b> os pide uniros a la reuni&oacute;n de <b>${titulo}</b> el ${fechaES}${hora}.</p>
+    ${r.modalidad === "online" && r.enlace ? `<p>Enlace de la videollamada:<br><a href="${r.enlace}">${r.enlace}</a></p>` : ""}`;
+  const res = await enviarEmail({
+    to,
+    subject: `Únete a la reunión — ${titulo}`,
+    html: emailWrap("Reunión con cliente", cuerpo, r.modalidad === "online" && r.enlace ? "Unirse a la videollamada" : "Ver la reunión", r.modalidad === "online" && r.enlace ? r.enlace : url),
+    text: `${quien} os pide uniros a la reunión de ${titulo} el ${fechaES}${hora}. ${r.enlace ?? url}`,
+  });
+  await registrarActividad({ accion: "pidió a los socios unirse a una reunión", entidad: "oportunidad", entidadId: oportunidadId });
+  return { ...res, destinatarios: to.length };
 }
 
 export async function borrarReunion(id: string, oportunidadId: string) {

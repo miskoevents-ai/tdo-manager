@@ -11,6 +11,7 @@ import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { PlanPagos, BorrarPrevistoBtn, MarcarCobradoBtn } from "@/components/oportunidades/PlanPagos";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { VersionesPresupuesto } from "@/components/oportunidades/VersionesPresupuesto";
+import { SolicitarValidacionBtn } from "@/components/oportunidades/SolicitarValidacionBtn";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -403,6 +404,9 @@ export default async function Page({
                 created_at: v.created_at,
               }))}
             />
+            <div className="mt-4 border-t border-border pt-4">
+              <SolicitarValidacionBtn oportunidadId={op.id} />
+            </div>
           </Card>
         </TabsContent>
 
