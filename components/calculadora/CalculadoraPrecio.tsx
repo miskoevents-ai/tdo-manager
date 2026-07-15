@@ -612,14 +612,36 @@ export function CalculadoraPrecio({
           <p className="mt-1 text-[10.5px] text-ink-muted">
             🟢 = margen sano para este evento (verde desde {num(r.margenVerde, 0)}%). Los eventos grandes
             aceptan menos %; los pequeños piden más. Nunca por debajo del mínimo ({eur(r.precioMinimo)}).
+            ¿Necesitas un margen que no está en la tabla (p. ej. del 1 al 10%)? Escríbelo a mano abajo.
           </p>
 
-          {/* Volcar el precio elegido al presupuesto (una sola línea editable). */}
+          {/* Volcar el precio elegido al presupuesto (una sola línea editable).
+              El margen es editable a mano (1–60%): permite bajar del 15% de la
+              tabla cuando haga falta, y el precio se recalcula al momento. */}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border-med border-sage bg-sage-tint/40 p-3">
-            <div className="text-[12.5px]">
-              <span className="text-ink-secondary">Precio elegido (margen {margenEfectivo}%): </span>
+            <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+              <span className="text-ink-secondary">Precio elegido · margen</span>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                value={margenEfectivo}
+                onChange={(e) => {
+                  const v = Math.round(Number(e.target.value));
+                  if (Number.isFinite(v)) setMargenSel(Math.max(1, Math.min(60, v)));
+                }}
+                aria-label="Margen a mano (%)"
+                className="w-[58px] rounded-sm border-hair border-border bg-white px-1.5 py-0.5 text-center tabular text-[13px]"
+              />
+              <span className="text-ink-secondary">% :</span>
               <b className="tabular text-[15px] text-sage">{eur(precioElegido)}</b>
               <span className="text-ink-muted"> · {conIva(precioElegido)} con IVA</span>
+              {margenEfectivo < r.margenVerde && (
+                <span className="text-[11px] text-[#7a5a1a]">
+                  🟡 por debajo del verde ({num(r.margenVerde, 0)}%): cubre costes, gana poco
+                </span>
+              )}
             </div>
             <Button size="sm" onClick={volcarAlPresupuesto} disabled={busy === "volcar" || precioElegido <= 0}>
               {busy === "volcar" ? "Volcando…" : "Volcar al presupuesto →"}
