@@ -255,6 +255,15 @@ export async function getKmPrecio(): Promise<number> {
   return isFinite(v) ? v : 0.26;
 }
 
+// Correos a los que llegan los avisos por email (validar presupuesto, unirse a
+// reunión). Cadena separada por comas; se edita desde Usuarios (admins).
+export async function getAvisosEmails(): Promise<string> {
+  if (mock.enabled) return "";
+  const sb = createAdminClient();
+  const { data } = await sb.from("ajustes").select("valor").eq("clave", "avisos_emails").maybeSingle();
+  return String(data?.valor ?? "");
+}
+
 // Mes de arranque de la contabilidad (YYYY-MM). Configurable en ajustes;
 // por defecto mayo 2026 (primer movimiento real del traspaso).
 export async function getContabilidadInicio(): Promise<string> {
