@@ -24,6 +24,10 @@ export type CalculadoraConfig = {
     media: { verde: number; ideal: number };
     baja: { verde: number; ideal: number };
   };
+  // Banda de margen propia por tipo de evento: pisa la de temporada. Los
+  // corporativos van del 15 (verde) al 45 (ideal): aceptan margen bajo porque
+  // amortizan estructura, pero se intenta vender arriba.
+  margenesPorTipo: Record<string, { verde: number; ideal: number }>;
   mesesAlta: number[]; // 1-12
   mesesMedia: number[]; // el resto = baja
   tramos: {
@@ -55,14 +59,19 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
   costeMensualEmpleada: 2170,
   repartoEventosPct: 50,
   eventosMes: 6,
-  contingenciaPct: 5,
-  mermasPct: 3,
+  // 6% de referencia: incluye imprevistos, inflación de materiales y también
+  // las roturas/mermas (decisión jul 2026: las mermas van dentro, no aparte).
+  contingenciaPct: 6,
+  mermasPct: 0,
   costeHoraSocio: 12,
   comisiones: { alquiler: 5, boda: 6, corporativo: 7 },
   margenes: {
     alta: { verde: 40, ideal: 45 },
     media: { verde: 35, ideal: 40 },
     baja: { verde: 25, ideal: 30 },
+  },
+  margenesPorTipo: {
+    corporativo: { verde: 15, ideal: 45 },
   },
   mesesAlta: [5, 6, 9, 10, 12],
   mesesMedia: [4, 7, 11],
@@ -167,6 +176,7 @@ export function mezclarConfig(guardada: unknown): CalculadoraConfig {
       media: { ...CALCULADORA_DEFAULTS.margenes.media, ...(g.margenes?.media ?? {}) },
       baja: { ...CALCULADORA_DEFAULTS.margenes.baja, ...(g.margenes?.baja ?? {}) },
     },
+    margenesPorTipo: mergePorTipo(CALCULADORA_DEFAULTS.margenesPorTipo, g.margenesPorTipo),
     tramos: { ...CALCULADORA_DEFAULTS.tramos, ...(g.tramos ?? {}) },
     mesesAlta: arr(g.mesesAlta, CALCULADORA_DEFAULTS.mesesAlta),
     mesesMedia: arr(g.mesesMedia, CALCULADORA_DEFAULTS.mesesMedia),
@@ -231,15 +241,22 @@ export function cuotaPorEvento(bote: number, cfg: CalculadoraConfig): number {
 // pero nadie lo cobra (trabajo regalado por un socio).
 export type PersonaLinea = { nombre: string; horas: number; precioHora: number; aportado: boolean };
 
+// Un gasto del evento desglosado (mismo patrón que las líneas de persona):
+// materiales, transporte o dietas/alquiler, con su concepto e importe.
+export type GastoLinea = { concepto: string; tipo: "materiales" | "transporte" | "otros"; importe: number };
+
 export type CalculoInputs = {
   horas: FaseHoras; // horas de Cristina por fase
   personas?: PersonaLinea[]; // resto de personas (desplegable del equipo)
+  // Gastos desglosados línea a línea (si existen, mandan sobre los números
+  // sueltos de abajo — mismo patrón de compatibilidad que personas).
+  gastos?: GastoLinea[];
   // Campos antiguos (cálculos guardados antes de las líneas de persona):
   horasSocio?: number;
   personalExtra?: number;
-  materiales: number; // € materiales/subcontratas (sí llevan mermas)
+  materiales: number; // € materiales/subcontratas
   transporte: number; // € furgoneta + gasolina + km
-  otros?: number; // € dietas, alquiler externo… (NO llevan mermas)
+  otros?: number; // € dietas, alquiler externo…
   // Precio tope del cliente (opcional): "tengo X € y punto" → la calculadora
   // trabaja al revés: cuánto coste te puedes permitir para ese precio.
   precioTope?: number | null;
@@ -333,10 +350,15 @@ export function calcularPrecio(
   const costePagado =
     personas.filter((p) => !p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
     (soloViejo ? n(inputs.personalExtra) : 0);
-  const materiales = n(inputs.materiales);
-  const otros = n(inputs.otros); // dietas, alquiler externo… sin mermas
+  // Gastos: si hay líneas desglosadas mandan ellas; si no, los números sueltos.
+  const gastos = inputs.gastos ?? [];
+  const sumaGastos = (tipo: GastoLinea["tipo"]) =>
+    gastos.filter((g) => g.tipo === tipo).reduce((s, g) => s + n(g.importe), 0);
+  const materiales = gastos.length > 0 ? sumaGastos("materiales") : n(inputs.materiales);
+  const transporte = gastos.length > 0 ? sumaGastos("transporte") : n(inputs.transporte);
+  const otros = gastos.length > 0 ? sumaGastos("otros") : n(inputs.otros);
   const directosSinExtras =
-    costeCristina + costeAportado + costePagado + materiales + n(inputs.transporte) + otros;
+    costeCristina + costeAportado + costePagado + materiales + transporte + otros;
   const contingencia = (directosSinExtras * cfg.contingenciaPct) / 100;
   // Las mermas (roturas) solo aplican a materiales físicos, no a dietas/alquiler.
   const mermas = (materiales * cfg.mermasPct) / 100;
@@ -345,7 +367,11 @@ export function calcularPrecio(
 
   // Tamaño del evento por su MAGNITUD intrínseca (precio natural por costes), no
   // por lo que ofrezca el cliente: así el precio sugerido es objetivo y estable.
-  const margenBase = cfg.margenes[temporada];
+  // Si el tipo de evento tiene banda propia (corporativo: 15–45), pisa la de
+  // temporada; solo se usa si está completa (verde e ideal numéricos).
+  const porTipo = cfg.margenesPorTipo?.[ctx.tipoEvento ?? ""];
+  const bandaTipo = Boolean(porTipo && Number.isFinite(porTipo.verde) && Number.isFinite(porTipo.ideal));
+  const margenBase = bandaTipo ? porTipo! : cfg.margenes[temporada];
   const sugeridoSinAjuste = costeTotal / factor(margenBase.ideal);
   const baseRef = sugeridoSinAjuste;
   const tamano =
@@ -353,8 +379,11 @@ export function calcularPrecio(
     : baseRef >= cfg.tramos.grandeMin ? "grande"
     : baseRef < cfg.tramos.pequenoMax ? "pequeno"
     : "medio";
-  const ajuste =
-    tamano === "pequeno" ? cfg.tramos.ajustePequeno
+  // La banda por tipo (corporativo 15–45) es una decisión comercial exacta:
+  // no se le suma el ajuste por tamaño. El suelo de beneficio mínimo en
+  // eventos pequeños sí sigue aplicando (protege del jaleo barato).
+  const ajuste = bandaTipo ? 0
+    : tamano === "pequeno" ? cfg.tramos.ajustePequeno
     : tamano === "grande" ? cfg.tramos.ajusteGrande
     : tamano === "muy_grande" ? cfg.tramos.ajusteMuyGrande
     : 0;
@@ -382,7 +411,7 @@ export function calcularPrecio(
   // el proyecto tiene un precio mínimo (base) por sacar furgoneta + montar +
   // desmontar. La recogida en estudio (transporte 0) no lo lleva.
   const minimoDesplazado =
-    n(inputs.transporte) > 0 && n(cfg.minimoDesplazado) > 0 ? n(cfg.minimoDesplazado) : null;
+    transporte > 0 && n(cfg.minimoDesplazado) > 0 ? n(cfg.minimoDesplazado) : null;
   if (minimoDesplazado) {
     precioVerde = Math.max(precioVerde, redondeaArriba(minimoDesplazado, cfg.redondeo));
     precioSugerido = Math.max(precioSugerido, precioVerde);
@@ -439,8 +468,8 @@ export function calcularPrecio(
       costeCristina,
       costeSocio: costeAportado,
       personalExtra: costePagado,
-      materiales: Number(inputs.materiales),
-      transporte: Number(inputs.transporte),
+      materiales,
+      transporte,
       otros,
       contingencia,
       mermas,

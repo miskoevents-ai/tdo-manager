@@ -36,7 +36,7 @@ export function CostesTab({
   catalogo = [],
   otrasOportunidades = [],
   estimados = [],
-  contingenciaPct = 5,
+  contingenciaPct = 6,
   margenObjetivoPct = 35,
   cerrada = false,
   cerradaFecha = null,

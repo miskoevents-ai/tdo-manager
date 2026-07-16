@@ -47,7 +47,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const nombreEquipo = (eid: string | null | undefined) => equipo.find((e) => e.id === eid)?.nombre ?? null;
   const nombreProv = (pid: string | null | undefined) => proveedores.find((p) => p.id === pid)?.nombre ?? null;
 
-  const cont = Number(op.contingencia_pct ?? 5);
+  const cont = Number(op.contingencia_pct ?? 6);
   const margenObj = Number(op.margen_objetivo_pct ?? 35);
   const t = calcularTotales(op.presupuesto_lineas ?? [], op.iva_pct, op.retencion_pct, op.descuento_pct ?? 0);
   const base = t.base;

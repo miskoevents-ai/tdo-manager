@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FileDown, Sparkles } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { FichaTabs } from "@/components/oportunidades/FichaTabs";
 import { SetupNotice } from "@/components/SetupNotice";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
@@ -12,6 +13,8 @@ import { PlanPagos, BorrarPrevistoBtn, MarcarCobradoBtn } from "@/components/opo
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { VersionesPresupuesto } from "@/components/oportunidades/VersionesPresupuesto";
 import { SolicitarValidacionBtn } from "@/components/oportunidades/SolicitarValidacionBtn";
+import { PresupuestoValidadoBtn } from "@/components/oportunidades/PresupuestoValidadoBtn";
+import { FianzaSugerida } from "@/components/oportunidades/FianzaSugerida";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -160,6 +163,10 @@ export default async function Page({
     acc.coste += Number(p.horas) * Number(p.precio_hora);
     realPorPersona.set(nombre, acc);
   }
+  const totalDesplazamientos = desplazamientos.reduce(
+    (s, d) => s + Number(d.coste_gasolina ?? 0) + Number(d.peaje ?? 0) + Number(d.parking ?? 0),
+    0,
+  );
   const costesReales = {
     personas: Array.from(realPorPersona.entries()).map(([nombre, v]) => ({
       nombre,
@@ -168,10 +175,18 @@ export default async function Page({
       aportado: esSocioDe(nombre),
     })),
     materiales: compras.reduce((s, m) => s + Number(m.importe), 0),
-    transporte: desplazamientos.reduce(
-      (s, d) => s + Number(d.coste_gasolina ?? 0) + Number(d.peaje ?? 0) + Number(d.parking ?? 0),
-      0,
-    ),
+    transporte: totalDesplazamientos,
+    // Detalle línea a línea (para verlo desglosado en la calculadora).
+    detalle: [
+      ...compras.map((m) => ({
+        concepto: m.concepto,
+        tipo: "materiales" as const,
+        importe: Number(m.importe),
+      })),
+      ...(totalDesplazamientos > 0
+        ? [{ concepto: "Desplazamientos (gasolina, peajes, parking)", tipo: "transporte" as const, importe: totalDesplazamientos }]
+        : []),
+    ],
   };
 
   // Costes PREVISTOS (plan hecho en Costes antes del presupuesto). Es la fuente
@@ -209,6 +224,20 @@ export default async function Page({
     otros: costesEstimados
       .filter((e) => esDietaOAlquiler(e.categoria))
       .reduce((s, e) => s + Number(e.importe), 0),
+    // Detalle línea a línea del plan (menos personal, que va como personas):
+    // la calculadora lo enseña desglosado, igual que el equipo.
+    detalle: costesEstimados
+      .filter((e) => e.categoria !== "personal")
+      .map((e) => ({
+        concepto: e.concepto,
+        tipo:
+          e.categoria === "desplazamiento"
+            ? ("transporte" as const)
+            : esDietaOAlquiler(e.categoria)
+              ? ("otros" as const)
+              : ("materiales" as const),
+        importe: Number(e.importe),
+      })),
   };
 
   // Conflicto de fechas: otras oportunidades vivas el mismo día del evento.
@@ -374,7 +403,7 @@ export default async function Page({
         ))}
       </div>
 
-      <Tabs defaultValue={tabInicial}>
+      <FichaTabs tabs={TABS} initial={tabInicial}>
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="reuniones">Reuniones</TabsTrigger>
@@ -457,7 +486,38 @@ export default async function Page({
                 created_at: v.created_at,
               }))}
             />
-            <div className="mt-4 border-t border-border pt-4">
+            {(() => {
+              // Pauta: material en alquiler → fianza del 50% de ese material.
+              // Alquiler/encargo: toda la base; evento: las líneas de catálogo.
+              const dtoGlobal = 1 - Number(op.descuento_pct ?? 0) / 100;
+              const baseCatalogo = (op.presupuesto_lineas ?? [])
+                .filter((l) => l.articulo_id)
+                .reduce(
+                  (s, l) =>
+                    s + Number(l.cantidad) * Number(l.precio_unitario) * (1 - Number(l.descuento_pct ?? 0) / 100),
+                  0,
+                ) * dtoGlobal;
+              const baseAlquiler = op.serie === "alquiler_encargo" ? t.base : baseCatalogo;
+              const fianzaSugerida = Math.round(baseAlquiler * 0.5);
+              const fianzaActual = Number(op.fianza ?? 0);
+              const mostrar =
+                fianzaSugerida >= 1 &&
+                fianzaActual < fianzaSugerida - 0.5 &&
+                !["perdida", "descartada"].includes(op.estado);
+              if (!mostrar) return null;
+              return (
+                <div className="mt-4">
+                  <FianzaSugerida
+                    oportunidadId={op.id}
+                    baseAlquiler={baseAlquiler}
+                    fianzaActual={fianzaActual}
+                    fianzaSugerida={fianzaSugerida}
+                  />
+                </div>
+              );
+            })()}
+            <div className="mt-4 space-y-2 border-t border-border pt-4">
+              <PresupuestoValidadoBtn oportunidadId={op.id} estado={op.estado} />
               <SolicitarValidacionBtn oportunidadId={op.id} />
             </div>
           </Card>
@@ -495,7 +555,7 @@ export default async function Page({
               .filter((o) => o.id !== op.id)
               .map((o) => ({ id: o.id, titulo: o.titulo, numero: o.numero }))}
             estimados={costesEstimados}
-            contingenciaPct={Number(op.contingencia_pct ?? 5)}
+            contingenciaPct={Number(op.contingencia_pct ?? 6)}
             margenObjetivoPct={Number(op.margen_objetivo_pct ?? 35)}
             cerrada={op.cerrada ?? false}
             cerradaFecha={op.cerrada_fecha ?? null}
@@ -611,7 +671,7 @@ export default async function Page({
             costesPrevistos={costesPrevistos}
           />
         </TabsContent>
-      </Tabs>
+      </FichaTabs>
 
       {/* Zona de peligro: eliminar la oportunidad (para pruebas o entradas erróneas). */}
       <div className="flex items-center justify-between gap-2 rounded-lg border-hair border-border-soft bg-white/60 px-4 py-3">

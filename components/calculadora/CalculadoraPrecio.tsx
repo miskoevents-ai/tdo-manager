@@ -15,6 +15,7 @@ import {
   type CalculadoraConfig,
   type CalculoInputs,
   type PersonaLinea,
+  type GastoLinea,
 } from "@/lib/calculadora-precio";
 import { eur, num } from "@/lib/format";
 
@@ -23,12 +24,30 @@ export type CostesReales = {
   personas: { nombre: string; horas: number; precioHora: number; aportado: boolean }[];
   materiales: number;
   transporte: number;
-  otros?: number; // dietas, alquiler externo… (sin mermas)
+  otros?: number; // dietas, alquiler externo…
+  detalle?: GastoLinea[]; // línea a línea, para verlo desglosado
 };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const hayCostes = (cr?: CostesReales) =>
   !!cr && (cr.personas.length > 0 || cr.materiales > 0 || cr.transporte > 0 || (cr.otros ?? 0) > 0);
+
+// Etiquetas de los tipos de gasto (mismas palabras que en Costes).
+const TIPO_GASTO_LABEL: Record<GastoLinea["tipo"], string> = {
+  materiales: "Materiales",
+  transporte: "Transporte",
+  otros: "Dietas / alquiler",
+};
+
+// Convierte los totales sueltos en líneas de gasto (para cálculos antiguos
+// guardados sin desglose): una línea genérica por tipo con importe > 0.
+function gastosDesdeTotales(materiales: number, transporte: number, otros: number): GastoLinea[] {
+  const out: GastoLinea[] = [];
+  if (materiales > 0) out.push({ concepto: "Materiales", tipo: "materiales", importe: r2(materiales) });
+  if (transporte > 0) out.push({ concepto: "Transporte", tipo: "transporte", importe: r2(transporte) });
+  if (otros > 0) out.push({ concepto: "Dietas / alquiler", tipo: "otros", importe: r2(otros) });
+  return out;
+}
 
 // Traduce un bloque de costes (previstos o reales) a las entradas de la
 // calculadora: todas las personas van como líneas (Cristina incluida, a su
@@ -43,6 +62,10 @@ function inputsDesdeCostes(cr: CostesReales, prev?: Partial<CalculoInputs>): Cal
       precioHora: r2(p.precioHora),
       aportado: p.aportado,
     })),
+    gastos:
+      cr.detalle && cr.detalle.length > 0
+        ? cr.detalle.map((g) => ({ ...g, importe: r2(g.importe) }))
+        : gastosDesdeTotales(cr.materiales, cr.transporte, cr.otros ?? 0),
     materiales: r2(cr.materiales),
     transporte: r2(cr.transporte),
     otros: r2(cr.otros ?? 0),
@@ -158,12 +181,17 @@ export function CalculadoraPrecio({
           personas.push({ nombre: "Personal externo", horas: 1, precioHora: Number(g.personalExtra), aportado: false });
         }
       }
-      return { ...g, personas, horasSocio: 0, personalExtra: 0 };
+      // Sin desglose de gastos guardado → se convierten los totales en líneas.
+      const gastos =
+        g.gastos && g.gastos.length > 0
+          ? g.gastos
+          : gastosDesdeTotales(Number(g.materiales ?? 0), Number(g.transporte ?? 0), Number(g.otros ?? 0));
+      return { ...g, personas, gastos, horasSocio: 0, personalExtra: 0 };
     }
     // Sin cálculo guardado: se parte de los costes ya metidos en la pestaña
     // Costes (plan previsto). Así no hay que reteclear nada.
     if (hayCostes(costesPrevistos)) return inputsDesdeCostes(costesPrevistos!);
-    return { horas: { ...precarga }, personas: [], materiales: 0, transporte: 0 };
+    return { horas: { ...precarga }, personas: [], gastos: [], materiales: 0, transporte: 0 };
   });
 
   // Desplegable "añadir persona": equipo + externo genérico.
@@ -189,6 +217,23 @@ export function CalculadoraPrecio({
   }
   function quitarPersona(idx: number) {
     setInputs((i) => ({ ...i, personas: (i.personas ?? []).filter((_, j) => j !== idx) }));
+  }
+
+  // Gastos desglosados (materiales, transporte, dietas…): mismo patrón que personas.
+  function anadirGasto() {
+    setInputs((i) => ({
+      ...i,
+      gastos: [...(i.gastos ?? []), { concepto: "", tipo: "materiales" as const, importe: 0 }],
+    }));
+  }
+  function setGasto(idx: number, patch: Partial<GastoLinea>) {
+    setInputs((i) => ({
+      ...i,
+      gastos: (i.gastos ?? []).map((g, j) => (j === idx ? { ...g, ...patch } : g)),
+    }));
+  }
+  function quitarGasto(idx: number) {
+    setInputs((i) => ({ ...i, gastos: (i.gastos ?? []).filter((_, j) => j !== idx) }));
   }
 
   // Si cambia el tipo de evento o la serie (p. ej. se corrige en Editar), se
@@ -257,6 +302,14 @@ export function CalculadoraPrecio({
   const margenEfectivo = margenSel ?? Math.round(r.margenIdeal);
   const precioElegido = margenSel == null ? r.precioSugerido : precioDeMargen(margenEfectivo);
   const conIva = (n: number) => eur(n * (1 + ivaPct / 100));
+
+  // Escalera de tarjetas rápidas: mínimo → 10/20/30% → sugerido. No saltamos
+  // directo al sugerido: se ven antes los escalones más baratos. Solo mostramos
+  // un escalón fijo si queda por encima del mínimo (si no, sería pérdida).
+  const margenSugerido = Math.round(r.margenIdeal);
+  const escalonesCard = [10, 20, 30].filter(
+    (m) => precioDeMargen(m) > r.precioMinimo && m < margenSugerido,
+  );
 
   const setHora = (k: keyof CalculoInputs["horas"], v: number) =>
     setInputs((i) => ({ ...i, horas: { ...i.horas, [k]: v } }));
@@ -458,16 +511,78 @@ export function CalculadoraPrecio({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <NumInput label="Materiales €" value={inputs.materiales} onChange={(v) => setInputs((i) => ({ ...i, materiales: v }))} hint="Flores, atrezzo, fungibles… llevan mermas (roturas)" />
-        <NumInput label="Transporte €" value={inputs.transporte} onChange={(v) => setInputs((i) => ({ ...i, transporte: v }))} />
-        <NumInput label="Dietas / alquiler €" value={Number(inputs.otros ?? 0)} onChange={(v) => setInputs((i) => ({ ...i, otros: v }))} hint="Dietas, comidas, alquiler externo… sin mermas" />
-        <NumInput
-          label="Precio tope del cliente €"
-          value={Number(inputs.precioTope ?? 0)}
-          onChange={(v) => setInputs((i) => ({ ...i, precioTope: v }))}
-          hint="Si el cliente dice 'tengo X € y punto', ponlo aquí (sin IVA): la calculadora te dice al revés cuánto coste te puedes permitir para que salga rentable."
-        />
+      {/* Gastos del evento desglosados: mismo aspecto que el equipo de arriba.
+          Materiales, transporte y dietas/alquiler, línea a línea desde Costes. */}
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+          {(inputs.gastos ?? []).length > 0 ? "Gastos del evento (desde Costes)" : "Gastos del evento"}
+        </p>
+        <div className="space-y-2">
+          {(inputs.gastos ?? []).map((g, idx) => (
+            <div key={idx} className="flex flex-wrap items-center gap-2 rounded-md bg-beige-light/70 px-2.5 py-2">
+              <Input
+                value={g.concepto}
+                placeholder="Concepto (flores, gasolina, dietas…)"
+                onChange={(e) => setGasto(idx, { concepto: e.target.value })}
+                className="min-w-[150px] flex-1 py-1.5 text-[13px]"
+              />
+              <Select
+                value={g.tipo}
+                onChange={(e) => setGasto(idx, { tipo: e.target.value as GastoLinea["tipo"] })}
+                className="w-auto min-w-[130px] py-1.5 text-[12px]"
+              >
+                <option value="materiales">Materiales</option>
+                <option value="transporte">Transporte</option>
+                <option value="otros">Dietas / alquiler</option>
+              </Select>
+              <label className="flex items-center gap-1 text-[11px] text-ink-muted">
+                €
+                <Input type="number" step={0.5} min={0} value={g.importe} onChange={(e) => setGasto(idx, { importe: Math.max(0, Number(e.target.value) || 0) })} className="w-[90px] py-1.5 text-right text-[12.5px] tabular" />
+              </label>
+              <button onClick={() => quitarGasto(idx)} className="ml-auto rounded-sm p-1 text-ink-muted hover:bg-error-tint hover:text-error" title="Quitar">
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" size="sm" onClick={anadirGasto}>
+              <Plus size={13} /> Añadir gasto
+            </Button>
+            {(inputs.gastos ?? []).length > 0 && (
+              <span className="text-[11.5px] text-ink-muted">
+                {(["materiales", "transporte", "otros"] as const)
+                  .map((t) => ({
+                    t,
+                    total: (inputs.gastos ?? []).filter((g) => g.tipo === t).reduce((s, g) => s + g.importe, 0),
+                  }))
+                  .filter((x) => x.total > 0)
+                  .map((x) => `${TIPO_GASTO_LABEL[x.t]} ${eur(x.total)}`)
+                  .join(" · ")}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Precio tope del cliente: aparte de los costes, porque no es un coste —
+          es la restricción del cliente ("tengo X € y punto"). */}
+      <div className="flex flex-wrap items-center gap-3 rounded-md border-med border-clay/40 bg-clay-tint/30 px-3 py-2.5">
+        <span className="text-[13px]">🎯</span>
+        <div className="flex-1 text-[12px] text-ink-secondary">
+          <b>¿El cliente tiene un tope de precio?</b> Si dice «tengo X € y punto», ponlo aquí (sin IVA):
+          la calculadora te dice al revés cuánto coste te puedes permitir para que salga rentable.
+        </div>
+        <label className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+          tope €
+          <Input
+            type="number"
+            step={10}
+            min={0}
+            value={Number(inputs.precioTope ?? 0)}
+            onChange={(e) => setInputs((i) => ({ ...i, precioTope: Math.max(0, Number(e.target.value) || 0) }))}
+            className="w-[110px] py-1.5 text-right text-[13px] tabular"
+          />
+        </label>
       </div>
 
       {/* Resultado */}
@@ -490,30 +605,65 @@ export function CalculadoraPrecio({
             {r.desglose.materiales > 0 && <span>Materiales: <b className="tabular">{eur(r.desglose.materiales)}</b></span>}
             {r.desglose.transporte > 0 && <span>Transporte: <b className="tabular">{eur(r.desglose.transporte)}</b></span>}
             {r.desglose.otros > 0 && <span>Dietas / alquiler: <b className="tabular">{eur(r.desglose.otros)}</b></span>}
-            <span title="Imprevistos y también la inflación de materiales entre el presupuesto y el evento (flores, fungibles…)">
+            <span title="Imprevistos, roturas y también la inflación de materiales entre el presupuesto y el evento (flores, fungibles…)">
               Contingencia {num(cfg.contingenciaPct, 0)}% ⓘ: <b className="tabular">{eur(r.desglose.contingencia)}</b>
             </span>
-            <span>Mermas {num(cfg.mermasPct, 0)}%: <b className="tabular">{eur(r.desglose.mermas)}</b></span>
+            {r.desglose.mermas > 0 && (
+              <span>Mermas {num(cfg.mermasPct, 0)}%: <b className="tabular">{eur(r.desglose.mermas)}</b></span>
+            )}
             <span>Cuota de fijos: <b className="tabular">{eur(r.desglose.cuotaFijos)}</b></span>
           </div>
         )}
 
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <div className="rounded-md border-hair border-border bg-white p-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Precio mínimo</div>
-            <div className="mt-1 font-display text-[20px] tabular text-error">{eur(r.precioMinimo)}</div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {/* Mínimo: suelo informativo, no se elige (por debajo se pierde). */}
+          <div className="min-w-[130px] flex-1 rounded-md border-hair border-border bg-white p-3">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Mínimo</div>
+            <div className="mt-1 font-display text-[19px] tabular text-error">{eur(r.precioMinimo)}</div>
             <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioMinimo)} con IVA · por debajo se pierde</div>
           </div>
-          <div className="rounded-md border-hair border-border bg-white p-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Verde desde ({num(r.margenVerde, 0)}%)</div>
-            <div className="mt-1 font-display text-[20px] tabular text-ink">{eur(r.precioVerde)}</div>
-            <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioVerde)} con IVA · margen aceptable</div>
-          </div>
-          <div className="rounded-md border-med border-sage bg-sage-tint/50 p-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-sage">Precio sugerido ({num(r.margenIdeal, 0)}%)</div>
-            <div className="mt-1 font-display text-[22px] tabular text-sage">{eur(r.precioSugerido)}</div>
+          {/* Escalones intermedios: 10 / 20 / 30 %. Se pueden pulsar para elegir. */}
+          {escalonesCard.map((m) => {
+            const precio = precioDeMargen(m);
+            const verde = m >= r.margenVerde;
+            const seleccionado = margenEfectivo === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMargenSel(m)}
+                className={`min-w-[130px] flex-1 rounded-md p-3 text-left transition-colors ${
+                  seleccionado
+                    ? "border-med border-sage bg-sage/10 outline outline-1 outline-sage"
+                    : "border-hair border-border bg-white hover:bg-beige-warm/50"
+                }`}
+              >
+                <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+                  {verde && <span className="mr-1">🟢</span>}Margen {m}%
+                </div>
+                <div className="mt-1 font-display text-[19px] tabular text-ink">{eur(precio)}</div>
+                <div className="text-[10.5px] text-ink-muted">
+                  ≈ {conIva(precio)} con IVA{verde ? " · margen sano" : ""}
+                </div>
+              </button>
+            );
+          })}
+          {/* Sugerido: el recomendado. Seleccionado por defecto. */}
+          <button
+            type="button"
+            onClick={() => setMargenSel(margenSugerido)}
+            className={`min-w-[130px] flex-1 rounded-md border-med p-3 text-left transition-colors ${
+              margenEfectivo === margenSugerido
+                ? "border-sage bg-sage-tint/60 outline outline-1 outline-sage"
+                : "border-sage/50 bg-sage-tint/40 hover:bg-sage-tint/60"
+            }`}
+          >
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-sage">
+              ⭐ Sugerido ({num(r.margenIdeal, 0)}%)
+            </div>
+            <div className="mt-1 font-display text-[21px] tabular text-sage">{eur(r.precioSugerido)}</div>
             <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioSugerido)} con IVA ({num(ivaPct, 0)}%) · redondeado</div>
-          </div>
+          </button>
         </div>
         {/* Opciones de margen: el menú completo para elegir con criterio */}
         <div className="mt-3">
@@ -571,14 +721,36 @@ export function CalculadoraPrecio({
           <p className="mt-1 text-[10.5px] text-ink-muted">
             🟢 = margen sano para este evento (verde desde {num(r.margenVerde, 0)}%). Los eventos grandes
             aceptan menos %; los pequeños piden más. Nunca por debajo del mínimo ({eur(r.precioMinimo)}).
+            ¿Necesitas un margen que no está en la tabla (p. ej. del 1 al 10%)? Escríbelo a mano abajo.
           </p>
 
-          {/* Volcar el precio elegido al presupuesto (una sola línea editable). */}
+          {/* Volcar el precio elegido al presupuesto (una sola línea editable).
+              El margen es editable a mano (1–60%): permite bajar del 15% de la
+              tabla cuando haga falta, y el precio se recalcula al momento. */}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border-med border-sage bg-sage-tint/40 p-3">
-            <div className="text-[12.5px]">
-              <span className="text-ink-secondary">Precio elegido (margen {margenEfectivo}%): </span>
+            <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
+              <span className="text-ink-secondary">Precio elegido · margen</span>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                value={margenEfectivo}
+                onChange={(e) => {
+                  const v = Math.round(Number(e.target.value));
+                  if (Number.isFinite(v)) setMargenSel(Math.max(1, Math.min(60, v)));
+                }}
+                aria-label="Margen a mano (%)"
+                className="w-[58px] rounded-sm border-hair border-border bg-white px-1.5 py-0.5 text-center tabular text-[13px]"
+              />
+              <span className="text-ink-secondary">% :</span>
               <b className="tabular text-[15px] text-sage">{eur(precioElegido)}</b>
               <span className="text-ink-muted"> · {conIva(precioElegido)} con IVA</span>
+              {margenEfectivo < r.margenVerde && (
+                <span className="text-[11px] text-[#7a5a1a]">
+                  🟡 por debajo del verde ({num(r.margenVerde, 0)}%): cubre costes, gana poco
+                </span>
+              )}
             </div>
             <Button size="sm" onClick={volcarAlPresupuesto} disabled={busy === "volcar" || precioElegido <= 0}>
               {busy === "volcar" ? "Volcando…" : "Volcar al presupuesto →"}
@@ -728,9 +900,9 @@ export function CalculadoraPrecio({
               value={cfg.contingenciaPct}
               onChange={(v) => setCfg({ ...cfg, contingenciaPct: v })}
               sufijo="%"
-              hint="Colchón para imprevistos. Sirve también para cubrir la inflación de materiales entre el presupuesto y el evento (flores, fungibles…): si se presupuesta con muchos meses de antelación, conviene subirla."
+              hint="Colchón para imprevistos, roturas/mermas e inflación de materiales entre el presupuesto y el evento (6% de referencia). Si se presupuesta con muchos meses de antelación, conviene subirla."
             />
-            <NumInput label="Mermas" value={cfg.mermasPct} onChange={(v) => setCfg({ ...cfg, mermasPct: v })} sufijo="%" />
+            <NumInput label="Mermas" value={cfg.mermasPct} onChange={(v) => setCfg({ ...cfg, mermasPct: v })} sufijo="%" hint="Roturas de materiales. A 0 por decisión de los socios: van incluidas en la contingencia del 6%." />
             <NumInput label="€/h socio" value={cfg.costeHoraSocio} onChange={(v) => setCfg({ ...cfg, costeHoraSocio: v })} step={0.5} />
             <NumInput label="Comisión alquiler" value={cfg.comisiones.alquiler} onChange={(v) => setCfg({ ...cfg, comisiones: { ...cfg.comisiones, alquiler: v } })} sufijo="%" />
             <NumInput label="Comisión boda" value={cfg.comisiones.boda} onChange={(v) => setCfg({ ...cfg, comisiones: { ...cfg.comisiones, boda: v } })} sufijo="%" />
@@ -744,6 +916,8 @@ export function CalculadoraPrecio({
             <NumInput label="Media: ideal" value={cfg.margenes.media.ideal} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, media: { ...cfg.margenes.media, ideal: v } } })} sufijo="%" />
             <NumInput label="Baja: verde desde" value={cfg.margenes.baja.verde} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, baja: { ...cfg.margenes.baja, verde: v } } })} sufijo="%" />
             <NumInput label="Baja: ideal" value={cfg.margenes.baja.ideal} onChange={(v) => setCfg({ ...cfg, margenes: { ...cfg.margenes, baja: { ...cfg.margenes.baja, ideal: v } } })} sufijo="%" />
+            <NumInput label="Corporativo: verde desde" value={cfg.margenesPorTipo?.corporativo?.verde ?? 15} onChange={(v) => setCfg({ ...cfg, margenesPorTipo: { ...cfg.margenesPorTipo, corporativo: { ...(cfg.margenesPorTipo?.corporativo ?? { verde: 15, ideal: 45 }), verde: v } } })} sufijo="%" hint="Banda propia de los corporativos (pisa la de temporada): aceptan margen bajo porque amortizan estructura." />
+            <NumInput label="Corporativo: ideal" value={cfg.margenesPorTipo?.corporativo?.ideal ?? 45} onChange={(v) => setCfg({ ...cfg, margenesPorTipo: { ...cfg.margenesPorTipo, corporativo: { ...(cfg.margenesPorTipo?.corporativo ?? { verde: 15, ideal: 45 }), ideal: v } } })} sufijo="%" />
             <NumInput label="Beneficio mín. pequeños" value={cfg.tramos.beneficioMinimo} onChange={(v) => setCfg({ ...cfg, tramos: { ...cfg.tramos, beneficioMinimo: v } })} sufijo="€" />
           </div>
 
