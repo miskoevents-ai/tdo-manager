@@ -17,10 +17,9 @@ export type CalculadoraConfig = {
   eventosMes: number;
   contingenciaPct: number; // imprevistos sobre costes directos
   mermasPct: number; // roturas/mermas sobre materiales
-  // Los alquileres/encargos (material que se manda o se recoge, poco esfuerzo)
-  // NO cargan la estructura de fijos: el precio se pone sobre sus costes
-  // directos + margen, y los fijos se cubren con los eventos. false = fuera.
-  cargarEstructuraAlquiler: boolean;
+  // Estructura que carga un encargo/alquiler: un % de sus costes directos (uso
+  // de taller/local), en vez de la cuota completa de un evento. 0 = nada.
+  estructuraEncargoPct: number;
   costeHoraSocio: number; // tarifa nominal si un socio hace montaje (aportado)
   comisiones: { alquiler: number; boda: number; corporativo: number };
   margenes: {
@@ -67,7 +66,7 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
   // las roturas/mermas (decisión jul 2026: las mermas van dentro, no aparte).
   contingenciaPct: 6,
   mermasPct: 0,
-  cargarEstructuraAlquiler: false,
+  estructuraEncargoPct: 15,
   costeHoraSocio: 12,
   comisiones: { alquiler: 5, boda: 6, corporativo: 7 },
   margenes: {
@@ -330,13 +329,7 @@ export function calcularPrecio(
   // temporada media, sin ajuste por fecha.
   const temporada: Temporada = ctx.tipoEvento === "boda" ? temporadaDeFecha(ctx.fechaEvento, cfg) : "media";
   const com = comisionPct(ctx.serie, ctx.tipoEvento, cfg) / 100;
-  // Los alquileres/encargos (p. ej. un cartel de madera que se manda) NO cargan
-  // la estructura de fijos: son trabajos de poco esfuerzo cuyo precio se pone
-  // sobre sus costes directos + margen. Cargarles 1/6 de la máquina (~480 €)
-  // los hacía impagables. Los fijos se cubren con los eventos (ver "cobertura
-  // de fijos" del mes). Decisión socios, jul 2026 — ajustable en Parámetros.
   const esAlquiler = ctx.serie === "alquiler_encargo";
-  const cuotaFijos = esAlquiler && !cfg.cargarEstructuraAlquiler ? 0 : ctx.cuotaFijos;
 
   // Divisor precio = 1 − margen − comisión, acotado para no dar precios absurdos
   // ni negativos si en Ajustes se ponen márgenes/comisiones muy altos.
@@ -371,6 +364,16 @@ export function calcularPrecio(
   // Las mermas (roturas) solo aplican a materiales físicos, no a dietas/alquiler.
   const mermas = (materiales * cfg.mermasPct) / 100;
   const directos = directosSinExtras + contingencia + mermas;
+  // Estructura de fijos:
+  //  · Un EVENTO carga su cuota completa de la máquina (1/6, ~480 €): consume
+  //    local, sueldos y toda la estructura.
+  //  · Un ENCARGO/ALQUILER (cartel, pieza suelta) solo carga un % de sus costes
+  //    directos (uso de taller/local), no toda la máquina. Un cartel de 195 €
+  //    al 15% suma ~29 €, no 480 €. El resto de fijos lo cubren los eventos.
+  //    Decisión socios, jul 2026 — el % es ajustable en Parámetros.
+  const cuotaFijos = esAlquiler
+    ? (directosSinExtras * n(cfg.estructuraEncargoPct)) / 100
+    : ctx.cuotaFijos;
   const costeTotal = directos + cuotaFijos;
 
   // Tamaño del evento por su MAGNITUD intrínseca (precio natural por costes), no

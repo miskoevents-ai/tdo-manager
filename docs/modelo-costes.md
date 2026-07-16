@@ -104,10 +104,12 @@ adivinar el "6" y rompe con los alquileres. Separadas:
 ## 5 · Opciones
 
 > **Implementado (jul 2026):** el punto 1 de abajo ya está hecho — los
-> alquileres/encargos (serie *alquiler/encargo*) **no cargan la estructura**
-> de fijos en la calculadora. Se cotizan sobre sus costes directos + margen,
-> con un chip "🏷️ sin estructura (encargo)" y un interruptor en Parámetros
-> por si alguna vez se quiere volver a cargar. Falta el divisor vivo (punto 2).
+> alquileres/encargos (serie *alquiler/encargo*) **no cargan la cuota completa**
+> de estructura de un evento. En su lugar cargan un **15 % de sus costes
+> directos** (uso de taller/local): un cartel de 195 € suma ~29 €, no 480 €.
+> Chip "🏷️ estructura taller 15%" y % editable en Parámetros (0 = sin
+> estructura). El resto de fijos lo cubren los eventos. Falta el divisor
+> vivo (punto 2).
 
 ### Opción A — Retoque mínimo
 1. Los alquileres **salen del reparto** de estructura y se cotizan aparte
