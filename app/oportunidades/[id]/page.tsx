@@ -163,6 +163,10 @@ export default async function Page({
     acc.coste += Number(p.horas) * Number(p.precio_hora);
     realPorPersona.set(nombre, acc);
   }
+  const totalDesplazamientos = desplazamientos.reduce(
+    (s, d) => s + Number(d.coste_gasolina ?? 0) + Number(d.peaje ?? 0) + Number(d.parking ?? 0),
+    0,
+  );
   const costesReales = {
     personas: Array.from(realPorPersona.entries()).map(([nombre, v]) => ({
       nombre,
@@ -171,10 +175,18 @@ export default async function Page({
       aportado: esSocioDe(nombre),
     })),
     materiales: compras.reduce((s, m) => s + Number(m.importe), 0),
-    transporte: desplazamientos.reduce(
-      (s, d) => s + Number(d.coste_gasolina ?? 0) + Number(d.peaje ?? 0) + Number(d.parking ?? 0),
-      0,
-    ),
+    transporte: totalDesplazamientos,
+    // Detalle línea a línea (para verlo desglosado en la calculadora).
+    detalle: [
+      ...compras.map((m) => ({
+        concepto: m.concepto,
+        tipo: "materiales" as const,
+        importe: Number(m.importe),
+      })),
+      ...(totalDesplazamientos > 0
+        ? [{ concepto: "Desplazamientos (gasolina, peajes, parking)", tipo: "transporte" as const, importe: totalDesplazamientos }]
+        : []),
+    ],
   };
 
   // Costes PREVISTOS (plan hecho en Costes antes del presupuesto). Es la fuente
@@ -212,6 +224,20 @@ export default async function Page({
     otros: costesEstimados
       .filter((e) => esDietaOAlquiler(e.categoria))
       .reduce((s, e) => s + Number(e.importe), 0),
+    // Detalle línea a línea del plan (menos personal, que va como personas):
+    // la calculadora lo enseña desglosado, igual que el equipo.
+    detalle: costesEstimados
+      .filter((e) => e.categoria !== "personal")
+      .map((e) => ({
+        concepto: e.concepto,
+        tipo:
+          e.categoria === "desplazamiento"
+            ? ("transporte" as const)
+            : esDietaOAlquiler(e.categoria)
+              ? ("otros" as const)
+              : ("materiales" as const),
+        importe: Number(e.importe),
+      })),
   };
 
   // Conflicto de fechas: otras oportunidades vivas el mismo día del evento.
@@ -529,7 +555,7 @@ export default async function Page({
               .filter((o) => o.id !== op.id)
               .map((o) => ({ id: o.id, titulo: o.titulo, numero: o.numero }))}
             estimados={costesEstimados}
-            contingenciaPct={Number(op.contingencia_pct ?? 5)}
+            contingenciaPct={Number(op.contingencia_pct ?? 6)}
             margenObjetivoPct={Number(op.margen_objetivo_pct ?? 35)}
             cerrada={op.cerrada ?? false}
             cerradaFecha={op.cerrada_fecha ?? null}

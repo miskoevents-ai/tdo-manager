@@ -59,8 +59,10 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
   costeMensualEmpleada: 2170,
   repartoEventosPct: 50,
   eventosMes: 6,
-  contingenciaPct: 5,
-  mermasPct: 3,
+  // 6% de referencia: incluye imprevistos, inflación de materiales y también
+  // las roturas/mermas (decisión jul 2026: las mermas van dentro, no aparte).
+  contingenciaPct: 6,
+  mermasPct: 0,
   costeHoraSocio: 12,
   comisiones: { alquiler: 5, boda: 6, corporativo: 7 },
   margenes: {
@@ -239,15 +241,22 @@ export function cuotaPorEvento(bote: number, cfg: CalculadoraConfig): number {
 // pero nadie lo cobra (trabajo regalado por un socio).
 export type PersonaLinea = { nombre: string; horas: number; precioHora: number; aportado: boolean };
 
+// Un gasto del evento desglosado (mismo patrón que las líneas de persona):
+// materiales, transporte o dietas/alquiler, con su concepto e importe.
+export type GastoLinea = { concepto: string; tipo: "materiales" | "transporte" | "otros"; importe: number };
+
 export type CalculoInputs = {
   horas: FaseHoras; // horas de Cristina por fase
   personas?: PersonaLinea[]; // resto de personas (desplegable del equipo)
+  // Gastos desglosados línea a línea (si existen, mandan sobre los números
+  // sueltos de abajo — mismo patrón de compatibilidad que personas).
+  gastos?: GastoLinea[];
   // Campos antiguos (cálculos guardados antes de las líneas de persona):
   horasSocio?: number;
   personalExtra?: number;
-  materiales: number; // € materiales/subcontratas (sí llevan mermas)
+  materiales: number; // € materiales/subcontratas
   transporte: number; // € furgoneta + gasolina + km
-  otros?: number; // € dietas, alquiler externo… (NO llevan mermas)
+  otros?: number; // € dietas, alquiler externo…
   // Precio tope del cliente (opcional): "tengo X € y punto" → la calculadora
   // trabaja al revés: cuánto coste te puedes permitir para ese precio.
   precioTope?: number | null;
@@ -341,10 +350,15 @@ export function calcularPrecio(
   const costePagado =
     personas.filter((p) => !p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
     (soloViejo ? n(inputs.personalExtra) : 0);
-  const materiales = n(inputs.materiales);
-  const otros = n(inputs.otros); // dietas, alquiler externo… sin mermas
+  // Gastos: si hay líneas desglosadas mandan ellas; si no, los números sueltos.
+  const gastos = inputs.gastos ?? [];
+  const sumaGastos = (tipo: GastoLinea["tipo"]) =>
+    gastos.filter((g) => g.tipo === tipo).reduce((s, g) => s + n(g.importe), 0);
+  const materiales = gastos.length > 0 ? sumaGastos("materiales") : n(inputs.materiales);
+  const transporte = gastos.length > 0 ? sumaGastos("transporte") : n(inputs.transporte);
+  const otros = gastos.length > 0 ? sumaGastos("otros") : n(inputs.otros);
   const directosSinExtras =
-    costeCristina + costeAportado + costePagado + materiales + n(inputs.transporte) + otros;
+    costeCristina + costeAportado + costePagado + materiales + transporte + otros;
   const contingencia = (directosSinExtras * cfg.contingenciaPct) / 100;
   // Las mermas (roturas) solo aplican a materiales físicos, no a dietas/alquiler.
   const mermas = (materiales * cfg.mermasPct) / 100;
@@ -397,7 +411,7 @@ export function calcularPrecio(
   // el proyecto tiene un precio mínimo (base) por sacar furgoneta + montar +
   // desmontar. La recogida en estudio (transporte 0) no lo lleva.
   const minimoDesplazado =
-    n(inputs.transporte) > 0 && n(cfg.minimoDesplazado) > 0 ? n(cfg.minimoDesplazado) : null;
+    transporte > 0 && n(cfg.minimoDesplazado) > 0 ? n(cfg.minimoDesplazado) : null;
   if (minimoDesplazado) {
     precioVerde = Math.max(precioVerde, redondeaArriba(minimoDesplazado, cfg.redondeo));
     precioSugerido = Math.max(precioSugerido, precioVerde);
@@ -454,8 +468,8 @@ export function calcularPrecio(
       costeCristina,
       costeSocio: costeAportado,
       personalExtra: costePagado,
-      materiales: Number(inputs.materiales),
-      transporte: Number(inputs.transporte),
+      materiales,
+      transporte,
       otros,
       contingencia,
       mermas,

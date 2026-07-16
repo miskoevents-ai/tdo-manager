@@ -111,7 +111,7 @@ export default async function CuadroMandoPage() {
     precision = ops
       .filter((o) => (estPorOp.get(o.id) ?? 0) > 0)
       .map((o) => {
-        const estimado = (estPorOp.get(o.id) ?? 0) * (1 + Number(o.contingencia_pct ?? 5) / 100);
+        const estimado = (estPorOp.get(o.id) ?? 0) * (1 + Number(o.contingencia_pct ?? 6) / 100);
         const real = (gastoEventoPorOp.get(o.id) ?? 0) + (horasPorOp.get(o.id) ?? 0);
         return {
           id: o.id,
@@ -157,7 +157,7 @@ export default async function CuadroMandoPage() {
       .map((o) => {
         const t = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0);
         const real = (gastoEventoPorOp.get(o.id) ?? 0) + (horasPorOp.get(o.id) ?? 0);
-        const previsto = (estPorOp.get(o.id) ?? 0) * (1 + Number(o.contingencia_pct ?? 5) / 100);
+        const previsto = (estPorOp.get(o.id) ?? 0) * (1 + Number(o.contingencia_pct ?? 6) / 100);
         const costes = real > 0 ? real : previsto;
         const comision = comisionDeOportunidad(o, comConfig);
         return {

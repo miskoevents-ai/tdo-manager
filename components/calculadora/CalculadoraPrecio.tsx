@@ -15,6 +15,7 @@ import {
   type CalculadoraConfig,
   type CalculoInputs,
   type PersonaLinea,
+  type GastoLinea,
 } from "@/lib/calculadora-precio";
 import { eur, num } from "@/lib/format";
 
@@ -23,12 +24,30 @@ export type CostesReales = {
   personas: { nombre: string; horas: number; precioHora: number; aportado: boolean }[];
   materiales: number;
   transporte: number;
-  otros?: number; // dietas, alquiler externo… (sin mermas)
+  otros?: number; // dietas, alquiler externo…
+  detalle?: GastoLinea[]; // línea a línea, para verlo desglosado
 };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const hayCostes = (cr?: CostesReales) =>
   !!cr && (cr.personas.length > 0 || cr.materiales > 0 || cr.transporte > 0 || (cr.otros ?? 0) > 0);
+
+// Etiquetas de los tipos de gasto (mismas palabras que en Costes).
+const TIPO_GASTO_LABEL: Record<GastoLinea["tipo"], string> = {
+  materiales: "Materiales",
+  transporte: "Transporte",
+  otros: "Dietas / alquiler",
+};
+
+// Convierte los totales sueltos en líneas de gasto (para cálculos antiguos
+// guardados sin desglose): una línea genérica por tipo con importe > 0.
+function gastosDesdeTotales(materiales: number, transporte: number, otros: number): GastoLinea[] {
+  const out: GastoLinea[] = [];
+  if (materiales > 0) out.push({ concepto: "Materiales", tipo: "materiales", importe: r2(materiales) });
+  if (transporte > 0) out.push({ concepto: "Transporte", tipo: "transporte", importe: r2(transporte) });
+  if (otros > 0) out.push({ concepto: "Dietas / alquiler", tipo: "otros", importe: r2(otros) });
+  return out;
+}
 
 // Traduce un bloque de costes (previstos o reales) a las entradas de la
 // calculadora: todas las personas van como líneas (Cristina incluida, a su
@@ -43,6 +62,10 @@ function inputsDesdeCostes(cr: CostesReales, prev?: Partial<CalculoInputs>): Cal
       precioHora: r2(p.precioHora),
       aportado: p.aportado,
     })),
+    gastos:
+      cr.detalle && cr.detalle.length > 0
+        ? cr.detalle.map((g) => ({ ...g, importe: r2(g.importe) }))
+        : gastosDesdeTotales(cr.materiales, cr.transporte, cr.otros ?? 0),
     materiales: r2(cr.materiales),
     transporte: r2(cr.transporte),
     otros: r2(cr.otros ?? 0),
@@ -158,12 +181,17 @@ export function CalculadoraPrecio({
           personas.push({ nombre: "Personal externo", horas: 1, precioHora: Number(g.personalExtra), aportado: false });
         }
       }
-      return { ...g, personas, horasSocio: 0, personalExtra: 0 };
+      // Sin desglose de gastos guardado → se convierten los totales en líneas.
+      const gastos =
+        g.gastos && g.gastos.length > 0
+          ? g.gastos
+          : gastosDesdeTotales(Number(g.materiales ?? 0), Number(g.transporte ?? 0), Number(g.otros ?? 0));
+      return { ...g, personas, gastos, horasSocio: 0, personalExtra: 0 };
     }
     // Sin cálculo guardado: se parte de los costes ya metidos en la pestaña
     // Costes (plan previsto). Así no hay que reteclear nada.
     if (hayCostes(costesPrevistos)) return inputsDesdeCostes(costesPrevistos!);
-    return { horas: { ...precarga }, personas: [], materiales: 0, transporte: 0 };
+    return { horas: { ...precarga }, personas: [], gastos: [], materiales: 0, transporte: 0 };
   });
 
   // Desplegable "añadir persona": equipo + externo genérico.
@@ -189,6 +217,23 @@ export function CalculadoraPrecio({
   }
   function quitarPersona(idx: number) {
     setInputs((i) => ({ ...i, personas: (i.personas ?? []).filter((_, j) => j !== idx) }));
+  }
+
+  // Gastos desglosados (materiales, transporte, dietas…): mismo patrón que personas.
+  function anadirGasto() {
+    setInputs((i) => ({
+      ...i,
+      gastos: [...(i.gastos ?? []), { concepto: "", tipo: "materiales" as const, importe: 0 }],
+    }));
+  }
+  function setGasto(idx: number, patch: Partial<GastoLinea>) {
+    setInputs((i) => ({
+      ...i,
+      gastos: (i.gastos ?? []).map((g, j) => (j === idx ? { ...g, ...patch } : g)),
+    }));
+  }
+  function quitarGasto(idx: number) {
+    setInputs((i) => ({ ...i, gastos: (i.gastos ?? []).filter((_, j) => j !== idx) }));
   }
 
   // Si cambia el tipo de evento o la serie (p. ej. se corrige en Editar), se
@@ -466,16 +511,78 @@ export function CalculadoraPrecio({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <NumInput label="Materiales €" value={inputs.materiales} onChange={(v) => setInputs((i) => ({ ...i, materiales: v }))} hint="Flores, atrezzo, fungibles… llevan mermas (roturas)" />
-        <NumInput label="Transporte €" value={inputs.transporte} onChange={(v) => setInputs((i) => ({ ...i, transporte: v }))} />
-        <NumInput label="Dietas / alquiler €" value={Number(inputs.otros ?? 0)} onChange={(v) => setInputs((i) => ({ ...i, otros: v }))} hint="Dietas, comidas, alquiler externo… sin mermas" />
-        <NumInput
-          label="Precio tope del cliente €"
-          value={Number(inputs.precioTope ?? 0)}
-          onChange={(v) => setInputs((i) => ({ ...i, precioTope: v }))}
-          hint="Si el cliente dice 'tengo X € y punto', ponlo aquí (sin IVA): la calculadora te dice al revés cuánto coste te puedes permitir para que salga rentable."
-        />
+      {/* Gastos del evento desglosados: mismo aspecto que el equipo de arriba.
+          Materiales, transporte y dietas/alquiler, línea a línea desde Costes. */}
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+          {(inputs.gastos ?? []).length > 0 ? "Gastos del evento (desde Costes)" : "Gastos del evento"}
+        </p>
+        <div className="space-y-2">
+          {(inputs.gastos ?? []).map((g, idx) => (
+            <div key={idx} className="flex flex-wrap items-center gap-2 rounded-md bg-beige-light/70 px-2.5 py-2">
+              <Input
+                value={g.concepto}
+                placeholder="Concepto (flores, gasolina, dietas…)"
+                onChange={(e) => setGasto(idx, { concepto: e.target.value })}
+                className="min-w-[150px] flex-1 py-1.5 text-[13px]"
+              />
+              <Select
+                value={g.tipo}
+                onChange={(e) => setGasto(idx, { tipo: e.target.value as GastoLinea["tipo"] })}
+                className="w-auto min-w-[130px] py-1.5 text-[12px]"
+              >
+                <option value="materiales">Materiales</option>
+                <option value="transporte">Transporte</option>
+                <option value="otros">Dietas / alquiler</option>
+              </Select>
+              <label className="flex items-center gap-1 text-[11px] text-ink-muted">
+                €
+                <Input type="number" step={0.5} min={0} value={g.importe} onChange={(e) => setGasto(idx, { importe: Math.max(0, Number(e.target.value) || 0) })} className="w-[90px] py-1.5 text-right text-[12.5px] tabular" />
+              </label>
+              <button onClick={() => quitarGasto(idx)} className="ml-auto rounded-sm p-1 text-ink-muted hover:bg-error-tint hover:text-error" title="Quitar">
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" size="sm" onClick={anadirGasto}>
+              <Plus size={13} /> Añadir gasto
+            </Button>
+            {(inputs.gastos ?? []).length > 0 && (
+              <span className="text-[11.5px] text-ink-muted">
+                {(["materiales", "transporte", "otros"] as const)
+                  .map((t) => ({
+                    t,
+                    total: (inputs.gastos ?? []).filter((g) => g.tipo === t).reduce((s, g) => s + g.importe, 0),
+                  }))
+                  .filter((x) => x.total > 0)
+                  .map((x) => `${TIPO_GASTO_LABEL[x.t]} ${eur(x.total)}`)
+                  .join(" · ")}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Precio tope del cliente: aparte de los costes, porque no es un coste —
+          es la restricción del cliente ("tengo X € y punto"). */}
+      <div className="flex flex-wrap items-center gap-3 rounded-md border-med border-clay/40 bg-clay-tint/30 px-3 py-2.5">
+        <span className="text-[13px]">🎯</span>
+        <div className="flex-1 text-[12px] text-ink-secondary">
+          <b>¿El cliente tiene un tope de precio?</b> Si dice «tengo X € y punto», ponlo aquí (sin IVA):
+          la calculadora te dice al revés cuánto coste te puedes permitir para que salga rentable.
+        </div>
+        <label className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+          tope €
+          <Input
+            type="number"
+            step={10}
+            min={0}
+            value={Number(inputs.precioTope ?? 0)}
+            onChange={(e) => setInputs((i) => ({ ...i, precioTope: Math.max(0, Number(e.target.value) || 0) }))}
+            className="w-[110px] py-1.5 text-right text-[13px] tabular"
+          />
+        </label>
       </div>
 
       {/* Resultado */}
@@ -498,10 +605,12 @@ export function CalculadoraPrecio({
             {r.desglose.materiales > 0 && <span>Materiales: <b className="tabular">{eur(r.desglose.materiales)}</b></span>}
             {r.desglose.transporte > 0 && <span>Transporte: <b className="tabular">{eur(r.desglose.transporte)}</b></span>}
             {r.desglose.otros > 0 && <span>Dietas / alquiler: <b className="tabular">{eur(r.desglose.otros)}</b></span>}
-            <span title="Imprevistos y también la inflación de materiales entre el presupuesto y el evento (flores, fungibles…)">
+            <span title="Imprevistos, roturas y también la inflación de materiales entre el presupuesto y el evento (flores, fungibles…)">
               Contingencia {num(cfg.contingenciaPct, 0)}% ⓘ: <b className="tabular">{eur(r.desglose.contingencia)}</b>
             </span>
-            <span>Mermas {num(cfg.mermasPct, 0)}%: <b className="tabular">{eur(r.desglose.mermas)}</b></span>
+            {r.desglose.mermas > 0 && (
+              <span>Mermas {num(cfg.mermasPct, 0)}%: <b className="tabular">{eur(r.desglose.mermas)}</b></span>
+            )}
             <span>Cuota de fijos: <b className="tabular">{eur(r.desglose.cuotaFijos)}</b></span>
           </div>
         )}
@@ -791,9 +900,9 @@ export function CalculadoraPrecio({
               value={cfg.contingenciaPct}
               onChange={(v) => setCfg({ ...cfg, contingenciaPct: v })}
               sufijo="%"
-              hint="Colchón para imprevistos. Sirve también para cubrir la inflación de materiales entre el presupuesto y el evento (flores, fungibles…): si se presupuesta con muchos meses de antelación, conviene subirla."
+              hint="Colchón para imprevistos, roturas/mermas e inflación de materiales entre el presupuesto y el evento (6% de referencia). Si se presupuesta con muchos meses de antelación, conviene subirla."
             />
-            <NumInput label="Mermas" value={cfg.mermasPct} onChange={(v) => setCfg({ ...cfg, mermasPct: v })} sufijo="%" />
+            <NumInput label="Mermas" value={cfg.mermasPct} onChange={(v) => setCfg({ ...cfg, mermasPct: v })} sufijo="%" hint="Roturas de materiales. A 0 por decisión de los socios: van incluidas en la contingencia del 6%." />
             <NumInput label="€/h socio" value={cfg.costeHoraSocio} onChange={(v) => setCfg({ ...cfg, costeHoraSocio: v })} step={0.5} />
             <NumInput label="Comisión alquiler" value={cfg.comisiones.alquiler} onChange={(v) => setCfg({ ...cfg, comisiones: { ...cfg.comisiones, alquiler: v } })} sufijo="%" />
             <NumInput label="Comisión boda" value={cfg.comisiones.boda} onChange={(v) => setCfg({ ...cfg, comisiones: { ...cfg.comisiones, boda: v } })} sufijo="%" />
