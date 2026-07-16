@@ -281,6 +281,15 @@ export default async function Page({
                 🎪 Evento propio
               </span>
             )}
+            {op.envio && (
+              <span
+                className="inline-flex items-center gap-1 rounded-pill bg-beige-warm px-2.5 py-1 text-[11px] font-semibold text-ink-secondary"
+                title={op.envio_incluido ? "Envío incluido en el precio" : "Envío que se cobra aparte al cliente"}
+              >
+                📦 Envío{op.envio_coste ? ` ${eur(Number(op.envio_coste))}` : ""} ·{" "}
+                {op.envio_incluido ? "incluido" : "aparte"}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-[12px] text-ink-muted">
             Nº {op.numero} · {TIPO_EVENTO_LABEL[op.tipo_evento] ?? op.tipo_evento}
@@ -475,6 +484,7 @@ export default async function Page({
                 fianza_sugerida: i.fianza_sugerida,
                 foto_url: i.foto_url,
               }))}
+              envioAparte={op.envio && !op.envio_incluido ? Number(op.envio_coste ?? 0) : 0}
             />
             <VersionesPresupuesto
               oportunidadId={op.id}

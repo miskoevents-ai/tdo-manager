@@ -58,6 +58,10 @@ export function OportunidadDialog({
   // La fecha de devolución solo tiene sentido si hay fianza (> 0).
   const [fianza, setFianza] = React.useState(String(oportunidad?.fianza ?? ""));
   const hayFianza = (parseFloat(fianza) || 0) > 0;
+  // Envío por mensajería (material producido que se manda): se marca al crear.
+  const [envio, setEnvio] = React.useState(oportunidad?.envio ?? false);
+  const [envioCoste, setEnvioCoste] = React.useState(String(oportunidad?.envio_coste ?? ""));
+  const [envioIncluido, setEnvioIncluido] = React.useState(oportunidad?.envio_incluido ?? true);
   function onRecogida(v: string) {
     setRecogida(v);
     if (v) setFianzaFecha(sumaDias(v, 2));
@@ -407,6 +411,50 @@ export function OportunidadDialog({
                 La alarma de cobro no salta hasta que venza el plazo.
               </p>
             </Field>
+          </div>
+
+          {/* Envío: para material producido que se manda por mensajería. */}
+          <div className="rounded-md border-hair border-border bg-beige-light/50 p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] font-semibold text-ink-secondary">
+              <input
+                type="checkbox"
+                name="envio"
+                checked={envio}
+                onChange={(e) => setEnvio(e.target.checked)}
+                className="h-4 w-4 accent-sage"
+              />
+              📦 Este pedido se envía (mensajería)
+            </label>
+            {envio && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <Field label="Coste del envío €">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    name="envio_coste"
+                    value={envioCoste}
+                    onChange={(e) => setEnvioCoste(e.target.value)}
+                    placeholder="p. ej. 15"
+                  />
+                </Field>
+                <Field label="¿Cómo se cobra?">
+                  <Select
+                    name="envio_incluido"
+                    value={envioIncluido ? "si" : "no"}
+                    onChange={(e) => setEnvioIncluido(e.target.value === "si")}
+                  >
+                    <option value="si">Incluido en el precio</option>
+                    <option value="no">Se cobra aparte al cliente</option>
+                  </Select>
+                  <p className="mt-1 text-[10.5px] text-ink-muted">
+                    {envioIncluido
+                      ? "El cliente no ve el envío: cúbrelo dentro del precio."
+                      : "Sale como línea propia en el presupuesto (lo paga el cliente)."}
+                  </p>
+                </Field>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

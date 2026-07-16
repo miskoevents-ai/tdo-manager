@@ -101,6 +101,9 @@ export type Oportunidad = {
   cliente_id: string | null;
   lugar_id: string | null;
   comision_equipo_id?: string | null; // persona a la que se le paga comisión (vacío = ninguna)
+  envio?: boolean; // el pedido se manda por mensajería (material producido)
+  envio_coste?: number | null; // coste del envío (mensajería)
+  envio_incluido?: boolean; // true = incluido en el precio; false = se cobra aparte
   notas: string | null;
   created_at: string;
   // joins opcionales

@@ -42,6 +42,7 @@ export function PresupuestoEditor({
   descuentoPct = 0,
   esEmpresa,
   catalogo = [],
+  envioAparte = 0,
 }: {
   oportunidadId: string;
   lineasIniciales: PresupuestoLinea[];
@@ -50,6 +51,7 @@ export function PresupuestoEditor({
   descuentoPct?: number;
   esEmpresa: boolean;
   catalogo?: CatalogoItem[];
+  envioAparte?: number; // coste del envío que se cobra aparte (0 = no aplica)
 }) {
   const router = useRouter();
   const [filas, setFilas] = React.useState<Fila[]>(
@@ -161,6 +163,21 @@ export function PresupuestoEditor({
       foto: it.foto,
     };
     setFilas((f) => {
+      const soloVacia = f.length === 1 && !f[0].concepto.trim() && !f[0].articulo_id;
+      return soloVacia ? [nueva] : [...f, nueva];
+    });
+  }
+
+  // Envío que se cobra aparte: si aún no hay una línea de envío, ofrecemos
+  // añadirla de un clic con su coste.
+  const yaHayEnvio = filas.some((f) => /env[ií]o/i.test(f.concepto));
+  const mostrarBotonEnvio = envioAparte > 0 && !yaHayEnvio;
+  function addEnvio() {
+    setFilas((f) => {
+      const nueva: Fila = {
+        concepto: "Envío", cantidad: 1, precio_unitario: envioAparte,
+        articulo_id: null, bloque: f[f.length - 1]?.bloque ?? null, via: "factura", foto: null, descuento_pct: null,
+      };
       const soloVacia = f.length === 1 && !f[0].concepto.trim() && !f[0].articulo_id;
       return soloVacia ? [nueva] : [...f, nueva];
     });
@@ -315,6 +332,11 @@ export function PresupuestoEditor({
           <Plus size={14} /> Añadir línea
         </Button>
         {TARIFARIO.length > 0 && <CatalogoPicker tarifario={TARIFARIO} onPick={addDesdeCatalogo} />}
+        {mostrarBotonEnvio && (
+          <Button variant="outline" size="sm" onClick={addEnvio} title="El envío está marcado como 'se cobra aparte' en la oportunidad">
+            <Plus size={14} /> Añadir envío ({eur(envioAparte)})
+          </Button>
+        )}
         {fianzaSugerida > 0 && (
           <span className="text-[11.5px] text-ink-muted">
             Fianza sugerida del material:{" "}
