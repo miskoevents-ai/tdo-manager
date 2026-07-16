@@ -201,26 +201,36 @@ export async function guardarOportunidad(formData: FormData) {
     pago_a_dias: numToNull(formData.get("pago_a_dias")) ?? 0,
     // Persona a la que se le paga comisión (vacío = ninguna). Migración 034.
     comision_equipo_id: (formData.get("comision_equipo_id") as string) || null,
+    // Envío por mensajería (material producido). Migración 050. El checkbox
+    // solo viaja si está marcado; los detalles solo si el envío está activo.
+    envio: formData.has("envio"),
+    envio_coste: formData.has("envio") ? numToNull(formData.get("envio_coste")) : null,
+    envio_incluido: formData.has("envio") ? formData.get("envio_incluido") !== "no" : true,
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.titulo) throw new Error("El título es obligatorio.");
   if (!payload.numero) throw new Error("No se pudo asignar el número; escríbelo a mano.");
 
-  // Reintento sin comision_equipo_id si la migración 034 aún no está aplicada.
-  const esColumnaComision = (msg: string) => /comision_equipo_id/.test(msg) && /column/i.test(msg);
+  // Reintento sin columnas de migraciones aún no aplicadas (comision_equipo_id
+  // → 034; envio* → 050): si el error las menciona, se quitan y se reintenta.
+  const OPCIONALES = ["comision_equipo_id", "envio", "envio_coste", "envio_incluido"] as const;
+  const faltaColumna = (msg: string) =>
+    /column/i.test(msg) && OPCIONALES.some((c) => new RegExp(`\\b${c}\\b`).test(msg));
+  const sinOpcionales = (p: typeof payload) => {
+    const { comision_equipo_id: _c, envio: _e, envio_coste: _ec, envio_incluido: _ei, ...resto } = p;
+    return resto;
+  };
   let opId = id;
   if (id) {
     let { error } = await sb.from("oportunidades").update(payload).eq("id", id);
-    if (error && esColumnaComision(error.message)) {
-      const { comision_equipo_id: _c, ...sin } = payload;
-      ({ error } = await sb.from("oportunidades").update(sin).eq("id", id));
+    if (error && faltaColumna(error.message)) {
+      ({ error } = await sb.from("oportunidades").update(sinOpcionales(payload)).eq("id", id));
     }
     if (error) throw new Error(error.message);
   } else {
     let res = await sb.from("oportunidades").insert(payload).select("id").single();
-    if (res.error && esColumnaComision(res.error.message)) {
-      const { comision_equipo_id: _c, ...sin } = payload;
-      res = await sb.from("oportunidades").insert(sin).select("id").single();
+    if (res.error && faltaColumna(res.error.message)) {
+      res = await sb.from("oportunidades").insert(sinOpcionales(payload)).select("id").single();
     }
     if (res.error) throw new Error(res.error.message);
     opId = res.data.id;

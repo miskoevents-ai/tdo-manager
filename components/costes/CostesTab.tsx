@@ -861,7 +861,16 @@ function FilaEstimado({
     }
   }
 
-  const personaVal = e.equipo_id ?? (e.persona_externa ? "__cur_ext__" : "");
+  // La mano de obra puede ser: alguien del equipo, un proveedor externo (de la
+  // lista) o un externo/amigo suelto (texto libre). El proveedor se guarda en
+  // proveedor_id + su nombre en persona_externa (para que se vea igual).
+  const personaVal = e.equipo_id
+    ? e.equipo_id
+    : e.proveedor_id
+      ? `prov:${e.proveedor_id}`
+      : e.persona_externa
+        ? "__cur_ext__"
+        : "";
   // Línea a medias: tiene concepto pero importe 0 (falta precio/horas), o —en
   // módulos que no son mano de obra— importe sin concepto (¿qué es?).
   const incompleta =
@@ -886,13 +895,19 @@ function FilaEstimado({
               if (v === "__cur_ext__") return;
               if (v === "__ext__") {
                 const nombre = (window.prompt("Nombre del externo / amigo") || "").trim();
-                if (nombre) guardar({ equipoId: null, personaExterna: nombre });
+                if (nombre) guardar({ equipoId: null, personaExterna: nombre, proveedorId: null });
+              } else if (v.startsWith("prov:")) {
+                // Mano de obra subcontratada a un proveedor de la lista: se guarda
+                // el proveedor y su nombre (para que se lea igual que una persona).
+                const prov = proveedores.find((p) => p.id === v.slice(5));
+                if (prov) guardar({ equipoId: null, personaExterna: prov.nombre, proveedorId: prov.id });
               } else {
                 // Al elegir una persona del equipo, se autorrellena su €/h.
                 const p = equipo.find((x) => x.id === v);
-                const patch: { equipoId: string | null; personaExterna: null; precioUnitario?: number } = {
+                const patch: { equipoId: string | null; personaExterna: null; proveedorId: null; precioUnitario?: number } = {
                   equipoId: v || null,
                   personaExterna: null,
+                  proveedorId: null,
                 };
                 if (p?.precio_hora != null) {
                   patch.precioUnitario = Number(p.precio_hora);
@@ -907,8 +922,15 @@ function FilaEstimado({
             {equipo.map((p) => (
               <option key={p.id} value={p.id}>{p.nombre}</option>
             ))}
-            {e.persona_externa && <option value="__cur_ext__">{e.persona_externa} (ext.)</option>}
-            <option value="__ext__">➕ Externo…</option>
+            {proveedores.length > 0 && (
+              <optgroup label="Proveedores (mano de obra externa)">
+                {proveedores.map((p) => (
+                  <option key={p.id} value={`prov:${p.id}`}>{p.nombre}</option>
+                ))}
+              </optgroup>
+            )}
+            {e.persona_externa && !e.proveedor_id && <option value="__cur_ext__">{e.persona_externa} (ext.)</option>}
+            <option value="__ext__">➕ Externo suelto…</option>
           </Select>
         </td>
       )}
