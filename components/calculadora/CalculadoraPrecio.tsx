@@ -281,6 +281,8 @@ export function CalculadoraPrecio({
   });
   const temp = TEMporada_META[r.temporada];
   const sem = r.semaforo ? SEMAFORO_META[r.semaforo] : null;
+  // Encargo/alquiler sin estructura de fijos (el precio va solo sobre directos).
+  const sinEstructura = serie === "alquiler_encargo" && !cfg.cargarEstructuraAlquiler;
   // Cristina planificada como línea de equipo (flujo de Costes): su bloque de
   // horas por tipo sobra, la llevaría dos veces.
   const cristinaEnPersonas = (inputs.personas ?? []).some((p) => /crist/i.test(p.nombre));
@@ -412,6 +414,14 @@ export function CalculadoraPrecio({
           <span className="rounded-pill bg-beige-warm px-2 py-1 font-semibold text-ink-secondary">
             comisión {num(r.comisionPct, 0)}%
           </span>
+          {sinEstructura && (
+            <span
+              className="rounded-pill bg-sage-tint px-2 py-1 font-semibold text-sage"
+              title="Encargo/alquiler: no carga la estructura de gastos fijos. El precio se pone sobre los costes directos + margen; los fijos se cubren con los eventos. Lo que se gane, bienvenido sea."
+            >
+              🏷️ sin estructura (encargo)
+            </span>
+          )}
           {r.minimoDesplazado != null && (
             <span
               className="rounded-pill bg-clay-tint px-2 py-1 font-semibold text-clay-600"
@@ -611,7 +621,13 @@ export function CalculadoraPrecio({
             {r.desglose.mermas > 0 && (
               <span>Mermas {num(cfg.mermasPct, 0)}%: <b className="tabular">{eur(r.desglose.mermas)}</b></span>
             )}
-            <span>Cuota de fijos: <b className="tabular">{eur(r.desglose.cuotaFijos)}</b></span>
+            {sinEstructura ? (
+              <span className="text-sage" title="Los encargos/alquileres no cargan estructura de fijos.">
+                Cuota de fijos: <b>sin estructura</b>
+              </span>
+            ) : (
+              <span>Cuota de fijos: <b className="tabular">{eur(r.desglose.cuotaFijos)}</b></span>
+            )}
           </div>
         )}
 
@@ -921,6 +937,18 @@ export function CalculadoraPrecio({
             <NumInput label="Beneficio mín. pequeños" value={cfg.tramos.beneficioMinimo} onChange={(v) => setCfg({ ...cfg, tramos: { ...cfg.tramos, beneficioMinimo: v } })} sufijo="€" />
           </div>
 
+          <label className="flex items-center gap-2 text-[12px] text-ink-secondary">
+            <input
+              type="checkbox"
+              checked={cfg.cargarEstructuraAlquiler}
+              onChange={(e) => setCfg({ ...cfg, cargarEstructuraAlquiler: e.target.checked })}
+              className="h-4 w-4 accent-sage"
+            />
+            Cargar estructura de fijos también a los alquileres/encargos
+            <span className="text-ink-muted">
+              (por defecto NO: un cartel o pieza suelta se cotiza sobre sus costes, sin la cuota de ~480 €)
+            </span>
+          </label>
           <p className="text-[11px] text-ink-muted">
             Temporadas: 🌞 alta = may, jun, sep, oct, dic · 🌗 media = abr, jul, nov · ❄️ baja = ene,
             feb, mar, ago. Tramos de tamaño: pequeño &lt; {eur(cfg.tramos.pequenoMax)} · grande ≥{" "}
