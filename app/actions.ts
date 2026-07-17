@@ -1632,6 +1632,49 @@ export async function guardarInventario(formData: FormData) {
   revalidatePath("/inventario");
 }
 
+// Da de alta en Inventario una línea de coste marcada como "se queda" (material
+// reutilizable): crea la pieza con su coste unitario y cantidad, y enlaza la
+// línea (inventario_id) para no duplicar el alta. Precio de alquiler sugerido
+// ≈ 3× el coste (editable luego en Inventario).
+export async function altaEnInventario(estimadoId: string, oportunidadId: string): Promise<{ inventarioId: string }> {
+  const sb = createAdminClient();
+  const { data: e, error } = await sb
+    .from("costes_estimados")
+    .select("concepto, cantidad, precio_unitario, inventario_id, se_queda")
+    .eq("id", estimadoId)
+    .single();
+  if (error) throw new Error(error.message);
+  if (e.inventario_id) return { inventarioId: e.inventario_id as string };
+  const coste = Number(e.precio_unitario ?? 0);
+  const { data: inv, error: insErr } = await sb
+    .from("inventario")
+    .insert({
+      articulo: (e.concepto as string)?.trim() || "Pieza de evento",
+      categoria: "De evento",
+      cantidad_total: Math.max(1, Math.round(Number(e.cantidad ?? 1))),
+      coste_unitario: coste || null,
+      precio_alquiler: coste > 0 ? Math.ceil((coste * 3) / 5) * 5 : null,
+      fianza_especial: false,
+      estado: "disponible",
+      notas: "Alta automática desde un coste de evento (material que se queda).",
+    })
+    .select("id")
+    .single();
+  if (insErr) throw new Error(insErr.message);
+  // Enlaza la línea (tolerante si la columna inventario_id aún no está).
+  const { error: linkErr } = await sb.from("costes_estimados").update({ inventario_id: inv.id }).eq("id", estimadoId);
+  if (linkErr && !(/inventario_id/.test(linkErr.message) && /column/i.test(linkErr.message))) throw new Error(linkErr.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/inventario");
+  await registrarActividad({
+    accion: "dio de alta material en inventario",
+    entidad: "inventario",
+    entidadId: inv.id as string,
+    detalle: `${e.concepto} (desde un evento)`,
+  });
+  return { inventarioId: inv.id as string };
+}
+
 export async function borrarInventario(id: string) {
   const sb = createAdminClient();
   const { error } = await sb.from("inventario").delete().eq("id", id);
@@ -2091,6 +2134,8 @@ export async function updateCosteEstimado(input: {
   zona?: string | null;
   porConfirmar?: boolean;
   recargoPct?: number | null;
+  seQueda?: boolean;
+  usosPrevistos?: number | null;
 }) {
   const sb = createAdminClient();
   if (await eventoCerrado(sb, input.oportunidadId))
@@ -2120,6 +2165,8 @@ export async function updateCosteEstimado(input: {
   if (input.nota !== undefined) patch.nota = input.nota?.trim() || null;
   if (input.zona !== undefined) patch.zona = input.zona?.trim() || null;
   if (input.porConfirmar !== undefined) patch.por_confirmar = Boolean(input.porConfirmar);
+  if (input.seQueda !== undefined) patch.se_queda = Boolean(input.seQueda);
+  if (input.usosPrevistos !== undefined) patch.usos_previstos = input.usosPrevistos ? Math.max(1, Math.round(Number(input.usosPrevistos))) : null;
   if (Object.keys(patch).length === 0) return;
   let { error } = await sb.from("costes_estimados").update(patch).eq("id", input.id);
   // Fallbacks tolerantes: si faltan columnas (migración sin ejecutar), reintenta sin ellas.
@@ -2127,8 +2174,10 @@ export async function updateCosteEstimado(input: {
     const { [k]: _omit, ...resto } = p;
     return resto;
   };
-  if (error && /zona|por_confirmar|recargo_pct/.test(error.message) && /column/i.test(error.message)) {
-    ({ error } = await sb.from("costes_estimados").update(quitar(quitar(quitar(patch, "zona"), "por_confirmar"), "recargo_pct")).eq("id", input.id));
+  if (error && /zona|por_confirmar|recargo_pct|se_queda|usos_previstos/.test(error.message) && /column/i.test(error.message)) {
+    let p2 = patch;
+    for (const k of ["zona", "por_confirmar", "recargo_pct", "se_queda", "usos_previstos"]) p2 = quitar(p2, k);
+    ({ error } = await sb.from("costes_estimados").update(p2).eq("id", input.id));
   }
   if (error && /proveedor_id|nota/.test(error.message) && /column/i.test(error.message)) {
     ({ error } = await sb.from("costes_estimados").update(quitar(quitar(patch, "proveedor_id"), "nota")).eq("id", input.id));

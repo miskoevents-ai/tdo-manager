@@ -3,7 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote, FileText, Warehouse, HelpCircle, Moon } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote, FileText, Warehouse, HelpCircle, Moon, Recycle } from "lucide-react";
+import { altaEnInventario } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
@@ -713,6 +714,40 @@ function ModulosPrevisto({
           </div>
         );
       })()}
+      {/* Inversión en stock (Opción C): material que se queda vs coste operativo. */}
+      {(() => {
+        const seQuedan = estimados.filter((e) => e.se_queda);
+        if (seQuedan.length === 0) return null;
+        const totalPrevisto = estimados.reduce((s, e) => s + Number(e.importe), 0);
+        const invLinea = (e: CosteEstimado) => {
+          const imp = Number(e.importe);
+          const usos = Number(e.usos_previstos ?? 0);
+          return usos > 1 ? imp * (1 - 1 / usos) : imp; // sin usos: todo es inversión
+        };
+        const inversion = seQuedan.reduce((s, e) => s + invLinea(e), 0);
+        const costeOperativo = totalPrevisto - inversion;
+        return (
+          <div className="rounded-md border-med border-sage bg-sage-tint/25 p-3">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-sage">
+              <Recycle size={13} /> Inversión en stock (material que se queda)
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12.5px]">
+              <span>Coste previsto total: <b className="tabular">{eur(totalPrevisto)}</b></span>
+              <span className="text-sage">Inversión en stock (reutilizable): <b className="tabular">{eur(inversion)}</b></span>
+              <span>Coste <b>operativo</b> del evento: <b className="tabular">{eur(costeOperativo)}</b></span>
+            </div>
+            <p className="mt-1.5 text-[11px] text-ink-muted">
+              Ese material se reutiliza en otros eventos: el coste real de operar este evento es {eur(inversion)} más bajo
+              que el contable. Marca los usos para amortizar, o da de alta la pieza en Inventario para reservarla luego.
+            </p>
+            <div className="mt-2 space-y-1.5">
+              {seQuedan.map((e) => (
+                <LineaSeQueda key={e.id} e={e} oportunidadId={oportunidadId} cerrada={cerrada} busy={busy} run={run} onDone={onDone} />
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       {MODULOS_PREVISTO.map((m) => {
         const filas = estimados.filter((e) => moduloDeEstimado(e.categoria) === m.key);
         const subtotal = filas.reduce((s, e) => s + Number(e.importe), 0);
@@ -854,6 +889,64 @@ function ModulosPrevisto({
   );
 }
 
+// Una línea de "material que se queda": permite fijar los usos previstos
+// (amortización) y darla de alta en Inventario para reutilizarla.
+function LineaSeQueda({
+  e,
+  oportunidadId,
+  cerrada,
+  busy,
+  run,
+  onDone,
+}: {
+  e: CosteEstimado;
+  oportunidadId: string;
+  cerrada: boolean;
+  busy: boolean;
+  run: (fn: () => Promise<void>) => Promise<void>;
+  onDone: () => void;
+}) {
+  const [usos, setUsos] = React.useState(e.usos_previstos != null ? String(e.usos_previstos) : "");
+  const enInventario = Boolean(e.inventario_id);
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md bg-white/70 px-2.5 py-1.5 text-[12.5px]">
+      <span className="min-w-[130px] flex-1 font-medium">{e.concepto || "Sin concepto"}</span>
+      <span className="tabular text-ink-secondary">{eur(Number(e.importe))}</span>
+      {!cerrada && (
+        <label className="flex items-center gap-1 text-[11px] text-ink-muted" title="Nº de usos previstos para amortizar (vacío = no amortiza, cuenta como inversión)">
+          usos
+          <Input
+            type="number"
+            min={1}
+            step={1}
+            value={usos}
+            onChange={(ev) => setUsos(ev.target.value)}
+            onBlur={() => Number(usos || 0) !== Number(e.usos_previstos ?? 0) && run(async () => { await updateCosteEstimado({ id: e.id, oportunidadId, usosPrevistos: usos ? Number(usos) : null }); onDone(); })}
+            className="w-[64px] py-1 text-right text-[12px] tabular"
+            placeholder="—"
+          />
+        </label>
+      )}
+      {enInventario ? (
+        <span className="inline-flex items-center gap-1 rounded-pill bg-ok-tint px-2 py-0.5 text-[10.5px] font-semibold text-ok">
+          ✓ en inventario
+        </span>
+      ) : (
+        !cerrada && (
+          <button
+            disabled={busy}
+            onClick={() => run(async () => { await altaEnInventario(e.id, oportunidadId); onDone(); })}
+            className="inline-flex items-center gap-1 rounded-sm border-med border-sage px-2 py-0.5 text-[10.5px] font-semibold text-sage hover:bg-sage-tint"
+            title="Dar de alta esta pieza en Inventario para poder reservarla en otros eventos"
+          >
+            <Warehouse size={11} /> Alta en inventario
+          </button>
+        )
+      )}
+    </div>
+  );
+}
+
 function FilaEstimado({
   e,
   modulo,
@@ -906,6 +999,8 @@ function FilaEstimado({
     zona?: string | null;
     porConfirmar?: boolean;
     recargoPct?: number | null;
+    seQueda?: boolean;
+    usosPrevistos?: number | null;
   }) {
     if (bloqueado) return;
     try {
@@ -1079,6 +1174,7 @@ function FilaEstimado({
       )}
       <td className="border-b border-[#f0eae1] py-1 text-right tabular font-semibold">
         {recargo > 0 && <span title={`Recargo nocturnidad +${recargo}%`} className="mr-1 text-sage">🌙</span>}
+        {e.se_queda && <span title="Material que se queda (inversión en stock)" className="mr-1 text-sage">♻</span>}
         {e.por_confirmar && <span title="Precio por confirmar" className="mr-1 text-[#7a5a1a]">?</span>}
         {eur(total)}
       </td>
@@ -1113,6 +1209,15 @@ function FilaEstimado({
       <td className="border-b border-[#f0eae1] py-1 text-center">
         {!cerrada && !bloqueado && (
           <span className="inline-flex items-center">
+            {modulo.key === "materiales" && (
+              <button
+                title={e.se_queda ? "Material que se queda (reutilizable). Pulsa para quitar." : "Marcar como material que se queda en inventario (reutilizable)"}
+                onClick={() => guardar({ seQueda: !e.se_queda })}
+                className={`rounded-sm p-1 ${e.se_queda ? "bg-sage-tint text-sage" : "text-ink-muted"} hover:bg-beige-warm hover:text-sage`}
+              >
+                <Recycle size={13} />
+              </button>
+            )}
             {modulo.persona && (
               <button
                 title={recargo > 0 ? `Nocturnidad +${recargo}% (pulsa para quitar)` : `Aplicar recargo de nocturnidad (+${RECARGO_NOCTURNO}%)`}
