@@ -79,6 +79,9 @@ export function ClienteDialog({ cliente }: { cliente?: Cliente }) {
               <Input name="telefono" defaultValue={cliente?.telefono ?? ""} />
             </Field>
           </div>
+          <Field label="Persona de contacto">
+            <Input name="persona_contacto" defaultValue={cliente?.persona_contacto ?? ""} placeholder="Para empresas/agencias: quién coordina (p. ej. María Freire)" />
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Origen">
               <Select name="origen" defaultValue={cliente?.origen ?? "cliente_nuevo"}>

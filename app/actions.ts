@@ -63,15 +63,24 @@ export async function guardarCliente(formData: FormData) {
     origen: formData.get("origen") as string,
     estado: formData.get("estado") as string,
     canal: (formData.get("canal") as string) || null,
+    persona_contacto: (formData.get("persona_contacto") as string)?.trim() || null,
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.nombre) throw new Error("El nombre es obligatorio.");
 
+  // Reintento sin persona_contacto si la migración 051 aún no está aplicada.
+  const faltaContacto = (m: string) => /persona_contacto/.test(m) && /column/i.test(m);
+  const sinContacto = () => {
+    const { persona_contacto: _p, ...resto } = payload;
+    return resto;
+  };
   if (id) {
-    const { error } = await sb.from("clientes").update(payload).eq("id", id);
+    let { error } = await sb.from("clientes").update(payload).eq("id", id);
+    if (error && faltaContacto(error.message)) ({ error } = await sb.from("clientes").update(sinContacto()).eq("id", id));
     if (error) throw new Error(error.message);
   } else {
-    const { error } = await sb.from("clientes").insert(payload);
+    let { error } = await sb.from("clientes").insert(payload);
+    if (error && faltaContacto(error.message)) ({ error } = await sb.from("clientes").insert(sinContacto()));
     if (error) throw new Error(error.message);
   }
   revalidatePath("/clientes");
@@ -192,6 +201,9 @@ export async function guardarOportunidad(formData: FormData) {
     fecha_evento: (formData.get("fecha_evento") as string) || null,
     fecha_montaje: (formData.get("fecha_montaje") as string) || null,
     fecha_recogida: (formData.get("fecha_recogida") as string) || null,
+    hora_montaje: (formData.get("hora_montaje") as string)?.trim() || null,
+    hora_desmontaje: (formData.get("hora_desmontaje") as string)?.trim() || null,
+    logistica: (formData.get("logistica") as string)?.trim() || null,
     responsable: (formData.get("responsable") as string)?.trim() || null,
     n_invitados: numToNull(formData.get("n_invitados")),
     iva_pct: Math.round(numToNull(formData.get("iva_pct")) ?? 21),
@@ -213,11 +225,17 @@ export async function guardarOportunidad(formData: FormData) {
 
   // Reintento sin columnas de migraciones aún no aplicadas (comision_equipo_id
   // → 034; envio* → 050): si el error las menciona, se quitan y se reintenta.
-  const OPCIONALES = ["comision_equipo_id", "envio", "envio_coste", "envio_incluido"] as const;
+  const OPCIONALES = [
+    "comision_equipo_id", "envio", "envio_coste", "envio_incluido",
+    "hora_montaje", "hora_desmontaje", "logistica",
+  ] as const;
   const faltaColumna = (msg: string) =>
     /column/i.test(msg) && OPCIONALES.some((c) => new RegExp(`\\b${c}\\b`).test(msg));
   const sinOpcionales = (p: typeof payload) => {
-    const { comision_equipo_id: _c, envio: _e, envio_coste: _ec, envio_incluido: _ei, ...resto } = p;
+    const {
+      comision_equipo_id: _c, envio: _e, envio_coste: _ec, envio_incluido: _ei,
+      hora_montaje: _hm, hora_desmontaje: _hd, logistica: _l, ...resto
+    } = p;
     return resto;
   };
   let opId = id;
@@ -2070,6 +2088,8 @@ export async function updateCosteEstimado(input: {
   caja?: string | null;
   proveedorId?: string | null;
   nota?: string | null;
+  zona?: string | null;
+  porConfirmar?: boolean;
 }) {
   const sb = createAdminClient();
   if (await eventoCerrado(sb, input.oportunidadId))
@@ -2095,6 +2115,8 @@ export async function updateCosteEstimado(input: {
   if (input.caja !== undefined) patch.caja = input.caja === "amigos" ? "amigos" : null;
   if (input.proveedorId !== undefined) patch.proveedor_id = input.proveedorId || null;
   if (input.nota !== undefined) patch.nota = input.nota?.trim() || null;
+  if (input.zona !== undefined) patch.zona = input.zona?.trim() || null;
+  if (input.porConfirmar !== undefined) patch.por_confirmar = Boolean(input.porConfirmar);
   if (Object.keys(patch).length === 0) return;
   let { error } = await sb.from("costes_estimados").update(patch).eq("id", input.id);
   // Fallbacks tolerantes: si faltan columnas (migración sin ejecutar), reintenta sin ellas.
@@ -2102,6 +2124,9 @@ export async function updateCosteEstimado(input: {
     const { [k]: _omit, ...resto } = p;
     return resto;
   };
+  if (error && /zona|por_confirmar/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("costes_estimados").update(quitar(quitar(patch, "zona"), "por_confirmar")).eq("id", input.id));
+  }
   if (error && /proveedor_id|nota/.test(error.message) && /column/i.test(error.message)) {
     ({ error } = await sb.from("costes_estimados").update(quitar(quitar(patch, "proveedor_id"), "nota")).eq("id", input.id));
   }

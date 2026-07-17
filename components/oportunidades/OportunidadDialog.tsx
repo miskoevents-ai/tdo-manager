@@ -349,6 +349,17 @@ export function OportunidadDialog({
             </Field>
           </div>
 
+          {!esAlquiler && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Horario de montaje">
+                <Input name="hora_montaje" defaultValue={oportunidad?.hora_montaje ?? ""} placeholder="p. ej. 7:00–15:00" />
+              </Field>
+              <Field label="Horario de desmontaje">
+                <Input name="hora_desmontaje" defaultValue={oportunidad?.hora_desmontaje ?? ""} placeholder="p. ej. 00:00" />
+              </Field>
+            </div>
+          )}
+
           <div className="grid grid-cols-4 gap-3">
             <Field label="Invitados">
               <Input type="number" name="n_invitados" defaultValue={oportunidad?.n_invitados ?? ""} />
@@ -478,6 +489,10 @@ export function OportunidadDialog({
               </p>
             </Field>
           </div>
+          <Field label="Logística del lugar (accesos, muelle de carga, horarios del recinto…)">
+            <Textarea name="logistica" defaultValue={oportunidad?.logistica ?? ""} placeholder="Muelle de carga, horario de acceso, restricciones del recinto, contacto de sala…" />
+          </Field>
+
           <Field label="Notas">
             <Textarea name="notas" defaultValue={oportunidad?.notas ?? ""} />
           </Field>
