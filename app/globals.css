@@ -164,6 +164,13 @@ body {
     overflow: visible !important;
     box-sizing: border-box;
   }
+  /* …salvo las imágenes: deben seguir RECORTANDO (object-cover) para no
+     desbordar su casilla y pisar las filas de abajo. Sin esto, una foto
+     vertical se derramaba hacia abajo en el PDF. */
+  .print-doc img {
+    overflow: hidden !important;
+    object-fit: cover;
+  }
   .print-doc table {
     width: 100% !important;
     table-layout: auto;
