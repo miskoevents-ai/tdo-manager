@@ -2611,6 +2611,21 @@ export async function descargarPresupuestoPdf(
   }
 }
 
+// Genera el PDF de la FACTURA en el servidor y lo devuelve en base64 para
+// descargarlo del tirón (siempre con el diseño actual, no el PDF guardado).
+export async function descargarFacturaPdf(
+  facturaId: string,
+): Promise<{ base64?: string; filename?: string; error?: string }> {
+  try {
+    const f = await getFactura(facturaId);
+    if (!f) return { error: "Factura no encontrada." };
+    const buf = await renderFacturaPdf(f);
+    return { base64: buf.toString("base64"), filename: `Factura ${f.numero}.pdf`.replace(/[\\/:*?"<>|]+/g, "-") };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 // ---------------------- Versiones de presupuesto ----------------------
 
 // Guarda el presupuesto actual como una versión (V1, V2…): foto fija de las
