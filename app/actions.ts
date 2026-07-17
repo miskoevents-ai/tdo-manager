@@ -2748,11 +2748,14 @@ export async function borrarVersionPresupuesto(versionId: string) {
 // Emite una factura a partir de una oportunidad (congela los importes).
 export async function emitirFactura(oportunidadId: string) {
   const sb = createAdminClient();
-  // Evita duplicar factura: si ya hay una emitida para esta oportunidad, corta.
+  // Evita duplicar factura: si ya hay una VIVA (no anulada) para esta
+  // oportunidad, corta. Una anulada no bloquea: se emite una nueva con el
+  // siguiente número de la serie (la anulada conserva el suyo).
   const { data: facExistente } = await sb
     .from("facturas")
     .select("id, numero")
     .eq("oportunidad_id", oportunidadId)
+    .neq("estado", "anulada")
     .limit(1)
     .maybeSingle();
   if (facExistente) {
@@ -3065,11 +3068,12 @@ export async function validarOportunidad(
   let aviso: string | null = null;
 
   if (op.tipo_operacion === "normal") {
-    // ¿Ya tiene factura? Entonces no se duplica.
+    // ¿Ya tiene factura viva (no anulada)? Entonces no se duplica.
     const { data: existente } = await sb
       .from("facturas")
       .select("id")
       .eq("oportunidad_id", oportunidadId)
+      .neq("estado", "anulada")
       .limit(1)
       .maybeSingle();
     if (existente) {
@@ -3411,6 +3415,23 @@ export async function anularFactura(id: string, anular: boolean) {
         .eq("oportunidad_id", f.oportunidad_id)
         .eq("naturaleza", "ingreso_factura")
         .eq("estado", "previsto");
+      // Si la oportunidad quedó en "facturada" y ya no tiene ninguna factura
+      // viva, vuelve a "realizada": así la ficha ofrece emitir la nueva.
+      const { data: viva } = await sb
+        .from("facturas")
+        .select("id")
+        .eq("oportunidad_id", f.oportunidad_id)
+        .neq("estado", "anulada")
+        .limit(1)
+        .maybeSingle();
+      if (!viva) {
+        await sb
+          .from("oportunidades")
+          .update({ estado: "realizada" })
+          .eq("id", f.oportunidad_id)
+          .eq("estado", "facturada");
+      }
+      revalidatePath(`/oportunidades/${f.oportunidad_id}`);
     }
   }
   revalidatePath("/facturas");
