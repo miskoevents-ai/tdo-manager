@@ -512,13 +512,16 @@ export async function getCostesEstimadosTodos(): Promise<CosteEstimado[]> {
 export async function getFacturaDeOportunidad(
   oportunidadId: string,
 ): Promise<Pick<Factura, "id" | "numero" | "estado"> | null> {
+  // Las anuladas no cuentan: si se anuló la factura, la ficha debe volver a
+  // ofrecer "Emitir factura" (la anulada sigue visible en Documentos).
   if (mock.enabled)
-    return mock.facturas().find((f) => f.oportunidad_id === oportunidadId) ?? null;
+    return mock.facturas().find((f) => f.oportunidad_id === oportunidadId && f.estado !== "anulada") ?? null;
   const sb = createAdminClient();
   const { data, error } = await sb
     .from("facturas")
     .select("id, numero, estado")
     .eq("oportunidad_id", oportunidadId)
+    .neq("estado", "anulada")
     .order("fecha_emision", { ascending: false })
     .limit(1)
     .maybeSingle();
