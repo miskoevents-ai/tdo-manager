@@ -270,6 +270,27 @@ export function OportunidadDialog({
             </Field>
           </div>
 
+          {/* Reparto de cobro para alquileres/encargos: qué % va con factura;
+              el resto se cobra en efectivo ("amigos"). Solo se muestra aquí y
+              en el email al cliente, nunca en el presupuesto. Migración 054. */}
+          {esAlquiler && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="% con factura">
+                <Input
+                  type="number"
+                  name="pct_factura"
+                  min={0}
+                  max={100}
+                  step={1}
+                  defaultValue={oportunidad?.pct_factura ?? 25}
+                />
+                <p className="mt-1 text-[11px] text-ink-muted">
+                  El resto se cobra en efectivo (amigos).
+                </p>
+              </Field>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Fecha de entrada">
               <Input

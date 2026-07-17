@@ -95,6 +95,7 @@ export type Oportunidad = {
   fecha_devolucion_fianza: string | null;
   pago_a_dias?: number; // 0 = al momento; 30 = el cliente paga a 30 días
   descuento_pct?: number | null; // % de descuento global del presupuesto (0–100)
+  pct_factura?: number | null; // % del importe que se cobra con factura; el resto en efectivo/amigos. Solo alquiler/encargo. Mig. 054
   contingencia_pct?: number | null; // % de colchón sobre los costes estimados
   margen_objetivo_pct?: number | null; // % de margen mínimo para cuadrar el precio
   cerrada?: boolean; // evento cerrado: costes validados y congelados
