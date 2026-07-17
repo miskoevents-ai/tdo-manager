@@ -15,6 +15,7 @@ import { VersionesPresupuesto } from "@/components/oportunidades/VersionesPresup
 import { SolicitarValidacionBtn } from "@/components/oportunidades/SolicitarValidacionBtn";
 import { PresupuestoValidadoBtn } from "@/components/oportunidades/PresupuestoValidadoBtn";
 import { FianzaSugerida } from "@/components/oportunidades/FianzaSugerida";
+import { LogisticaChecklist } from "@/components/oportunidades/LogisticaChecklist";
 import { CostesTab } from "@/components/costes/CostesTab";
 import { ReunionesTab } from "@/components/oportunidades/ReunionesTab";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
@@ -457,6 +458,9 @@ export default async function Page({
                 <p className="mt-1 whitespace-pre-line text-[13px] text-ink-secondary">{op.logistica}</p>
               </div>
             )}
+            <div className="mt-5 border-t border-border pt-4">
+              <LogisticaChecklist oportunidadId={op.id} inicial={op.logistica_checklist} />
+            </div>
             {op.notas && (
               <div className="mt-5 border-t border-border pt-4">
                 <Overline>Notas</Overline>

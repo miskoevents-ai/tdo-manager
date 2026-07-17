@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote, FileText, Warehouse, HelpCircle } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote, FileText, Warehouse, HelpCircle, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
@@ -884,10 +884,13 @@ function FilaEstimado({
   const [pagador, setPagador] = React.useState(e.pagador ?? "");
   const [proveedorSel, setProveedorSel] = React.useState(e.proveedor_id ?? "");
   const [zona, setZona] = React.useState(e.zona ?? "");
+  const [recargo, setRecargo] = React.useState(Number(e.recargo_pct ?? 0));
   // Importe para cuadrar: null hasta que se teclee → muestra el total vivo
   // (así no se queda obsoleto si se edita la cantidad/precio antes de cuadrar).
   const [realEdit, setRealEdit] = React.useState<string | null>(null);
-  const total = (Number(cantidad) || 0) * (Number(precio) || 0);
+  // El total lleva el recargo (nocturnidad): cantidad × precio × (1+recargo%).
+  const total = (Number(cantidad) || 0) * (Number(precio) || 0) * (1 + recargo / 100);
+  const RECARGO_NOCTURNO = 25; // % estándar de nocturnidad/festivo
   const real = realEdit ?? String(Math.round(total * 100) / 100);
   const tieneProveedor = modulo.key === "materiales" || modulo.key === "alquiler";
 
@@ -902,6 +905,7 @@ function FilaEstimado({
     nota?: string | null;
     zona?: string | null;
     porConfirmar?: boolean;
+    recargoPct?: number | null;
   }) {
     if (bloqueado) return;
     try {
@@ -1074,6 +1078,7 @@ function FilaEstimado({
         </td>
       )}
       <td className="border-b border-[#f0eae1] py-1 text-right tabular font-semibold">
+        {recargo > 0 && <span title={`Recargo nocturnidad +${recargo}%`} className="mr-1 text-sage">🌙</span>}
         {e.por_confirmar && <span title="Precio por confirmar" className="mr-1 text-[#7a5a1a]">?</span>}
         {eur(total)}
       </td>
@@ -1108,6 +1113,19 @@ function FilaEstimado({
       <td className="border-b border-[#f0eae1] py-1 text-center">
         {!cerrada && !bloqueado && (
           <span className="inline-flex items-center">
+            {modulo.persona && (
+              <button
+                title={recargo > 0 ? `Nocturnidad +${recargo}% (pulsa para quitar)` : `Aplicar recargo de nocturnidad (+${RECARGO_NOCTURNO}%)`}
+                onClick={() => {
+                  const nuevo = recargo > 0 ? 0 : RECARGO_NOCTURNO;
+                  setRecargo(nuevo);
+                  guardar({ recargoPct: nuevo || null });
+                }}
+                className={`rounded-sm p-1 ${recargo > 0 ? "bg-sage-tint text-sage" : "text-ink-muted"} hover:bg-beige-warm hover:text-sage`}
+              >
+                <Moon size={13} />
+              </button>
+            )}
             <button
               title={e.por_confirmar ? "Precio por confirmar (marcado). Pulsa para quitar." : "Marcar precio 'por confirmar' (pendiente de proveedor)"}
               onClick={() => guardar({ porConfirmar: !e.por_confirmar })}

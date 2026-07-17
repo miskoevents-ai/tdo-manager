@@ -2090,24 +2090,27 @@ export async function updateCosteEstimado(input: {
   nota?: string | null;
   zona?: string | null;
   porConfirmar?: boolean;
+  recargoPct?: number | null;
 }) {
   const sb = createAdminClient();
   if (await eventoCerrado(sb, input.oportunidadId))
     throw new Error("El evento está cerrado; reábrelo para editar los costes previstos.");
-  const { data: row } = await sb
-    .from("costes_estimados")
-    .select("cantidad, precio_unitario, cuadrado")
-    .eq("id", input.id)
-    .maybeSingle();
+  // recargo_pct es de la migración 052: si aún no está, se lee sin él.
+  let sel = await sb.from("costes_estimados").select("cantidad, precio_unitario, cuadrado, recargo_pct").eq("id", input.id).maybeSingle();
+  if (sel.error) sel = await sb.from("costes_estimados").select("cantidad, precio_unitario, cuadrado").eq("id", input.id).maybeSingle();
+  const row = sel.data as { cantidad?: number; precio_unitario?: number; cuadrado?: boolean; recargo_pct?: number } | null;
   if (row?.cuadrado) throw new Error("Esta línea ya está cuadrada a real; no se puede editar.");
   const cantidad = input.cantidad ?? Number(row?.cantidad ?? 1);
   const precio = input.precioUnitario ?? Number(row?.precio_unitario ?? 0);
+  const recargo = input.recargoPct ?? Number(row?.recargo_pct ?? 0);
   const patch: Record<string, unknown> = {};
   if (input.concepto !== undefined) patch.concepto = input.concepto.trim();
   if (input.cantidad !== undefined) patch.cantidad = cantidad;
   if (input.precioUnitario !== undefined) patch.precio_unitario = precio;
-  if (input.cantidad !== undefined || input.precioUnitario !== undefined) {
-    patch.importe = Math.round(cantidad * precio * 100) / 100;
+  if (input.recargoPct !== undefined) patch.recargo_pct = input.recargoPct ? Number(input.recargoPct) : null;
+  // El importe lleva el recargo (nocturnidad): cantidad × precio × (1+recargo%).
+  if (input.cantidad !== undefined || input.precioUnitario !== undefined || input.recargoPct !== undefined) {
+    patch.importe = Math.round(cantidad * precio * (1 + recargo / 100) * 100) / 100;
   }
   if (input.equipoId !== undefined) patch.equipo_id = input.equipoId || null;
   if (input.personaExterna !== undefined) patch.persona_externa = input.personaExterna?.trim() || null;
@@ -2124,8 +2127,8 @@ export async function updateCosteEstimado(input: {
     const { [k]: _omit, ...resto } = p;
     return resto;
   };
-  if (error && /zona|por_confirmar/.test(error.message) && /column/i.test(error.message)) {
-    ({ error } = await sb.from("costes_estimados").update(quitar(quitar(patch, "zona"), "por_confirmar")).eq("id", input.id));
+  if (error && /zona|por_confirmar|recargo_pct/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("costes_estimados").update(quitar(quitar(quitar(patch, "zona"), "por_confirmar"), "recargo_pct")).eq("id", input.id));
   }
   if (error && /proveedor_id|nota/.test(error.message) && /column/i.test(error.message)) {
     ({ error } = await sb.from("costes_estimados").update(quitar(quitar(patch, "proveedor_id"), "nota")).eq("id", input.id));
@@ -2851,6 +2854,23 @@ export async function fijarFianza(oportunidadId: string, importe: number) {
     entidadId: oportunidadId,
     detalle: `Fianza ${fianza} € (50% del material en alquiler)`,
   });
+}
+
+// Guarda el checklist de logística del recinto (seguros, permisos, cargas…).
+export async function guardarLogisticaChecklist(
+  oportunidadId: string,
+  checklist: { label: string; hecho: boolean; nota?: string | null }[],
+) {
+  const sb = createAdminClient();
+  const limpio = checklist
+    .map((i) => ({ label: (i.label ?? "").trim(), hecho: Boolean(i.hecho), nota: (i.nota ?? "")?.toString().trim() || null }))
+    .filter((i) => i.label);
+  let { error } = await sb.from("oportunidades").update({ logistica_checklist: limpio }).eq("id", oportunidadId);
+  if (error && /logistica_checklist/.test(error.message) && /column/i.test(error.message)) {
+    throw new Error("Falta aplicar la migración 052 en Supabase para guardar el checklist de logística.");
+  }
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
 }
 
 // El cliente ha aceptado el presupuesto: un botón en la pestaña Presupuesto que
