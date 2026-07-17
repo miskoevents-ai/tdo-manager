@@ -1,18 +1,13 @@
-# Robot puente: descarga fotos PÚBLICAS de Google Drive ("cualquiera con el
-# enlace"), las comprime a calidad web (máx. 2000 px, JPEG 85) y las publica en
-# la rama fotos/<carpeta>. Sirve para preparar porfolios (fincas, catálogo…)
-# sin subir archivos pesados a mano. Se lanza a mano (workflow_dispatch).
+# Robot puente: al subir un "pedido" a la rama fotos-worker, descarga las fotos
+# PÚBLICAS de Google Drive ("cualquiera con el enlace"), las comprime a calidad
+# web (máx. 2000 px, JPEG 85) y las deja en fotos-listas/<carpeta> en la misma
+# rama. Sirve para preparar porfolios sin subir archivos pesados a mano.
 name: Traer fotos de Drive
 
 on:
-  workflow_dispatch:
-    inputs:
-      carpeta:
-        description: "Carpeta destino (p. ej. hormigal)"
-        required: true
-      manifiesto:
-        description: "Una línea por foto: FILE_ID|nombre-salida.jpg"
-        required: true
+  push:
+    branches: [fotos-worker]
+    paths: ["fotos-pedidos/**"]
 
 permissions:
   contents: write
@@ -28,53 +23,45 @@ jobs:
       - name: Instalar Pillow
         run: pip install --quiet pillow requests
       - name: Descargar y comprimir
-        env:
-          MANIFIESTO: ${{ inputs.manifiesto }}
-          CARPETA: ${{ inputs.carpeta }}
         run: |
           python - <<'EOF'
-          import os, io, sys, requests
+          import os, io, glob, requests
           from PIL import Image
-
-          carpeta = os.environ["CARPETA"].strip()
-          destino = f"fotos-drive/{carpeta}"
-          os.makedirs(destino, exist_ok=True)
-          ok, fallos = [], []
-          for linea in os.environ["MANIFIESTO"].splitlines():
-              linea = linea.strip()
-              if not linea or "|" not in linea:
+          for pedido in sorted(glob.glob("fotos-pedidos/*.txt")):
+              lineas = [l.strip() for l in open(pedido) if l.strip()]
+              if not lineas:
                   continue
-              fid, nombre = linea.split("|", 1)
-              fid, nombre = fid.strip(), nombre.strip()
-              url = f"https://drive.usercontent.google.com/download?id={fid}&export=download"
-              try:
-                  r = requests.get(url, timeout=120, allow_redirects=True)
-                  datos = r.content
-                  # Si Drive devuelve HTML es que el archivo NO es público.
-                  if datos[:5].lower().startswith(b"<!doc") or b"<html" in datos[:200].lower():
-                      raise RuntimeError("no publico (Drive devolvio HTML)")
-                  img = Image.open(io.BytesIO(datos))
-                  img = img.convert("RGB")
-                  img.thumbnail((2000, 2000))
-                  ruta = os.path.join(destino, nombre)
-                  img.save(ruta, "JPEG", quality=85, optimize=True)
-                  kb = os.path.getsize(ruta) // 1024
-                  ok.append(f"{nombre} ({kb} KB)")
-                  print(f"OK  {nombre}: {len(datos)//1024} KB -> {kb} KB")
-              except Exception as e:
-                  fallos.append(f"{nombre}: {e}")
-                  print(f"FALLO {nombre}: {e}")
-          with open(os.path.join(destino, "_INFORME.txt"), "w") as f:
-              f.write(f"OK: {len(ok)}\n" + "\n".join(ok) + f"\n\nFALLOS: {len(fallos)}\n" + "\n".join(fallos) + "\n")
-          print(f"\nResumen: {len(ok)} ok, {len(fallos)} fallos")
-          if not ok:
-              sys.exit(1)  # nada descargado: seguramente la carpeta no es publica
+              carpeta = lineas[0]
+              destino = f"fotos-listas/{carpeta}"
+              os.makedirs(destino, exist_ok=True)
+              ok, fallos = [], []
+              for linea in lineas[1:]:
+                  if "|" not in linea:
+                      continue
+                  fid, nombre = [x.strip() for x in linea.split("|", 1)]
+                  url = f"https://drive.usercontent.google.com/download?id={fid}&export=download"
+                  try:
+                      r = requests.get(url, timeout=120, allow_redirects=True)
+                      datos = r.content
+                      if b"<html" in datos[:400].lower():
+                          raise RuntimeError("no publico (Drive devolvio HTML)")
+                      img = Image.open(io.BytesIO(datos)).convert("RGB")
+                      img.thumbnail((2000, 2000))
+                      ruta = os.path.join(destino, nombre)
+                      img.save(ruta, "JPEG", quality=85, optimize=True)
+                      ok.append(f"{nombre} ({os.path.getsize(ruta)//1024} KB)")
+                      print(f"OK  {nombre}: {len(datos)//1024} KB -> {os.path.getsize(ruta)//1024} KB")
+                  except Exception as e:
+                      fallos.append(f"{nombre}: {e}")
+                      print(f"FALLO {nombre}: {e}")
+              with open(os.path.join(destino, "_INFORME.txt"), "w") as f:
+                  f.write(f"OK: {len(ok)}\n" + "\n".join(ok) + f"\n\nFALLOS: {len(fallos)}\n" + "\n".join(fallos) + "\n")
+              print(f"== {carpeta}: {len(ok)} ok, {len(fallos)} fallos ==")
           EOF
-      - name: Publicar en rama fotos/<carpeta>
+      - name: Publicar resultados (mismo branch, sin re-disparar)
         run: |
           git config user.name "tdo-fotos-bot"
           git config user.email "fotos-bot@users.noreply.github.com"
-          git checkout -B "fotos/${{ inputs.carpeta }}"
-          git add fotos-drive/
-          git commit -m "Fotos ${{ inputs.carpeta }} comprimidas (robot Drive)"
-          git push -f origin "fotos/${{ inputs.carpeta }}"
+          git add fotos-listas/
+          git commit -m "Fotos comprimidas por el robot [skip ci]" || echo "sin cambios"
+          git push origin HEAD:fotos-worker
