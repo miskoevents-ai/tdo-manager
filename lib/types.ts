@@ -27,6 +27,7 @@ export type Cliente = {
   origen: ClienteOrigen;
   estado: ClienteEstado;
   canal: string | null;
+  persona_contacto?: string | null; // contacto dentro de una empresa/agencia
   notas: string | null;
   recomendacion_pedida?: boolean;
   nos_ha_recomendado?: boolean;
@@ -81,6 +82,9 @@ export type Oportunidad = {
   fecha_evento: string | null;
   fecha_montaje: string | null;
   fecha_recogida: string | null;
+  hora_montaje?: string | null; // p. ej. "7:00–15:00"
+  hora_desmontaje?: string | null; // p. ej. "00:00"
+  logistica?: string | null; // accesos/muelle/horarios del recinto
   responsable: string | null;
   n_invitados: number | null;
   iva_pct: number;
@@ -145,6 +149,8 @@ export type CosteEstimado = {
   caja?: string | null; // caja prevista: 'amigos' o null (oficial)
   proveedor_id?: string | null; // proveedor del material/alquiler (migración 046)
   nota?: string | null; // matiz libre de la línea (migración 046)
+  zona?: string | null; // espacio del evento (Entrada, Lobby, Planta 1…) — mig. 051
+  por_confirmar?: boolean; // precio pendiente de un proveedor — mig. 051
   created_at: string;
 };
 

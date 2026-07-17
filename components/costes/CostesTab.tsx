@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote, FileText } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote, FileText, Warehouse, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
 import { eur, fecha, num } from "@/lib/format";
@@ -119,8 +119,17 @@ export function CostesTab({
     r();
   }
 
+  const hayPorConfirmar = estimados.filter((e) => e.por_confirmar);
   return (
     <div className="space-y-5">
+      {/* Aviso: hay costes con precio pendiente → el presupuesto no es definitivo */}
+      {hayPorConfirmar.length > 0 && (
+        <div className="rounded-md border-med border-[#e7d3a6] bg-warn-tint px-4 py-3 text-[12.5px] text-[#7a5a1a]">
+          ⚠️ <b>Presupuesto no definitivo:</b> hay {hayPorConfirmar.length} coste
+          {hayPorConfirmar.length === 1 ? "" : "s"} por confirmar (pendiente de proveedor):{" "}
+          {hayPorConfirmar.map((e) => e.concepto || "sin concepto").join(", ")}. Cierra esos precios antes de mandar el presupuesto en firme.
+        </div>
+      )}
       {/* Cierre del evento */}
       {cerrada && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border-hair border-ok bg-ok-tint px-4 py-3 text-[13px]">
@@ -616,6 +625,8 @@ const MODULOS_PREVISTO = [
     sugerencias: ["Flores y centros", "Mantelería", "Atrezzo", "Fungibles", "Impresión / papelería", "Velas", "Mobiliario decorativo"] },
   { key: "alquiler", categoria: "Alquiler externo", titulo: "Alquiler externo", Icon: Package, persona: false, cantLabel: "Cant./días", precioLabel: "€/ud", conceptoLabel: "Concepto",
     sugerencias: ["Furgoneta", "Carpa", "Mobiliario", "Vajilla", "Subcontrata"] },
+  { key: "logistica", categoria: "Almacén y logística", titulo: "Almacén y logística", Icon: Warehouse, persona: false, cantLabel: "Días/ud", precioLabel: "€/ud", conceptoLabel: "Concepto",
+    sugerencias: ["Trastero / almacén (Bluespace)", "Guardamuebles", "Punto limpio / residuos", "Custodia de material"] },
 ] as const;
 
 type ModuloDef = (typeof MODULOS_PREVISTO)[number];
@@ -627,6 +638,7 @@ function moduloDeEstimado(categoria: string | null | undefined): string {
   if (c === "personal") return "manoObra";
   if (c === "desplazamiento") return "transporte";
   if (c.includes("dieta") || c.includes("comida")) return "dietas";
+  if (c.includes("almac") || c.includes("logíst") || c.includes("logist") || c.includes("trastero")) return "logistica";
   if (c.includes("alquiler")) return "alquiler";
   return "materiales";
 }
@@ -666,6 +678,41 @@ function ModulosPrevisto({
           ))}
         </datalist>
       ))}
+      {/* Sugerencias de zona: las ya usadas + espacios habituales. */}
+      <datalist id="zonas-evento">
+        {Array.from(
+          new Set([
+            ...estimados.map((e) => e.zona).filter(Boolean) as string[],
+            "Entrada", "Lobby", "Planta 1", "Planta 2", "Planta 3", "Exterior", "General",
+          ]),
+        ).map((z) => (
+          <option key={z} value={z} />
+        ))}
+      </datalist>
+      {/* Resumen por zona: cuánto cuesta cada espacio (solo si se usan zonas). */}
+      {(() => {
+        const porZona = new Map<string, number>();
+        for (const e of estimados) {
+          if (!e.zona) continue;
+          porZona.set(e.zona, (porZona.get(e.zona) ?? 0) + Number(e.importe));
+        }
+        if (porZona.size === 0) return null;
+        return (
+          <div className="rounded-md border-hair border-sage-tint-deep bg-sage-tint/20 p-3">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-sage">
+              Coste por zona
+            </div>
+            <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12.5px]">
+              {[...porZona.entries()].sort((a, b) => b[1] - a[1]).map(([z, t]) => (
+                <span key={z}>
+                  <b className="font-semibold text-ink-secondary">{z}:</b>{" "}
+                  <span className="tabular">{eur(t)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       {MODULOS_PREVISTO.map((m) => {
         const filas = estimados.filter((e) => moduloDeEstimado(e.categoria) === m.key);
         const subtotal = filas.reduce((s, e) => s + Number(e.importe), 0);
@@ -698,6 +745,7 @@ function ModulosPrevisto({
                     <tr className="text-[10px] uppercase tracking-[0.06em] text-ink-muted">
                       {m.persona && <th className="border-b border-border py-1 text-left font-semibold">Persona</th>}
                       <th className="border-b border-border py-1 text-left font-semibold">{m.conceptoLabel}</th>
+                      <th className="border-b border-border py-1 text-left font-semibold">Zona</th>
                       <th className="border-b border-border py-1 text-right font-semibold">{m.cantLabel}</th>
                       <th className="border-b border-border py-1 text-right font-semibold">{m.precioLabel}</th>
                       {!m.persona && <th className="border-b border-border py-1 text-left font-semibold">Paga</th>}
@@ -835,6 +883,7 @@ function FilaEstimado({
   const [precio, setPrecio] = React.useState(String(Number(e.precio_unitario ?? 0)));
   const [pagador, setPagador] = React.useState(e.pagador ?? "");
   const [proveedorSel, setProveedorSel] = React.useState(e.proveedor_id ?? "");
+  const [zona, setZona] = React.useState(e.zona ?? "");
   // Importe para cuadrar: null hasta que se teclee → muestra el total vivo
   // (así no se queda obsoleto si se edita la cantidad/precio antes de cuadrar).
   const [realEdit, setRealEdit] = React.useState<string | null>(null);
@@ -851,6 +900,8 @@ function FilaEstimado({
     pagador?: string | null;
     proveedorId?: string | null;
     nota?: string | null;
+    zona?: string | null;
+    porConfirmar?: boolean;
   }) {
     if (bloqueado) return;
     try {
@@ -882,8 +933,8 @@ function FilaEstimado({
 
   return (
     <tr
-      className={incompleta ? "bg-warn-tint/40" : ""}
-      title={incompleta ? "Línea a medias: falta el concepto o el importe" : undefined}
+      className={incompleta ? "bg-warn-tint/40" : e.por_confirmar ? "bg-[#fff7e6]" : ""}
+      title={incompleta ? "Línea a medias: falta el concepto o el importe" : e.por_confirmar ? "Precio por confirmar (pendiente de proveedor)" : undefined}
     >
       {modulo.persona && (
         <td className="border-b border-[#f0eae1] py-1 pr-1">
@@ -948,6 +999,18 @@ function FilaEstimado({
           className="min-w-[150px] py-1 text-[12.5px]"
         />
       </td>
+      <td className="border-b border-[#f0eae1] py-1 pl-1">
+        <Input
+          value={zona}
+          disabled={bloqueado}
+          list="zonas-evento"
+          onChange={(ev) => setZona(ev.target.value)}
+          onBlur={() => zona !== (e.zona ?? "") && guardar({ zona })}
+          placeholder="—"
+          title="Zona/espacio del evento (Entrada, Lobby, Planta 1…)"
+          className="min-w-[100px] py-1 text-[12px]"
+        />
+      </td>
       <td className="border-b border-[#f0eae1] py-1">
         <Input
           type="number"
@@ -1010,7 +1073,10 @@ function FilaEstimado({
           </Select>
         </td>
       )}
-      <td className="border-b border-[#f0eae1] py-1 text-right tabular font-semibold">{eur(total)}</td>
+      <td className="border-b border-[#f0eae1] py-1 text-right tabular font-semibold">
+        {e.por_confirmar && <span title="Precio por confirmar" className="mr-1 text-[#7a5a1a]">?</span>}
+        {eur(total)}
+      </td>
       {!cerrada && (
         <td className="border-b border-[#f0eae1] py-1 text-right">
           {bloqueado ? (
@@ -1042,6 +1108,13 @@ function FilaEstimado({
       <td className="border-b border-[#f0eae1] py-1 text-center">
         {!cerrada && !bloqueado && (
           <span className="inline-flex items-center">
+            <button
+              title={e.por_confirmar ? "Precio por confirmar (marcado). Pulsa para quitar." : "Marcar precio 'por confirmar' (pendiente de proveedor)"}
+              onClick={() => guardar({ porConfirmar: !e.por_confirmar })}
+              className={`rounded-sm p-1 ${e.por_confirmar ? "bg-warn-tint text-[#7a5a1a]" : "text-ink-muted"} hover:bg-beige-warm hover:text-[#7a5a1a]`}
+            >
+              <HelpCircle size={13} />
+            </button>
             <button
               title={e.nota ? `Nota: ${e.nota}` : "Añadir nota"}
               onClick={() => {

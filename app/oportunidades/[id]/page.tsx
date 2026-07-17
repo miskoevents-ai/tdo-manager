@@ -197,7 +197,9 @@ export default async function Page({
   const nombreDeEquipo = (id: string | null | undefined) => equipo.find((e) => e.id === id)?.nombre ?? null;
   const esDietaOAlquiler = (categoria: string | null | undefined) => {
     const c = (categoria ?? "").toLowerCase();
-    return c.includes("dieta") || c.includes("comida") || c.includes("alquiler");
+    // Dietas, alquiler externo y almacén/logística: costes "otros" (sin mermas).
+    return c.includes("dieta") || c.includes("comida") || c.includes("alquiler") ||
+      c.includes("almac") || c.includes("logíst") || c.includes("logist") || c.includes("trastero");
   };
   const previstoPorPersona = new Map<string, { horas: number; coste: number }>();
   for (const e of costesEstimados) {
@@ -445,7 +447,16 @@ export default async function Page({
                 value={op.pago_a_dias ? `A ${op.pago_a_dias} días` : "Al momento"}
               />
               <Dato label="Presupuesto enviado" value={op.presupuesto_enviado ? "Sí" : "No"} />
+              <Dato label="Persona de contacto" value={op.cliente?.persona_contacto} />
+              <Dato label="Horario de montaje" value={op.hora_montaje} />
+              <Dato label="Horario de desmontaje" value={op.hora_desmontaje} />
             </div>
+            {op.logistica && (
+              <div className="mt-5 border-t border-border pt-4">
+                <Overline>Logística del lugar</Overline>
+                <p className="mt-1 whitespace-pre-line text-[13px] text-ink-secondary">{op.logistica}</p>
+              </div>
+            )}
             {op.notas && (
               <div className="mt-5 border-t border-border pt-4">
                 <Overline>Notas</Overline>
