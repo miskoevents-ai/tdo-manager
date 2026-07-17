@@ -85,6 +85,7 @@ export type Oportunidad = {
   hora_montaje?: string | null; // p. ej. "7:00–15:00"
   hora_desmontaje?: string | null; // p. ej. "00:00"
   logistica?: string | null; // accesos/muelle/horarios del recinto
+  logistica_checklist?: LogisticaItem[] | null; // requisitos del recinto — mig. 052
   responsable: string | null;
   n_invitados: number | null;
   iva_pct: number;
@@ -151,8 +152,12 @@ export type CosteEstimado = {
   nota?: string | null; // matiz libre de la línea (migración 046)
   zona?: string | null; // espacio del evento (Entrada, Lobby, Planta 1…) — mig. 051
   por_confirmar?: boolean; // precio pendiente de un proveedor — mig. 051
+  recargo_pct?: number | null; // recargo % (nocturnidad, festivo…) — mig. 052
   created_at: string;
 };
+
+// Ítem del checklist de logística del recinto (seguros, permisos, cargas…).
+export type LogisticaItem = { label: string; hecho: boolean; nota?: string | null };
 
 // Versión guardada del presupuesto (V1, V2…): foto fija de las líneas para
 // conservar lo que se envió al cliente y poder volver atrás.
