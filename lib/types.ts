@@ -153,6 +153,9 @@ export type CosteEstimado = {
   zona?: string | null; // espacio del evento (Entrada, Lobby, Planta 1…) — mig. 051
   por_confirmar?: boolean; // precio pendiente de un proveedor — mig. 051
   recargo_pct?: number | null; // recargo % (nocturnidad, festivo…) — mig. 052
+  se_queda?: boolean; // material reutilizable (inversión en stock) — mig. 053
+  usos_previstos?: number | null; // nº usos para amortizar (opcional) — mig. 053
+  inventario_id?: string | null; // pieza de inventario dada de alta — mig. 053
   created_at: string;
 };
 
