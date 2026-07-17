@@ -37,8 +37,9 @@ export const config = {
   // Se excluyen: la propia pantalla de login, las APIs con su propia
   // autenticación (cron con CRON_SECRET, leads con LEADS_TOKEN, seed con
   // SEED_TOKEN, feed de calendario con CAL_FEED_TOKEN), los estáticos y el
-  // optimizador de imágenes.
+  // optimizador de imágenes. También se dejan públicas las propuestas para
+  // fincas (/fincas/*), páginas de marketing que se comparten por enlace.
   matcher: [
-    "/((?!login|api/login|api/logout|api/cron|api/leads|api/seed|api/calendario|_next/static|_next/image|favicon\\.ico).*)",
+    "/((?!login|api/login|api/logout|api/cron|api/leads|api/seed|api/calendario|fincas|_next/static|_next/image|favicon\\.ico).*)",
   ],
 };
