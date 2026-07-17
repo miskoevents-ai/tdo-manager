@@ -16,6 +16,10 @@ export async function middleware(req: NextRequest) {
   };
   if (!pass) return dejarPasar();
 
+  // Las propuestas para fincas (/fincas/*) son páginas públicas de marketing
+  // que se comparten por enlace: nunca piden login.
+  if (req.nextUrl.pathname.startsWith("/fincas")) return dejarPasar();
+
   // 1) Sesión de usuario (firmada con APP_PASSWORD como secreto).
   const userCookie = req.cookies.get(USER_COOKIE)?.value;
   if (await leerCookieUsuario(userCookie, pass, Date.now())) return dejarPasar();
@@ -37,9 +41,8 @@ export const config = {
   // Se excluyen: la propia pantalla de login, las APIs con su propia
   // autenticación (cron con CRON_SECRET, leads con LEADS_TOKEN, seed con
   // SEED_TOKEN, feed de calendario con CAL_FEED_TOKEN), los estáticos y el
-  // optimizador de imágenes. También se dejan públicas las propuestas para
-  // fincas (/fincas/*), páginas de marketing que se comparten por enlace.
+  // optimizador de imágenes.
   matcher: [
-    "/((?!login|api/login|api/logout|api/cron|api/leads|api/seed|api/calendario|fincas|_next/static|_next/image|favicon\\.ico).*)",
+    "/((?!login|api/login|api/logout|api/cron|api/leads|api/seed|api/calendario|_next/static|_next/image|favicon\\.ico).*)",
   ],
 };
