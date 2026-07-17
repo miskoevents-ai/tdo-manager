@@ -2563,26 +2563,33 @@ export async function cerrarEvento(oportunidadId: string, cerrar: boolean) {
 
 // Sube una imagen para una línea de presupuesto (desde el ordenador) al
 // bucket del catálogo, en la carpeta presu/, y devuelve su URL pública.
-export async function subirFotoPresupuesto(formData: FormData): Promise<string> {
-  const sb = createAdminClient();
-  const file = formData.get("foto") as File | null;
-  if (!file || file.size === 0) throw new Error("Falta el archivo de la imagen.");
-  if (file.size > 10 * 1024 * 1024) throw new Error("La imagen no puede pesar más de 10 MB.");
-  if (!file.type.startsWith("image/")) throw new Error("El archivo tiene que ser una imagen.");
+// Devuelve el error como VALOR (no lo lanza): así en producción se ve el motivo
+// real (tamaño, formato, storage) en vez del mensaje genérico de Next.js.
+export async function subirFotoPresupuesto(formData: FormData): Promise<{ url?: string; error?: string }> {
+  try {
+    const sb = createAdminClient();
+    const file = formData.get("foto") as File | null;
+    if (!file || file.size === 0) return { error: "Falta el archivo de la imagen." };
+    if (file.size > 12 * 1024 * 1024)
+      return { error: `La imagen pesa ${(file.size / (1024 * 1024)).toFixed(1)} MB; el máximo son 12 MB. Usa una más ligera o una captura de pantalla.` };
+    if (!file.type.startsWith("image/")) return { error: "El archivo tiene que ser una imagen (JPG o PNG)." };
 
-  const BUCKET = process.env.NEXT_PUBLIC_CATALOGO_BUCKET || "Catalogo fotos 1";
-  const limpio = file.name
-    .toLowerCase()
-    .replace(/[^a-z0-9.]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(-60);
-  const ruta = `presu/${Date.now()}-${limpio || "imagen.jpg"}`;
-  const { error: upErr } = await sb.storage
-    .from(BUCKET)
-    .upload(ruta, file, { contentType: file.type || undefined });
-  if (upErr) throw new Error(upErr.message);
-  const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(ruta);
-  return pub.publicUrl;
+    const BUCKET = process.env.NEXT_PUBLIC_CATALOGO_BUCKET || "Catalogo fotos 1";
+    const limpio = file.name
+      .toLowerCase()
+      .replace(/[^a-z0-9.]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(-60);
+    const ruta = `presu/${Date.now()}-${Math.floor(Math.random() * 1e4)}-${limpio || "imagen.jpg"}`;
+    const { error: upErr } = await sb.storage
+      .from(BUCKET)
+      .upload(ruta, file, { contentType: file.type || undefined });
+    if (upErr) return { error: `No se pudo guardar la imagen: ${upErr.message}` };
+    const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(ruta);
+    return { url: pub.publicUrl };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }
 
 // ---------------------- Versiones de presupuesto ----------------------

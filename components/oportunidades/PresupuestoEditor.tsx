@@ -24,6 +24,34 @@ type Fila = { concepto: string; cantidad: number; precio_unitario: number; artic
 
 const red2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+// Reduce una foto (típica de móvil, 5-15 MB) a un JPEG ligero (máx. 2000 px,
+// calidad 0.85) antes de subirla: evita el límite de tamaño y aligera el PDF.
+// Si algo falla (formato no decodable, etc.), sube el archivo original.
+async function comprimirImagen(file: File): Promise<File> {
+  if (typeof document === "undefined") return file;
+  if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
+  if (file.size < 1_200_000) return file; // ya es ligera
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" } as ImageBitmapOptions);
+    const MAX = 2000;
+    const escala = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * escala));
+    const h = Math.max(1, Math.round(bitmap.height * escala));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    const blob: Blob | null = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+    if (!blob || blob.size >= file.size) return file; // si no mejora, deja el original
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 // Bloques sugeridos (los de los presupuestos reales); se puede escribir otro.
 const BLOQUES_SUGERIDOS = ["Decoración", "Alquiler de material", "Flores", "Transporte y montaje"];
 export type CatalogoItem = {
@@ -531,10 +559,15 @@ function FotoPicker({
     setSubiendo(true);
     setError(null);
     try {
+      const comprimido = await comprimirImagen(f); // fotos de móvil → JPEG ligero
       const fd = new FormData();
-      fd.set("foto", f);
-      const urlSubida = await subirFotoPresupuesto(fd);
-      onPick(urlSubida);
+      fd.set("foto", comprimido);
+      const res = await subirFotoPresupuesto(fd);
+      if (res.error || !res.url) {
+        setError(res.error ?? "No se pudo subir la imagen.");
+        return;
+      }
+      onPick(res.url);
       cerrar();
     } catch (e) {
       setError((e as Error).message);
