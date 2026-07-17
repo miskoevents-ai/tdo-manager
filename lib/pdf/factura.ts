@@ -51,6 +51,17 @@ export async function renderFacturaPdf(f: Factura): Promise<Buffer> {
   const descTotal = Math.max(0, sumaNeta - base);
   const incluyeDescuento = descTotal > 0.5 ? `Incluye un descuento de ${eur(descTotal)}.` : null;
 
+  // Condiciones de pago derivadas de las fechas (emisión → vencimiento):
+  // 30 días de diferencia = "Pago a 30 días"; sin diferencia = al momento.
+  let condicionesPago: string | null = null;
+  if (f.fecha_emision) {
+    const dias =
+      f.fecha_vencimiento && f.fecha_emision
+        ? Math.round((Date.parse(f.fecha_vencimiento) - Date.parse(f.fecha_emision)) / 86_400_000)
+        : 0;
+    condicionesPago = dias > 0 ? `Pago a ${dias} días` : "Pago al momento";
+  }
+
   const cli = f.cliente;
   const data: FacturaPdfData = {
     numero: f.numero,
@@ -89,6 +100,7 @@ export async function renderFacturaPdf(f: Factura): Promise<Buffer> {
     ret: eur(ret),
     total: eur(Number(f.total)),
     incluyeDescuento,
+    condicionesPago,
   };
   void CLIENTE_TIPO_LABEL; // reservado por si se etiqueta el tipo de cliente
   const element = React.createElement(FacturaPDFDoc, { data });
