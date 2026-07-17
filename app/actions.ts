@@ -15,7 +15,8 @@ import { USER_COOKIE, leerCookieUsuario, hashPassword } from "@/lib/auth";
 import { getUsuarioActual } from "@/lib/sesion";
 import type { ChecklistGrupo, ChecklistItem, PresupuestoLinea } from "@/lib/types";
 import { runSeed, type SeedData } from "@/lib/seed-core";
-import { getKmPrecio, getFactura, getCalculadoraConfigRaw } from "@/lib/data";
+import { getKmPrecio, getFactura, getCalculadoraConfigRaw, getOportunidad, getVersionPresupuesto } from "@/lib/data";
+import { renderPresupuestoPdf } from "@/lib/pdf/presupuesto";
 import { mezclarConfig } from "@/lib/calculadora-precio";
 import { renderFacturaPdf } from "@/lib/pdf/factura";
 
@@ -2587,6 +2588,24 @@ export async function subirFotoPresupuesto(formData: FormData): Promise<{ url?: 
     if (upErr) return { error: `No se pudo guardar la imagen: ${upErr.message}` };
     const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(ruta);
     return { url: pub.publicUrl };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+// Genera el PDF del presupuesto en el servidor (React-PDF, no depende del
+// navegador → no se rompe) y lo devuelve en base64 para descargarlo del tirón.
+export async function descargarPresupuestoPdf(
+  oportunidadId: string,
+  versionId?: string | null,
+): Promise<{ base64?: string; filename?: string; error?: string }> {
+  try {
+    const op = await getOportunidad(oportunidadId);
+    if (!op) return { error: "Oportunidad no encontrada." };
+    const version = versionId ? await getVersionPresupuesto(versionId) : null;
+    const { buffer, numero } = await renderPresupuestoPdf(op, version);
+    const nombreLimpio = `${op.tipo_operacion === "amigos_prestamo" ? "Nota" : "Presupuesto"} ${numero}`.replace(/[\\/:*?"<>|]+/g, "-");
+    return { base64: buffer.toString("base64"), filename: `${nombreLimpio}.pdf` };
   } catch (e) {
     return { error: (e as Error).message };
   }

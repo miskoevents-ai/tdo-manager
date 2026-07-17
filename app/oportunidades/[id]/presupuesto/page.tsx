@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { SetupNotice } from "@/components/SetupNotice";
 import { PrintButton } from "@/components/presupuesto/PrintButton";
+import { DescargarPdfBtn } from "@/components/presupuesto/DescargarPdfBtn";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
 import { calcularTotales, importeLinea } from "@/lib/calc";
@@ -100,6 +101,7 @@ export default async function Page({
           >
             <Pencil size={15} /> Editar a mano
           </Link>
+          <DescargarPdfBtn oportunidadId={op.id} versionId={version ? v : null} />
           <PrintButton />
         </div>
       </div>
