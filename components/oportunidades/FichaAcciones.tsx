@@ -6,7 +6,8 @@ import { FileText, RotateCcw, Mail, CheckCircle2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { emitirFactura, toggleFianzaDevuelta, cambiarEstado, marcarPresupuestoEnviado, validarOportunidad, borrarOportunidad } from "@/app/actions";
 import { ESTADO_META, ESTADO_COLOR, ESTADOS_MANUALES } from "@/lib/estados";
-import type { OportunidadEstado } from "@/lib/types";
+import { eur } from "@/lib/format";
+import type { OportunidadEstado, OportunidadSerie } from "@/lib/types";
 
 // Desplegable de estado en la cabecera de la ficha, con el color del kanban.
 export function EstadoSelect({
@@ -67,6 +68,9 @@ export function EnviarPresupuestoBtn({
   clienteEmail,
   clienteNombre,
   total,
+  totalNum,
+  serie,
+  pctFactura,
 }: {
   oportunidadId: string;
   numero: string;
@@ -74,13 +78,30 @@ export function EnviarPresupuestoBtn({
   clienteEmail: string | null;
   clienteNombre: string | null;
   total: string;
+  totalNum: number;
+  serie: OportunidadSerie;
+  pctFactura: number | null;
 }) {
   const router = useRouter();
   const asunto = `Presupuesto Nº ${numero} · Tu Decoración Original`;
+  // Reparto de cobro para alquileres/encargos: si una parte va con factura y
+  // otra en efectivo ("amigos"), se detalla en el email (nunca en el PDF).
+  const pct = typeof pctFactura === "number" ? Math.max(0, Math.min(100, pctFactura)) : null;
+  let reparto: string | null = null;
+  if (serie === "alquiler_encargo" && pct !== null && pct < 100) {
+    if (pct <= 0) {
+      reparto = "El importe se abonará íntegramente en efectivo.";
+    } else {
+      const factura = Math.round(totalNum * pct) / 100;
+      const efectivo = Math.round((totalNum - factura) * 100) / 100;
+      reparto = `Del total, ${eur(factura)} se abonarán con factura y ${eur(efectivo)} en efectivo.`;
+    }
+  }
   const cuerpo = [
     `Hola ${clienteNombre ?? ""},`.replace(" ,", ","),
     "",
     `Muchas gracias por contar con Tu Decoración Original. Te adjuntamos el presupuesto Nº ${numero} (${titulo}) por un total de ${total}.`,
+    ...(reparto ? ["", reparto] : []),
     "",
     "Quedamos a tu disposición para cualquier duda o ajuste.",
     "",

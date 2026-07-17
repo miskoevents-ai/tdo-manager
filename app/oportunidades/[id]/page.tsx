@@ -345,6 +345,9 @@ export default async function Page({
             clienteEmail={op.cliente?.email ?? null}
             clienteNombre={op.cliente?.nombre ?? null}
             total={eur(t.total)}
+            totalNum={t.total}
+            serie={op.serie}
+            pctFactura={op.pct_factura ?? null}
           />
           {["confirmada", "realizada"].includes(op.estado) && !op.cerrada && (
             <ValidarOportunidadBtn oportunidadId={op.id} yaFacturada={Boolean(factura)} />
