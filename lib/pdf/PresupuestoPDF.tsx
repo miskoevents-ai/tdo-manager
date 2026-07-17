@@ -74,8 +74,12 @@ const s = StyleSheet.create({
   th: { flexDirection: "row", backgroundColor: COL.beigeWarm, paddingVertical: 6, paddingHorizontal: 8, fontSize: 7.5, fontWeight: 700, color: COL.soft, textTransform: "uppercase", letterSpacing: 0.6, marginTop: 18 },
   bloque: { fontSize: 8, fontWeight: 700, color: COL.clay, textTransform: "uppercase", letterSpacing: 1, paddingTop: 10, paddingBottom: 3, paddingHorizontal: 8 },
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 7, paddingHorizontal: 8, borderBottomWidth: 0.6, borderBottomColor: COL.hair },
-  cConcepto: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingRight: 6 },
-  foto: { width: 54, height: 54, objectFit: "cover", borderRadius: 4 },
+  cConcepto: { flex: 1, flexDirection: "row", alignItems: "center", paddingRight: 6 },
+  // El texto necesita flex:1 para AJUSTARSE a su columna: sin él, un concepto
+  // largo se desborda por encima de la columna de cantidad (parecía "tachar"
+  // el 1). La foto lleva marginRight en vez de gap (más compatible).
+  cTexto: { flex: 1 },
+  foto: { width: 54, height: 54, objectFit: "cover", borderRadius: 4, marginRight: 8 },
   cNum: { width: 34, textAlign: "right" },
   cPrecio: { width: 66, textAlign: "right" },
   cSub: { width: 70, textAlign: "right", fontWeight: 600 },
@@ -171,7 +175,7 @@ export function PresupuestoPDFDoc({ data }: { data: PresuPdfData }) {
               <View style={s.row} key={li} wrap={false}>
                 <View style={s.cConcepto}>
                   {l.foto && <Image style={s.foto} src={l.foto} />}
-                  <Text>
+                  <Text style={s.cTexto}>
                     {l.concepto}
                     {l.sinIva ? <Text style={s.sinIva}>  (sin IVA)</Text> : null}
                   </Text>
