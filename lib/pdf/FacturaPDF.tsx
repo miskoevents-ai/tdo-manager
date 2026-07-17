@@ -96,7 +96,7 @@ const s = StyleSheet.create({
   totalBarV: { color: COL.cream, fontWeight: 700, fontSize: 12.5 },
   descNote: { marginTop: 8, fontSize: 8.5, color: COL.clay, textAlign: "right", fontWeight: 600 },
 
-  pago: { marginTop: 26, backgroundColor: COL.beigeWarm, borderRadius: 4, padding: 13 },
+  pago: { marginTop: 16, backgroundColor: COL.beigeWarm, borderRadius: 4, padding: 13 },
   pagoT: { fontSize: 8.5, color: COL.soft, marginTop: 3 },
   notas: { marginTop: 12, fontSize: 8.5, color: COL.soft },
 
@@ -171,7 +171,7 @@ export function FacturaPDFDoc({ data }: { data: FacturaPdfData }) {
         ))}
 
         {/* Totales */}
-        <View style={s.totalsWrap}>
+        <View style={s.totalsWrap} wrap={false}>
           <View style={s.totals}>
             <View style={s.totRow}>
               <Text style={s.totK}>Base imponible</Text>
@@ -196,7 +196,7 @@ export function FacturaPDFDoc({ data }: { data: FacturaPdfData }) {
         {!!data.incluyeDescuento && <Text style={s.descNote}>{data.incluyeDescuento}</Text>}
 
         {/* Forma de pago */}
-        <View style={s.pago}>
+        <View style={s.pago} wrap={false}>
           <Text style={s.strong}>Forma de pago · transferencia bancaria</Text>
           {!!data.condicionesPago && (
             <Text style={s.pagoT}>
