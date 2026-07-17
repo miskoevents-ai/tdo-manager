@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { SetupNotice } from "@/components/SetupNotice";
 import { PrintButton } from "@/components/presupuesto/PrintButton";
+import { DescargarFacturaPdfBtn } from "@/components/facturas/DescargarFacturaPdfBtn";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getFactura } from "@/lib/data";
 import { eur, fecha, num } from "@/lib/format";
@@ -101,6 +102,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               Ver la oportunidad
             </Link>
           )}
+          <DescargarFacturaPdfBtn facturaId={f.id} />
           <PrintButton />
         </div>
       </div>
