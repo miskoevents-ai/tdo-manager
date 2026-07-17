@@ -2800,6 +2800,22 @@ export async function emitirFactura(oportunidadId: string) {
     op.descuento_pct ?? 0,
   );
 
+  // Reparto global (alquiler/encargo, migración 054): la factura sale SOLO por
+  // el % "con factura" del total; el resto (amigos, en efectivo) no aparece en
+  // el documento y solo queda en la contabilidad interna. Para eventos, o si no
+  // hay % (o es 100), se factura como siempre (línea a línea por su vía).
+  const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+  const reparto =
+    op.serie === "alquiler_encargo" &&
+    typeof op.pct_factura === "number" &&
+    op.pct_factura < 100;
+  const pctFac = reparto ? Math.max(0, Math.min(100, op.pct_factura as number)) : 100;
+  const baseFactura = reparto ? r2((t.base * pctFac) / 100) : t.baseFactura;
+  const ivaFactura = reparto ? r2((baseFactura * op.iva_pct) / 100) : t.iva;
+  const retFactura = reparto ? r2((baseFactura * op.retencion_pct) / 100) : t.retencion;
+  const totalFactura = reparto ? r2(baseFactura + ivaFactura - retFactura) : t.totalFactura;
+  const efectivoAmigos = reparto ? r2(t.base - baseFactura) : t.efectivo;
+
   // Vencimiento según las condiciones de pago del cliente (pago a X días).
   const hoyMadrid = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
   const plazoPago = Number(op.pago_a_dias ?? 0);
@@ -2808,8 +2824,8 @@ export async function emitirFactura(oportunidadId: string) {
 
   // La factura solo recoge la parte facturable (las líneas por vía efectivo
   // van a la contabilidad de amigos, sin IVA).
-  if (t.baseFactura <= 0) {
-    throw new Error("Este presupuesto no tiene líneas facturables (todo va por efectivo).");
+  if (baseFactura <= 0) {
+    throw new Error("Esta oportunidad no tiene parte facturable (todo va por efectivo).");
   }
 
   const fechaVencimiento = vence.toISOString().slice(0, 10);
@@ -2824,29 +2840,40 @@ export async function emitirFactura(oportunidadId: string) {
   }, 0);
   const numeroFactura = `${yy}${String(maxFac + 1).padStart(3, "0")}`;
 
-  // Foto fija de TODAS las líneas (con su vía): el documento queda congelado
-  // aunque después se edite el presupuesto. Las líneas en efectivo se guardan
-  // como parte interna (no salen en el documento del cliente).
-  const lineasSnap = (op.presupuesto_lineas ?? [])
-    .slice()
-    .sort((a: { orden?: number }, b: { orden?: number }) => (a.orden ?? 0) - (b.orden ?? 0))
-    .map((l: LineaInput & { bloque?: string | null }) => ({
-      concepto: l.concepto,
-      cantidad: Number(l.cantidad),
-      precio_unitario: Number(l.precio_unitario),
-      bloque: l.bloque ?? null,
-      via: l.via === "efectivo" ? "efectivo" : "factura",
-      descuento_pct: dtoPct(l.descuento_pct),
-    }));
+  // Foto fija de las líneas del documento (queda congelado aunque luego se
+  // edite el presupuesto). En reparto global, la factura muestra UNA sola línea
+  // por la parte facturada, sin desglosar ni mencionar la parte de amigos. En
+  // el resto, se congelan todas las líneas con su vía (las de efectivo son
+  // internas: no salen en el documento del cliente).
+  const lineasSnap = reparto
+    ? [{
+        concepto: op.titulo,
+        cantidad: 1,
+        precio_unitario: baseFactura,
+        bloque: null,
+        via: "factura",
+        descuento_pct: 0,
+      }]
+    : (op.presupuesto_lineas ?? [])
+        .slice()
+        .sort((a: { orden?: number }, b: { orden?: number }) => (a.orden ?? 0) - (b.orden ?? 0))
+        .map((l: LineaInput & { bloque?: string | null }) => ({
+          concepto: l.concepto,
+          cantidad: Number(l.cantidad),
+          precio_unitario: Number(l.precio_unitario),
+          bloque: l.bloque ?? null,
+          via: l.via === "efectivo" ? "efectivo" : "factura",
+          descuento_pct: dtoPct(l.descuento_pct),
+        }));
 
   const facturaRow = {
     numero: numeroFactura,
     oportunidad_id: op.id,
     cliente_id: op.cliente_id,
-    base_imponible: t.baseFactura,
-    iva: t.iva,
-    retencion: t.retencion,
-    total: t.totalFactura,
+    base_imponible: baseFactura,
+    iva: ivaFactura,
+    retencion: retFactura,
+    total: totalFactura,
     estado: "emitida",
     fecha_vencimiento: fechaVencimiento,
     lineas: lineasSnap,
@@ -2880,7 +2907,7 @@ export async function emitirFactura(oportunidadId: string) {
       tipo: "ingreso",
       naturaleza: "ingreso_factura",
       categoria: "Cobro factura",
-      importe: t.totalFactura,
+      importe: totalFactura,
       fecha: fechaVencimiento,
       estado: "previsto",
       oportunidad_id: op.id,
@@ -2892,7 +2919,7 @@ export async function emitirFactura(oportunidadId: string) {
 
   // Parte en efectivo (sin IVA): deja su propio cobro previsto en la
   // contabilidad de amigos, si no existe ya.
-  if (t.efectivo > 0) {
+  if (efectivoAmigos > 0) {
     const { data: prevAmigos } = await sb
       .from("tesoreria")
       .select("id")
@@ -2907,7 +2934,7 @@ export async function emitirFactura(oportunidadId: string) {
         tipo: "ingreso",
         naturaleza: "amigos",
         categoria: "Cobro en efectivo",
-        importe: t.efectivo,
+        importe: efectivoAmigos,
         fecha: op.fecha_evento ?? fechaVencimiento,
         estado: "previsto",
         oportunidad_id: op.id,
