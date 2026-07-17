@@ -42,6 +42,7 @@ export type FacturaPdfData = {
   total: string;
   incluyeDescuento: string | null;
   notas: string | null;
+  condicionesPago: string | null; // "Pago a 30 días" / "Pago al momento"
 };
 
 const COL = {
@@ -197,6 +198,12 @@ export function FacturaPDFDoc({ data }: { data: FacturaPdfData }) {
         {/* Forma de pago */}
         <View style={s.pago}>
           <Text style={s.strong}>Forma de pago · transferencia bancaria</Text>
+          {!!data.condicionesPago && (
+            <Text style={s.pagoT}>
+              Condiciones: {data.condicionesPago}
+              {data.vencimiento ? `   ·   Vencimiento: ${data.vencimiento}` : ""}
+            </Text>
+          )}
           {!!e.iban && <Text style={s.pagoT}>IBAN: {e.iban}{e.titular ? `   ·   Titular: ${e.titular}` : ""}</Text>}
           <Text style={s.pagoT}>Indica el nº de factura ({data.numero}) en el concepto y envía el justificante a {e.contacto.split(" · ")[0] || e.web}.</Text>
         </View>
