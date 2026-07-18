@@ -40,7 +40,9 @@ import {
   getGastosFijos,
   getCalculadoraConfigRaw,
   getCalculoPrecio,
+  getSueldos,
 } from "@/lib/data";
+import { costeHoraVigente } from "@/lib/coste-hora";
 import { boteFijosMes } from "@/lib/calculadora-precio";
 import { CalculadoraPrecio } from "@/components/calculadora/CalculadoraPrecio";
 import { calcularTotales } from "@/lib/calc";
@@ -74,7 +76,7 @@ export default async function Page({
   const TABS = ["datos", "reuniones", "presupuesto", "material", "costes", "cobros", "calculadora"];
   const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
-  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados, comConfig, gastosFijos, calcConfigRaw, calculoGuardado, todasOps] =
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados, comConfig, gastosFijos, calcConfigRaw, calculoGuardado, todasOps, sueldos] =
     await Promise.all([
       getOportunidad(id),
       getClientes(),
@@ -96,6 +98,7 @@ export default async function Page({
       getCalculadoraConfigRaw(),
       getCalculoPrecio(id),
       getOportunidades(),
+      getSueldos(),
     ]);
   if (!op) notFound();
   // Comisión del evento: cuenta como coste (afecta al margen).
@@ -114,10 +117,17 @@ export default async function Page({
       (m.naturaleza === "gasto_de_evento" || (m.naturaleza === "amigos" && m.tipo === "gasto")) &&
       !desplTesoIds.has(m.id),
   );
-  // Solo equipo activo: los desplegables de persona/pagador salen de aquí.
+  // Solo equipo activo: los desplegables de persona/pagador salen de aquí. El
+  // €/hora es el COSTE REAL en la fecha del evento: para el equipo con sueldo y
+  // horas de contrato se deriva del sueldo vigente ese mes (así sigue los
+  // cambios de temporada); para el resto, su €/hora fijo. Migración 055.
+  const fechaCoste =
+    op.fecha_evento ??
+    op.fecha_montaje ??
+    new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
   const equipoLite = equipo
     .filter((e) => e.activo)
-    .map((e) => ({ id: e.id, nombre: e.nombre, precio_hora: e.precio_hora }));
+    .map((e) => ({ id: e.id, nombre: e.nombre, precio_hora: costeHoraVigente(e, sueldos, fechaCoste) }));
   const responsablesFicha = equipoLite.map((e) => e.nombre);
   const provLite = proveedores.map((p) => ({ id: p.id, nombre: p.nombre }));
   const lugarInfo = op.lugar
