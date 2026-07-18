@@ -61,6 +61,9 @@ function inputsDesdeCostes(cr: CostesReales, prev?: Partial<CalculoInputs>): Cal
       horas: r2(p.horas),
       precioHora: r2(p.precioHora),
       aportado: p.aportado,
+      // La empleada con sueldo: sus horas llevan el recargo de estructura
+      // también cuando vienen del flujo de Costes (el bloque queda a cero).
+      esEmpleada: /crist/i.test(p.nombre),
     })),
     gastos:
       cr.detalle && cr.detalle.length > 0
@@ -205,6 +208,7 @@ export function CalculadoraPrecio({
       horas: 2,
       precioHora: op?.precioHora ?? (esSocio ? cfg.costeHoraSocio : 15),
       aportado: esSocio, // los socios aportan (no cobran); se puede cambiar
+      esEmpleada: /crist/i.test(nombre), // sus horas llevan recargo de estructura
     };
     setInputs((i) => ({ ...i, personas: [...(i.personas ?? []), linea] }));
     setPersonaSel("");
