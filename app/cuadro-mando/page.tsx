@@ -6,7 +6,7 @@ import { CuadroMando, type OpRow } from "@/components/cuadro/CuadroMando";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades, getTesoreria, getCostesEstimadosTodos, getPartesHorasTodas, getGastosFijos, getCalculadoraConfigRaw, getComisionesConfig } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
-import { boteFijosMes, mezclarConfig } from "@/lib/calculadora-precio";
+import { boteFijosMes, sueldosFijosMes, mezclarConfig } from "@/lib/calculadora-precio";
 import { comisionDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha, num } from "@/lib/format";
 import { TIPO_EVENTO_LABEL } from "@/lib/estados";
@@ -62,6 +62,12 @@ type Cobertura = {
   estructural: number;
   maquina: number;
   contribucion: number;
+  // Cálculo vivo del sueldo (modelo por consumo): sueldo real del mes y lo ya
+  // recuperado vía partes de horas. vivo=false → sin sueldos en Gastos fijos,
+  // se usa la referencia del % de horas de la calculadora.
+  sueldoMes: number;
+  imputado: number;
+  vivo: boolean;
   eventos: { id: string; titulo: string; fecha: string | null; contribucion: number; sinCostes: boolean }[];
 };
 
@@ -151,7 +157,24 @@ export default async function CuadroMandoPage() {
     const hoyYm = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date()).slice(0, 7);
     const cfgCalc = mezclarConfig(calcRaw);
     const bote = boteFijosMes(gastosFijos, hoyYm);
-    const estructural = cfgCalc.costeMensualEmpleada * (1 - cfgCalc.repartoEventosPct / 100);
+    // Parte del sueldo aún no recuperada por horas (modelo por consumo): sueldo
+    // REAL del mes (gastos fijos de categoría "sueldo", p. ej. 1.000 € en
+    // julio) menos lo ya imputado a eventos por esas personas en sus partes de
+    // horas de este mes. Cuantas más horas imputa Cristina, menos máquina queda
+    // por cubrir — el descenso automático que pidieron los socios. Los costes de
+    // cada evento ya incluyen esas horas a coste real, así que no se cuentan dos
+    // veces. Sin sueldos en Gastos fijos, referencia: sueldo × (1 − % horas).
+    const sf = sueldosFijosMes(gastosFijos, hoyYm);
+    const asalariados = new Set(sf.equipoIds);
+    const imputadoMes = partesTodas
+      .filter((p) => !p.tesoreria_id && p.equipo_id && asalariados.has(p.equipo_id))
+      .filter((p) => (p.fecha ?? p.created_at.slice(0, 10)).startsWith(hoyYm))
+      .reduce((s, p) => s + Number(p.horas) * Number(p.precio_hora), 0);
+    const vivo = sf.total > 0;
+    const sueldoMes = vivo ? sf.total : cfgCalc.costeMensualEmpleada;
+    const estructural = vivo
+      ? Math.max(0, sf.total - imputadoMes)
+      : cfgCalc.costeMensualEmpleada * (1 - cfgCalc.repartoEventosPct / 100);
     const eventosCobertura = ops
       .filter((o) => CONTRATADAS.includes(o.estado) && o.fecha_evento?.slice(0, 7) === hoyYm)
       .map((o) => {
@@ -175,6 +198,9 @@ export default async function CuadroMandoPage() {
       estructural,
       maquina: bote + estructural,
       contribucion: eventosCobertura.reduce((s, e) => s + e.contribucion, 0),
+      sueldoMes,
+      imputado: imputadoMes,
+      vivo,
       eventos: eventosCobertura,
     };
 
@@ -335,8 +361,18 @@ function CoberturaFijos({ c }: { c: Cobertura }) {
           Cobertura de fijos — {mesLabel}
         </div>
         <div className="text-[12px] text-ink-muted">
-          La máquina: fijos {eur(c.bote)} + parte estructural del sueldo {eur(c.estructural)} ={" "}
-          <b className="tabular text-ink">{eur(c.maquina)}/mes</b>
+          {c.vivo ? (
+            <>
+              La máquina: fijos {eur(c.bote)} + sueldo del mes {eur(c.sueldoMes)} − ya imputado a
+              eventos {eur(c.imputado)} = <b className="tabular text-ink">{eur(c.maquina)}/mes</b>
+            </>
+          ) : (
+            <>
+              La máquina: fijos {eur(c.bote)} + sueldo pendiente de horas {eur(c.estructural)}{" "}
+              <span title="Sin sueldos en Gastos fijos: se usa la referencia del % de horas de la calculadora. Añade el sueldo (categoría «sueldo») para el cálculo vivo.">(referencia)</span>{" "}
+              = <b className="tabular text-ink">{eur(c.maquina)}/mes</b>
+            </>
+          )}
         </div>
       </div>
       <div className="mt-2 h-4 overflow-hidden rounded-full bg-beige-warm">
@@ -374,6 +410,10 @@ function CoberturaFijos({ c }: { c: Cobertura }) {
       <p className="mt-2 text-[11px] text-ink-muted">
         Contribución = base sin IVA − costes del evento − comisión. Cuentan los eventos contratados con fecha
         este mes, alquileres incluidos: todos ayudan a pagar la máquina.
+        {c.vivo && (
+          <> El sueldo se recupera por horas: cada parte de horas que registra el equipo con sueldo baja lo
+          que queda de máquina por cubrir.</>
+        )}
         {sinCostes > 0 && (
           <> Los marcados con * no tienen costes apuntados (su cifra está inflada): apúntales el plan en Costes.</>
         )}

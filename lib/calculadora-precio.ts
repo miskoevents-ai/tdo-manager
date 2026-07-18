@@ -246,6 +246,35 @@ export function boteFijosMes(
   return bote;
 }
 
+// Sueldos del mes (lo contrario del bote): SOLO los gastos fijos de categoría
+// "sueldo" vigentes en el mes, normalizados a €/mes, con los equipo_id de sus
+// beneficiarios. Sirve para el panel de cobertura: la parte del sueldo aún no
+// recuperada por horas imputadas = sueldo del mes − partes de esas personas.
+export function sueldosFijosMes(
+  gastosFijos: {
+    importe_mensual: number;
+    periodicidad: string;
+    activo: boolean;
+    categoria?: string | null;
+    equipo_id?: string | null;
+    desde?: string | null;
+    hasta?: string | null;
+  }[],
+  mesEvento: string, // YYYY-MM
+): { total: number; equipoIds: string[] } {
+  let total = 0;
+  const ids = new Set<string>();
+  for (const g of gastosFijos) {
+    if (!g.activo || g.categoria !== "sueldo") continue;
+    if (g.desde && g.desde.slice(0, 7) > mesEvento) continue;
+    if (g.hasta && g.hasta.slice(0, 7) < mesEvento) continue;
+    const imp = Number(g.importe_mensual);
+    total += g.periodicidad === "anual" ? imp / 12 : g.periodicidad === "trimestral" ? imp / 3 : imp;
+    if (g.equipo_id) ids.add(g.equipo_id);
+  }
+  return { total, equipoIds: Array.from(ids) };
+}
+
 // Cuota por evento = bote de fijos ÷ eventos de referencia al mes. El sueldo ya
 // NO entra aquí: se recupera entero por horas con la tarifa cargada (abajo).
 // Modelo por consumo (decisión socios jul 2026): un evento de 12 h carga más

@@ -1,4 +1,4 @@
-import { getOportunidades, getTesoreria, getReservas, getReuniones } from "@/lib/data";
+import { getOportunidades, getTesoreria, getReservas, getReuniones, getPartesHorasTodas } from "@/lib/data";
 import { calcularAvisos } from "@/lib/avisos";
 import { calcularTotales } from "@/lib/calc";
 import { restaDias } from "@/lib/cron";
@@ -25,11 +25,12 @@ export async function construirDigest(
   hoyISO: string,
   tipo: TipoDigest = "semanal",
 ): Promise<{ asunto: string; html: string; texto: string; resumen: Record<string, number> }> {
-  const [ops, tesoreria, reservas, reuniones] = await Promise.all([
+  const [ops, tesoreria, reservas, reuniones, partes] = await Promise.all([
     getOportunidades(),
     getTesoreria(),
     getReservas(),
     getReuniones(),
+    getPartesHorasTodas(),
   ]);
   const avisos = calcularAvisos(ops, hoyISO, reservas, [], reuniones, tesoreria);
   const cobros = avisos.filter((a) => a.categoria === "cobro");
@@ -68,6 +69,34 @@ export async function construirDigest(
   const valorConfirmadasSemana = confirmadasSemana.reduce((s, o) => s + totalOp(o), 0);
   const eventosSemana = ops.filter((o) => enSemana(o.fecha_evento)).length;
   const leadsSemana = ops.filter((o) => enSemana(o.fecha_entrada)).length;
+
+  // --- Partes de horas de la semana (recordatorio para Cristina) ---
+  // El modelo de precios se calibra con sus partes: si una semana no registra
+  // horas, el % de horas a eventos y la cobertura de fijos pierden datos.
+  // CRISTINA = empleada; "Cris" (socia) no cuela en /crist/i.
+  const horasCristinaSemana = partes
+    .filter((p) => !p.tesoreria_id && /crist/i.test(p.equipo?.nombre ?? ""))
+    .filter((p) => enSemana(p.fecha ?? p.created_at.slice(0, 10)))
+    .reduce((s, p) => s + Number(p.horas), 0);
+  const partesItems: Item[] =
+    tipo === "semanal"
+      ? [
+          horasCristinaSemana <= 0
+            ? {
+                titulo: "Cristina no ha registrado partes esta semana",
+                detalle: "Recordad imputar las horas: los precios y la cobertura de fijos se calibran con ellas.",
+              }
+            : horasCristinaSemana < 8
+              ? {
+                  titulo: `Cristina lleva ${horasCristinaSemana.toLocaleString("es-ES")} h imputadas esta semana`,
+                  detalle: "¿Faltan partes por registrar? El modelo de precios se calibra con ellos.",
+                }
+              : {
+                  titulo: `Cristina: ${horasCristinaSemana.toLocaleString("es-ES")} h imputadas esta semana ✓`,
+                  detalle: "Partes al día — el modelo de precios se calibra solo.",
+                },
+        ]
+      : [];
 
   // --- Amigos / préstamos ---
   const amigos: Item[] = ops
@@ -145,6 +174,7 @@ export async function construirDigest(
       ${seccion("🟡 Presupuestos sin respuesta", "#C99A2E", presupuestos)}
       ${seccion("❄️ Leads · seguimiento", "#5B7A9A", leadsFrios)}
       ${seccion("📅 Próximos eventos", "#3F4A36", eventos)}
+      ${seccion("⏱️ Partes de horas", "#6B7A5E", partesItems)}
       ${seccion(`🤝 Amigos / préstamos · ${eur(totalAmigos)}`, "#8A957C", amigos)}
       <div style="margin-top:22px;text-align:center">
         <a href="${APP_URL}" style="display:inline-block;background:#3F4A36;color:#FCFAF5;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:13px">Abrir TDO Manager</a>
@@ -157,7 +187,7 @@ export async function construirDigest(
     ? `Resumen del mes · ${mesLabel}\nFacturación: ${eur(facturacionMes)} (${eventosMes.length} ev.) · Cobrado: ${eur(ingMes)} · Gastos: ${eur(gasMes)} · Resultado: ${eur(resultadoMes)}${tendencia != null ? ` · vs mes anterior ${tendencia >= 0 ? "+" : ""}${tendencia}%` : ""}`
     : `Resumen semanal TDO · ${mesLabel}\nEsta semana — Cobrado: ${eur(cobradoSemana)} · Confirmado: ${eur(valorConfirmadasSemana)} (${confirmadasSemana.length}) · Eventos: ${eventosSemana} · Leads: ${leadsSemana}\nAcumulado del mes — Facturación: ${eur(facturacionMes)} · Cobrado: ${eur(ingMes)} · Resultado: ${eur(resultadoMes)}`;
   const texto = `${encabezado}
-${esMensual ? bloque("Top clientes del mes", topClientesMes) + bloque("Por tipo de servicio", repartoTipoMes) : ""}${bloque("Dobles reservas de material", solapes)}${bloque("Cobros pendientes", cobros)}${bloque("Fianzas por devolver", fianzas)}${bloque("Presupuestos sin respuesta", presupuestos)}${bloque("Leads seguimiento", leadsFrios)}${bloque("Próximos eventos", eventos)}${bloque(`Amigos / préstamos (${eur(totalAmigos)})`, amigos)}
+${esMensual ? bloque("Top clientes del mes", topClientesMes) + bloque("Por tipo de servicio", repartoTipoMes) : ""}${bloque("Dobles reservas de material", solapes)}${bloque("Cobros pendientes", cobros)}${bloque("Fianzas por devolver", fianzas)}${bloque("Presupuestos sin respuesta", presupuestos)}${bloque("Leads seguimiento", leadsFrios)}${bloque("Próximos eventos", eventos)}${bloque("Partes de horas", partesItems)}${bloque(`Amigos / préstamos (${eur(totalAmigos)})`, amigos)}
 ${APP_URL}`;
 
   return {
@@ -175,6 +205,7 @@ ${APP_URL}`;
       facturacionMes,
       resultadoMes,
       pendienteTotal,
+      horasCristinaSemana,
     },
   };
 }
