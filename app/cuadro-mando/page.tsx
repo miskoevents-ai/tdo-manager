@@ -4,9 +4,11 @@ import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { CuadroMando, type OpRow } from "@/components/cuadro/CuadroMando";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getTesoreria, getCostesEstimadosTodos, getPartesHorasTodas, getGastosFijos, getCalculadoraConfigRaw, getComisionesConfig } from "@/lib/data";
+import { getOportunidades, getTesoreria, getCostesEstimadosTodos, getPartesHorasTodas, getGastosFijos, getCalculadoraConfigRaw, getComisionesConfig, getEquipo } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
 import { boteFijosMes, sueldosFijosMes, mezclarConfig } from "@/lib/calculadora-precio";
+import { SEMANAS_POR_MES } from "@/lib/coste-hora";
+import { JornadaCalibracion, type JornadaData } from "@/components/cuadro/JornadaCalibracion";
 import { comisionDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha, num } from "@/lib/format";
 import { TIPO_EVENTO_LABEL } from "@/lib/estados";
@@ -77,8 +79,9 @@ export default async function CuadroMandoPage() {
   let rows: OpRow[];
   let precision: PrecisionRow[] = [];
   let cobertura: Cobertura | null = null;
+  let jornada: JornadaData | null = null;
   try {
-    const [ops, tesoreria, estimadosTodos, partesTodas, gastosFijos, calcRaw, comConfig] = await Promise.all([
+    const [ops, tesoreria, estimadosTodos, partesTodas, gastosFijos, calcRaw, comConfig, equipo] = await Promise.all([
       getOportunidades(),
       getTesoreria(),
       getCostesEstimadosTodos(),
@@ -86,6 +89,7 @@ export default async function CuadroMandoPage() {
       getGastosFijos(),
       getCalculadoraConfigRaw(),
       getComisionesConfig(),
+      getEquipo(),
     ]);
 
     // Precisión presupuestando: estimado (+contingencia) vs coste real por
@@ -218,6 +222,55 @@ export default async function CuadroMandoPage() {
       eventos: eventosCobertura,
     };
 
+    // --- Jornada de Cristina + calibración del modelo (SOLO SOCIOS: vive en el
+    // Cuadro de mando, que Cristina no ve). Mide sus horas reales del mes contra
+    // el contrato y calcula, con los últimos 3 meses, el "% horas a eventos" y
+    // los "eventos/mes" REALES para poder afinar la calculadora con datos en vez
+    // de a ojo. CRISTINA = empleada; "Cris" (socia) no cuela en /crist/i.
+    const cristina = equipo.find((e) => e.activo && /crist/i.test(e.nombre));
+    if (cristina) {
+      const contratoMes = cristina.horas_semana ? Number(cristina.horas_semana) * SEMANAS_POR_MES : 0;
+      const mesesAtras = (n: number) => {
+        const d = new Date(`${hoyYm}-01T00:00:00Z`);
+        d.setUTCMonth(d.getUTCMonth() - n);
+        return d.toISOString().slice(0, 7);
+      };
+      const ventana3 = [mesesAtras(0), mesesAtras(1), mesesAtras(2)];
+      // Sus partes (no externos): horas a eventos contratados vs. estructura.
+      const susPartes = partesTodas.filter((p) => !p.tesoreria_id && p.equipo_id === cristina.id);
+      const reparte = (meses: string[]) => {
+        let ev = 0, es = 0;
+        for (const p of susPartes) {
+          const m = (p.fecha ?? p.created_at.slice(0, 10)).slice(0, 7);
+          if (!meses.includes(m)) continue;
+          const h = Number(p.horas);
+          if (p.oportunidad_id && contratadasIds.has(p.oportunidad_id)) ev += h;
+          else es += h;
+        }
+        return { ev, es, total: ev + es };
+      };
+      const mes = reparte([hoyYm]);
+      const tri = reparte(ventana3);
+      const eventos3 = ops.filter(
+        (o) => CONTRATADAS.includes(o.estado) && ventana3.includes((o.fecha_evento ?? "").slice(0, 7)),
+      ).length;
+      jornada = {
+        nombre: cristina.nombre,
+        ym: hoyYm,
+        contratoMes,
+        horasMes: mes.total,
+        horasEventoMes: mes.ev,
+        horasEstructuraMes: mes.es,
+        // Calibración con la ventana de 3 meses (si hay datos suficientes).
+        pctEventosReal: tri.total > 0 ? Math.round((tri.ev / tri.total) * 100) : null,
+        eventosMesReal: eventos3 > 0 ? Math.round((eventos3 / 3) * 10) / 10 : null,
+        horas3m: tri.total,
+        pctEventosConfig: Math.round(Number(cfgCalc.repartoEventosPct) || 0),
+        eventosMesConfig: Math.round(Number(cfgCalc.eventosMes) || 0),
+        cfg: cfgCalc,
+      };
+    }
+
     rows = ops.map((o) => {
       const total = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).total;
       const cobrado = o.cobrado ?? 0;
@@ -261,6 +314,7 @@ export default async function CuadroMandoPage() {
         </p>
       </div>
       {cobertura && <CoberturaFijos c={cobertura} />}
+      {jornada && <JornadaCalibracion j={jornada} />}
 
       <CuadroMando rows={rows} />
 
@@ -369,6 +423,12 @@ function CoberturaFijos({ c }: { c: Cobertura }) {
   // delatar un error de datos (partes duplicados o €/h cargada en vez de real).
   const imputadoEfectivo = Math.min(c.imputado, c.sueldoMes);
   const sobreimputado = c.imputado > c.sueldoMes + 0.01;
+  // Punto de equilibrio en eventos: cuánto falta ÷ contribución media de un
+  // evento del mes (si aún no hay eventos, referencia = máquina ÷ 6).
+  const conAporte = c.eventos.filter((e) => e.contribucion > 0);
+  const contribMedia =
+    conAporte.length > 0 ? conAporte.reduce((s, e) => s + e.contribucion, 0) / conAporte.length : c.maquina / 6;
+  const faltanEventos = !cubierta && contribMedia > 0 ? Math.ceil(-sobrante / contribMedia) : 0;
   const mesLabel = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }).format(
     new Date(`${c.ym}-01T00:00:00Z`),
   );
@@ -419,7 +479,10 @@ function CoberturaFijos({ c }: { c: Cobertura }) {
             ✓ Máquina cubierta — todo lo que entre ya es beneficio (+{eur(sobrante)})
           </span>
         ) : (
-          <span className="font-semibold text-clay">Faltan {eur(-sobrante)} para cubrir el mes</span>
+          <span className="font-semibold text-clay">
+            Faltan {eur(-sobrante)} para cubrir el mes
+            {faltanEventos > 0 && ` · ≈ ${faltanEventos} evento${faltanEventos === 1 ? "" : "s"} más`}
+          </span>
         )}
       </div>
       {c.eventos.length > 0 && (
