@@ -166,11 +166,22 @@ export default async function CuadroMandoPage() {
     // veces. Sin sueldos en Gastos fijos, referencia: sueldo × (1 − % horas).
     const sf = sueldosFijosMes(gastosFijos, hoyYm);
     const asalariados = new Set(sf.equipoIds);
+    // Solo restan las horas imputadas a oportunidades CONTRATADAS: las horas
+    // comerciales de presupuestos que se pierden y el taller/admin son la
+    // mitad "estructura" que ya cubre la tarifa cargada — si restaran aquí, la
+    // máquina bajaría sin que ese coste aparezca en ninguna contribución
+    // (cobertura inflada). Con varios asalariados el bote es común (hipótesis
+    // consciente: hoy solo hay una empleada).
+    const contratadasIds = new Set(ops.filter((o) => CONTRATADAS.includes(o.estado)).map((o) => o.id));
     const imputadoMes = partesTodas
       .filter((p) => !p.tesoreria_id && p.equipo_id && asalariados.has(p.equipo_id))
+      .filter((p) => p.oportunidad_id && contratadasIds.has(p.oportunidad_id))
       .filter((p) => (p.fecha ?? p.created_at.slice(0, 10)).startsWith(hoyYm))
       .reduce((s, p) => s + Number(p.horas) * Number(p.precio_hora), 0);
-    const vivo = sf.total > 0;
+    // "Vivo" = hay sueldos dados de alta en Gastos fijos (aunque este mes no
+    // haya ninguno vigente: entonces el sueldo del mes es un CERO real, p. ej.
+    // meses sin contrato — no se inventa la referencia).
+    const vivo = gastosFijos.some((g) => g.activo && g.categoria === "sueldo");
     const sueldoMes = vivo ? sf.total : cfgCalc.costeMensualEmpleada;
     const estructural = vivo
       ? Math.max(0, sf.total - imputadoMes)
@@ -181,7 +192,10 @@ export default async function CuadroMandoPage() {
         const t = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0);
         const real = (gastoEventoPorOp.get(o.id) ?? 0) + (horasPorOp.get(o.id) ?? 0);
         const previsto = (estPorOp.get(o.id) ?? 0) * (1 + Number(o.contingencia_pct ?? 6) / 100);
-        const costes = real > 0 ? real : previsto;
+        // Evento abierto: costes = el MAYOR de real y plan (con 2 h apuntadas
+        // no desaparecen los materiales aún sin registrar → contribución
+        // conservadora). Cerrado: mandan los costes reales congelados.
+        const costes = o.cerrada ? (real > 0 ? real : previsto) : Math.max(real, previsto);
         const comision = comisionDeOportunidad(o, comConfig);
         return {
           id: o.id,
@@ -347,9 +361,14 @@ export default async function CuadroMandoPage() {
 // La barra de "¿cubrimos la máquina este mes?": fijos + parte estructural del
 // sueldo contra la contribución acumulada de los eventos del mes.
 function CoberturaFijos({ c }: { c: Cobertura }) {
-  const pct = c.maquina > 0 ? (c.contribucion / c.maquina) * 100 : 0;
+  // Máquina a 0 (sueldo ya recuperado y sin fijos) → cubierta por definición.
+  const pct = c.maquina > 0 ? (c.contribucion / c.maquina) * 100 : 100;
   const cubierta = pct >= 100;
   const sobrante = c.contribucion - c.maquina;
+  // Si lo imputado supera el sueldo del mes, la resta se recorta a 0 y suele
+  // delatar un error de datos (partes duplicados o €/h cargada en vez de real).
+  const imputadoEfectivo = Math.min(c.imputado, c.sueldoMes);
+  const sobreimputado = c.imputado > c.sueldoMes + 0.01;
   const mesLabel = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }).format(
     new Date(`${c.ym}-01T00:00:00Z`),
   );
@@ -364,7 +383,16 @@ function CoberturaFijos({ c }: { c: Cobertura }) {
           {c.vivo ? (
             <>
               La máquina: fijos {eur(c.bote)} + sueldo del mes {eur(c.sueldoMes)} − ya imputado a
-              eventos {eur(c.imputado)} = <b className="tabular text-ink">{eur(c.maquina)}/mes</b>
+              eventos {eur(imputadoEfectivo)}
+              {sobreimputado && (
+                <span
+                  className="ml-1 font-semibold text-clay"
+                  title={`Hay ${eur(c.imputado)} imputados, más que el sueldo del mes: revisa partes duplicados o el €/h de los partes (debe ser el coste real, no la tarifa cargada).`}
+                >
+                  ⚠
+                </span>
+              )}{" "}
+              = <b className="tabular text-ink">{eur(c.maquina)}/mes</b>
             </>
           ) : (
             <>
@@ -411,8 +439,10 @@ function CoberturaFijos({ c }: { c: Cobertura }) {
         Contribución = base sin IVA − costes del evento − comisión. Cuentan los eventos contratados con fecha
         este mes, alquileres incluidos: todos ayudan a pagar la máquina.
         {c.vivo && (
-          <> El sueldo se recupera por horas: cada parte de horas que registra el equipo con sueldo baja lo
-          que queda de máquina por cubrir.</>
+          <> El sueldo se recupera por horas: cada parte de horas en eventos contratados baja lo que queda
+          de máquina (las horas de presupuestos perdidos y de taller son estructura: no descuentan). Los
+          partes de otros meses de un evento cuentan en su propio mes; el pequeño desfase se compensa entre
+          meses.</>
         )}
         {sinCostes > 0 && (
           <> Los marcados con * no tienen costes apuntados (su cifra está inflada): apúntales el plan en Costes.</>
