@@ -241,6 +241,13 @@ export default async function GuiaPage() {
             activo y deja de dar la lata en avisos y calendario, pero no se borra: queda guardada en
             la sección plegable del final por si hay que consultarla.
           </Duda>
+          <Duda p="Un alquiler o encargo se cobra parte con factura y parte «de amigos». ¿Cómo lo pongo?">
+            Al crear o editar la oportunidad (si es <b>alquiler / encargo</b>) aparece el campo{" "}
+            <b>&quot;% con factura&quot;</b> (por defecto 25%): lo que va con factura; el resto se cobra
+            en efectivo. <b>No sale en el presupuesto</b>, pero sí en el <b>email al cliente</b> (dice la
+            parte con factura y la parte en efectivo) y, al emitir la <b>factura</b>, esta se hace{" "}
+            <b>solo por ese %</b>. Editable siempre.
+          </Duda>
 
           <p className="pt-2 font-semibold text-ink">📂 La ficha de la oportunidad, pestaña a pestaña</p>
           <p>Al pinchar una tarjeta entras en su ficha. Arriba, los botones de PDF y acciones; debajo, las pestañas en el orden en que se trabajan:</p>
@@ -248,8 +255,11 @@ export default async function GuiaPage() {
           <ul className="space-y-2.5">
             <li>
               <b>1 · Datos.</b> Cliente, lugar, fechas, canal por el que llegó, IVA/retención y{" "}
-              <b>condiciones de pago</b> (ej. &quot;a 30 días&quot;). También ves <b>&quot;Creada
-              por&quot;</b> (quién dio de alta la oportunidad).
+              <b>condiciones de pago</b> (ej. &quot;a 30 días&quot;). También las <b>horas de montaje y
+              desmontaje</b>, la <b>logística del recinto</b> (accesos, muelle, montacargas…), la{" "}
+              <b>persona de contacto</b> del cliente y, si el pedido se manda por mensajería, el{" "}
+              <b>envío</b> (incluido en el precio o aparte). Y ves <b>&quot;Creada por&quot;</b> (quién dio
+              de alta la oportunidad).
             </li>
             <li>
               <b>2 · Reuniones.</b> Las citas con el cliente.
@@ -279,7 +289,11 @@ export default async function GuiaPage() {
               <ol className="mt-1 space-y-1.5">
                 <Paso n="a">
                   En cada módulo, <b>&quot;Añadir línea&quot;</b> y rellena las casillas (persona,
-                  horas, €/hora; o concepto, cantidad, precio). El importe se calcula solo.
+                  horas, €/hora; o concepto, cantidad, precio). El importe se calcula solo. Al elegir a
+                  alguien del <b>equipo</b>, su <b>€/hora se rellena solo</b> con su coste real (en el caso
+                  de la persona con sueldo, sale del sueldo del mes). También puedes marcar{" "}
+                  <b>nocturnidad 🌙</b>, la <b>zona</b> del recinto, o dejar un coste <b>«por
+                  confirmar»</b> si aún no tienes el precio del proveedor.
                 </Paso>
                 <Paso n="b">
                   En materiales, <b>&quot;Añadir del catálogo&quot;</b> te trae el artículo con su
@@ -297,7 +311,8 @@ export default async function GuiaPage() {
                   Cuando el evento pasa y sabes el gasto <b>real</b>, cada línea se <b>cuadra</b> con
                   la flecha (tal cual o ajustando el importe): se convierte en gasto real y queda
                   marcada ✓. Al terminar, <b>&quot;Cerrar evento&quot;</b> congela los costes y deja
-                  el margen definitivo (se puede reabrir).
+                  el margen definitivo (se puede reabrir). Si <b>no hubo sobrecostes</b>, el banner del
+                  cierre te avisa de que la <b>contingencia no gastada se ha quedado como beneficio</b>.
                 </Paso>
               </ol>
             </li>
@@ -306,19 +321,26 @@ export default async function GuiaPage() {
               que metiste.
               <ol className="mt-1 space-y-1.5">
                 <Paso n="a">
-                  Te muestra <b>precio mínimo, verde (aceptable) y sugerido</b>, y una tabla con más
-                  márgenes. El <b>semáforo</b> compara el precio del presupuesto: 🟢 bien, 🟡 justo,
-                  🔴 pierdes.
+                  Te muestra el <b>precio mínimo</b> y unas tarjetas rápidas de{" "}
+                  <b>10 / 20 / 30 / 40 %</b> de margen, con el <b>⭐ Sugerido (30%)</b> destacado. Debajo,
+                  una tabla con todos los márgenes. El <b>semáforo</b> compara el precio del presupuesto:
+                  🟢 bien, 🟡 justo, 🔴 pierdes. Truco: <b>por encima del mínimo la estructura ya está
+                  cubierta</b>, así que en trabajos con pocas horas un margen bajo (10–20%) también renta.
                 </Paso>
                 <Paso n="b">
+                  Pulsa <b>&quot;Ver desglose del coste&quot;</b> para ver de dónde sale: horas, materiales,
+                  transporte, <b>estructura por horas</b> (la parte de gastos fijos que arrastra cada hora
+                  de trabajo) y <b>cuota de fijos</b>. No hay que tocar nada: sale solo.
+                </Paso>
+                <Paso n="c">
                   Si el servicio lleva desplazamiento (furgoneta + montaje), aplica el{" "}
                   <b>mínimo de proyecto</b> (chip 🚚): el precio no baja de ahí.
                 </Paso>
-                <Paso n="c">
+                <Paso n="d">
                   Pulsa la fila del margen que quieras y <b>&quot;Volcar al presupuesto&quot;</b>:
                   pasa ese precio a la pestaña Presupuesto en una línea que luego puedes editar.
                 </Paso>
-                <Paso n="d">
+                <Paso n="e">
                   Botón <b>&quot;Pedir validación a los socios&quot;</b> (en Presupuesto): les manda
                   un email para que revisen y den el OK. <b>Recuerda pedirlo en los presupuestos de
                   más de 2.000 €.</b>
@@ -345,6 +367,11 @@ export default async function GuiaPage() {
                 <Paso n="d">
                   Antes de cambiar precios, <b>&quot;Guardar como V1/V2…&quot;</b>: congela esa
                   versión con su PDF, así sabes siempre qué vio el cliente y puedes volver atrás.
+                </Paso>
+                <Paso n="e">
+                  Cuando el cliente acepta, pulsa <b>&quot;Presupuesto validado&quot;</b>: confirma la
+                  oportunidad y <b>reserva solo el material del catálogo</b> que hay en el presupuesto,
+                  para las fechas del evento. Un paso menos.
                 </Paso>
               </ol>
             </li>
@@ -532,6 +559,11 @@ export default async function GuiaPage() {
             facturas, gastos de eventos, gastos fijos y reembolsos. El donut de <b>deudas</b>{" "}
             responde a &quot;¿a quién le debe dinero la sociedad ahora mismo?&quot;.
           </p>
+          <p>
+            En <b>Gastos fijos</b> (local, suministros, software, sueldos…) puedes <b>generar los del
+            mes</b> de un clic y <b>filtrar</b> por texto, categoría, quién paga o estado, con el total
+            €/mes de lo filtrado.
+          </p>
         </Seccion>
       )}
 
@@ -548,17 +580,36 @@ export default async function GuiaPage() {
       {ve("/cuadro-mando") && (
         <Seccion id="cuadro" titulo="Cuadro de mando" emoji="📈">
           <p>
-            Los indicadores del negocio con perspectiva: facturación, conversión, canales, tiempos
-            de cierre. Para las decisiones de socios, no para el día a día.
+            Los indicadores del negocio con perspectiva, para las decisiones de socios (Cristina no lo
+            ve). Bajando por la página encuentras:
           </p>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>
+              <b>Cobertura de fijos:</b> «la máquina» del mes (gastos fijos + el sueldo que aún no han
+              recuperado las horas de eventos) contra lo que aportan los eventos. Te dice si llegas a
+              fin de mes y <b>cuántos eventos faltan</b> para cubrirla.
+            </li>
+            <li>
+              <b>Jornada de Cristina + calibración del modelo:</b> sus horas del mes vs. su contrato
+              (repartidas en eventos y estructura) y, con los últimos 3 meses, el <b>«% horas a
+              eventos»</b> y los <b>«eventos/mes» reales</b>. Si difieren de la calculadora, un botón{" "}
+              <b>«Aplicar al modelo»</b> la afina con datos en vez de a ojo.
+            </li>
+            <li>
+              <b>Rentabilidad</b> por tipo de evento, cliente y canal; y <b>precisión</b> presupuestando
+              (lo estimado vs. lo que costó de verdad, para ir ajustando).
+            </li>
+          </ul>
         </Seccion>
       )}
 
       {ve("/equipo") && (
         <Seccion id="equipo" titulo="Equipo" emoji="👥">
           <p>
-            Las personas que trabajan en los eventos, con su precio/hora. Alimenta la imputación de
-            horas en Costes y el desplegable de &quot;quién pagó&quot; los gastos.
+            Las personas que trabajan en los eventos. Cada una con su <b>€/hora</b>, y para quien tiene
+            sueldo, sus <b>horas de contrato/semana</b> y sus <b>sueldos con vigencia</b> (en el panel de
+            Sueldos). Con eso el sistema calcula su <b>coste real por hora</b> y lo autorrellena en Costes
+            cuando la eliges — y se actualiza solo si el sueldo cambia de temporada.
           </p>
         </Seccion>
       )}
