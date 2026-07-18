@@ -355,7 +355,9 @@ export default async function Page({
             clienteEmail={op.cliente?.email ?? null}
             clienteNombre={op.cliente?.nombre ?? null}
             total={eur(t.total)}
-            totalNum={t.total}
+            baseNum={t.base}
+            ivaPct={op.iva_pct}
+            retPct={op.retencion_pct}
             serie={op.serie}
             pctFactura={op.pct_factura ?? null}
           />

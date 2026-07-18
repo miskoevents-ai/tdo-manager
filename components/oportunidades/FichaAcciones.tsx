@@ -68,7 +68,9 @@ export function EnviarPresupuestoBtn({
   clienteEmail,
   clienteNombre,
   total,
-  totalNum,
+  baseNum,
+  ivaPct,
+  retPct,
   serie,
   pctFactura,
 }: {
@@ -78,7 +80,9 @@ export function EnviarPresupuestoBtn({
   clienteEmail: string | null;
   clienteNombre: string | null;
   total: string;
-  totalNum: number;
+  baseNum: number;
+  ivaPct: number;
+  retPct: number;
   serie: OportunidadSerie;
   pctFactura: number | null;
 }) {
@@ -86,21 +90,29 @@ export function EnviarPresupuestoBtn({
   const asunto = `Presupuesto Nº ${numero} · Tu Decoración Original`;
   // Reparto de cobro para alquileres/encargos: si una parte va con factura y
   // otra en efectivo ("amigos"), se detalla en el email (nunca en el PDF).
+  // Mismos números que la factura que luego emite el sistema: la parte con
+  // factura lleva IVA (y retención si toca); la parte en efectivo va SIN IVA
+  // sobre la base. El total real del cliente es la suma de las dos.
   const pct = typeof pctFactura === "number" ? Math.max(0, Math.min(100, pctFactura)) : null;
+  const r2 = (x: number) => Math.round((x + Number.EPSILON) * 100) / 100;
   let reparto: string | null = null;
-  if (serie === "alquiler_encargo" && pct !== null && pct < 100) {
+  let totalMostrado = total;
+  if (serie === "alquiler_encargo" && pct !== null && pct < 100 && baseNum > 0) {
+    const baseFac = r2((baseNum * pct) / 100);
+    const conIva = r2((baseFac * (100 + ivaPct - retPct)) / 100);
+    const efectivo = r2(baseNum - baseFac);
     if (pct <= 0) {
       reparto = "El importe se abonará íntegramente en efectivo.";
+      totalMostrado = eur(efectivo);
     } else {
-      const factura = Math.round(totalNum * pct) / 100;
-      const efectivo = Math.round((totalNum - factura) * 100) / 100;
-      reparto = `Del total, ${eur(factura)} se abonarán con factura y ${eur(efectivo)} en efectivo.`;
+      reparto = `Forma de pago: ${eur(conIva)} con factura (IVA incluido) y ${eur(efectivo)} en efectivo.`;
+      totalMostrado = eur(r2(conIva + efectivo));
     }
   }
   const cuerpo = [
     `Hola ${clienteNombre ?? ""},`.replace(" ,", ","),
     "",
-    `Muchas gracias por contar con Tu Decoración Original. Te adjuntamos el presupuesto Nº ${numero} (${titulo}) por un total de ${total}.`,
+    `Muchas gracias por contar con Tu Decoración Original. Te adjuntamos el presupuesto Nº ${numero} (${titulo}) por un total de ${totalMostrado}.`,
     ...(reparto ? ["", reparto] : []),
     "",
     "Quedamos a tu disposición para cualquier duda o ajuste.",

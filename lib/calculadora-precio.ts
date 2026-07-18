@@ -267,8 +267,10 @@ export function recargoEstructuraHora(cfg: CalculadoraConfig): number {
 
 // Una persona más en el evento (además de la empleada principal): socio,
 // colaborador o externo. Si es "aportado", su coste cuenta para el precio
-// pero nadie lo cobra (trabajo regalado por un socio).
-export type PersonaLinea = { nombre: string; horas: number; precioHora: number; aportado: boolean };
+// pero nadie lo cobra (trabajo regalado por un socio). "esEmpleada" marca a la
+// empleada con sueldo cuando viene como línea (flujo de Costes): sus horas
+// llevan el recargo de estructura igual que las del bloque de horas.
+export type PersonaLinea = { nombre: string; horas: number; precioHora: number; aportado: boolean; esEmpleada?: boolean };
 
 // Un gasto del evento desglosado (mismo patrón que las líneas de persona):
 // materiales, transporte o dietas/alquiler, con su concepto e importe.
@@ -399,7 +401,14 @@ export function calcularPrecio(
   //  · Un ENCARGO/ALQUILER solo carga un % de sus costes directos (uso de
   //    taller/local), no la máquina de un evento; sus horas van a coste real.
   //    Lo que recaudan ayuda al bote (se ve en el Cuadro de mando).
-  const recargoEstructura = esAlquiler ? 0 : horasCristina * recargoEstructuraHora(cfg);
+  // Las horas de la empleada pueden venir por el bloque de horas O como línea
+  // de persona (flujo de Costes, donde el bloque queda a cero): el recargo se
+  // aplica a TODAS ellas, vengan por donde vengan. Sin el flag guardado (cálculos
+  // antiguos), se la reconoce por nombre — "Cris" (socia) no cuela en /crist/i.
+  const esEmpleadaLinea = (p: PersonaLinea) => p.esEmpleada ?? /crist/i.test(p.nombre);
+  const horasEmpleadaPersonas = personas.filter(esEmpleadaLinea).reduce((s, p) => s + n(p.horas), 0);
+  const horasEmpleada = horasCristina + horasEmpleadaPersonas;
+  const recargoEstructura = esAlquiler ? 0 : horasEmpleada * recargoEstructuraHora(cfg);
   const cuotaFijos = esAlquiler
     ? (directosSinExtras * n(cfg.estructuraEncargoPct)) / 100
     : ctx.cuotaFijos;
@@ -466,7 +475,7 @@ export function calcularPrecio(
   if (base != null) {
     beneficioPrevisto = base * (1 - com) - costeTotal;
     margenPrevisto = (beneficioPrevisto / base) * 100;
-    beneficioPorHora = horasCristina > 0 ? beneficioPrevisto / horasCristina : null;
+    beneficioPorHora = horasEmpleada > 0 ? beneficioPrevisto / horasEmpleada : null;
     const sueloRojo = temporada === "baja" ? precioSupervivencia : precioMinimo;
     semaforo = base >= precioVerde ? "verde" : base >= sueloRojo ? "ambar" : "rojo";
     // Por debajo del mínimo de servicio desplazado → rojo (pauta comercial).
