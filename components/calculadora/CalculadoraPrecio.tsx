@@ -311,13 +311,12 @@ export function CalculadoraPrecio({
   const precioElegido = margenSel == null ? r.precioSugerido : precioDeMargen(margenEfectivo);
   const conIva = (n: number) => eur(n * (1 + ivaPct / 100));
 
-  // Escalera de tarjetas rápidas: mínimo → 10/20/30% → sugerido. No saltamos
-  // directo al sugerido: se ven antes los escalones más baratos. Solo mostramos
-  // un escalón fijo si queda por encima del mínimo (si no, sería pérdida).
+  // Escalera de tarjetas rápidas: mínimo → 10/20/30/40 %. El escalón que
+  // coincide con el sugerido (30% de referencia) se resalta como recomendado.
+  // Todos quedan por encima del mínimo (10% ya lleva la estructura completa +
+  // ese 10% de beneficio), así que se muestran siempre.
   const margenSugerido = Math.round(r.margenIdeal);
-  const escalonesCard = [10, 20, 30].filter(
-    (m) => precioDeMargen(m) > r.precioMinimo && m < margenSugerido,
-  );
+  const escalonesCard = Array.from(new Set([10, 20, 30, 40, margenSugerido])).sort((a, b) => a - b);
 
   const setHora = (k: keyof CalculoInputs["horas"], v: number) =>
     setInputs((i) => ({ ...i, horas: { ...i.horas, [k]: v } }));
@@ -671,9 +670,10 @@ export function CalculadoraPrecio({
             <div className="mt-1 font-display text-[19px] tabular text-error">{eur(r.precioMinimo)}</div>
             <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioMinimo)} con IVA · por debajo se pierde</div>
           </div>
-          {/* Escalones intermedios: 10 / 20 / 30 %. Se pueden pulsar para elegir. */}
+          {/* Escalones 10/20/30/40. El que coincide con el sugerido se resalta. */}
           {escalonesCard.map((m) => {
-            const precio = precioDeMargen(m);
+            const esSugerido = m === margenSugerido;
+            const precio = esSugerido ? r.precioSugerido : precioDeMargen(m);
             const verde = m >= r.margenVerde;
             const seleccionado = margenEfectivo === m;
             return (
@@ -682,37 +682,23 @@ export function CalculadoraPrecio({
                 type="button"
                 onClick={() => setMargenSel(m)}
                 className={`min-w-[130px] flex-1 rounded-md p-3 text-left transition-colors ${
-                  seleccionado
-                    ? "border-med border-sage bg-sage/10 outline outline-1 outline-sage"
-                    : "border-hair border-border bg-white hover:bg-beige-warm/50"
+                  esSugerido
+                    ? `border-med ${seleccionado ? "border-sage bg-sage-tint/60 outline outline-1 outline-sage" : "border-sage/50 bg-sage-tint/40 hover:bg-sage-tint/60"}`
+                    : seleccionado
+                      ? "border-med border-sage bg-sage/10 outline outline-1 outline-sage"
+                      : "border-hair border-border bg-white hover:bg-beige-warm/50"
                 }`}
               >
-                <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-                  {verde && <span className="mr-1">🟢</span>}Margen {m}%
+                <div className={`text-[10.5px] font-semibold uppercase tracking-[0.08em] ${esSugerido ? "text-sage" : "text-ink-muted"}`}>
+                  {esSugerido ? `⭐ Sugerido (${m}%)` : <>{verde && <span className="mr-1">🟢</span>}Margen {m}%</>}
                 </div>
-                <div className="mt-1 font-display text-[19px] tabular text-ink">{eur(precio)}</div>
+                <div className={`mt-1 font-display tabular ${esSugerido ? "text-[21px] text-sage" : "text-[19px] text-ink"}`}>{eur(precio)}</div>
                 <div className="text-[10.5px] text-ink-muted">
-                  ≈ {conIva(precio)} con IVA{verde ? " · margen sano" : ""}
+                  ≈ {conIva(precio)} con IVA{esSugerido ? " · redondeado" : verde ? " · margen sano" : ""}
                 </div>
               </button>
             );
           })}
-          {/* Sugerido: el recomendado. Seleccionado por defecto. */}
-          <button
-            type="button"
-            onClick={() => setMargenSel(margenSugerido)}
-            className={`min-w-[130px] flex-1 rounded-md border-med p-3 text-left transition-colors ${
-              margenEfectivo === margenSugerido
-                ? "border-sage bg-sage-tint/60 outline outline-1 outline-sage"
-                : "border-sage/50 bg-sage-tint/40 hover:bg-sage-tint/60"
-            }`}
-          >
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-sage">
-              ⭐ Sugerido ({num(r.margenIdeal, 0)}%)
-            </div>
-            <div className="mt-1 font-display text-[21px] tabular text-sage">{eur(r.precioSugerido)}</div>
-            <div className="text-[10.5px] text-ink-muted">≈ {conIva(r.precioSugerido)} con IVA ({num(ivaPct, 0)}%) · redondeado</div>
-          </button>
         </div>
         {/* Opciones de margen: el menú completo para elegir con criterio */}
         <div className="mt-3">
@@ -768,9 +754,10 @@ export function CalculadoraPrecio({
             </table>
           </div>
           <p className="mt-1 text-[10.5px] text-ink-muted">
-            🟢 = margen sano para este evento (verde desde {num(r.margenVerde, 0)}%). Los eventos grandes
-            aceptan menos %; los pequeños piden más. Nunca por debajo del mínimo ({eur(r.precioMinimo)}).
-            ¿Necesitas un margen que no está en la tabla (p. ej. del 1 al 10%)? Escríbelo a mano abajo.
+            🟢 = margen sano para este evento (verde desde {num(r.margenVerde, 0)}%). Por encima del mínimo
+            ({eur(r.precioMinimo)}) la estructura ya está recuperada, así que en trabajos con pocas horas un
+            margen bajo (10–20%) también sale rentable. Nunca por debajo del mínimo. ¿Necesitas un margen que
+            no está en la tabla? Escríbelo a mano abajo.
           </p>
 
           {/* Volcar el precio elegido al presupuesto (una sola línea editable).
