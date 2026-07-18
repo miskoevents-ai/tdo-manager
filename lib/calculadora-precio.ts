@@ -87,8 +87,11 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
     media: { verde: 20, ideal: 30 },
     baja: { verde: 15, ideal: 25 },
   },
+  // Corporativo: banda propia que pisa la de temporada. Aceptan margen bajo
+  // (verde desde 15) porque amortizan estructura; sugerido al 30 como el resto
+  // (decisión socios jul 2026 — antes se sugería 45).
   margenesPorTipo: {
-    corporativo: { verde: 15, ideal: 45 },
+    corporativo: { verde: 15, ideal: 30 },
   },
   mesesAlta: [5, 6, 9, 10, 12],
   mesesMedia: [4, 7, 11],
