@@ -133,17 +133,28 @@ export function CostesTab({
       )}
       {/* Cierre del evento */}
       {cerrada && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border-hair border-ok bg-ok-tint px-4 py-3 text-[13px]">
-          <span className="inline-flex items-center gap-2 font-semibold text-ok">
-            <Lock size={14} /> Evento cerrado{cerradaFecha ? ` el ${fecha(cerradaFecha)}` : ""} — margen final{" "}
-            {eur(margen)} ({num(margenPct, 0)}%)
-          </span>
-          <button
-            onClick={toggleCierre}
-            className="inline-flex items-center gap-1 rounded-sm border-med border-border-strong bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-secondary hover:bg-beige-warm"
-          >
-            <LockOpen size={12} /> Reabrir
-          </button>
+        <div className="space-y-1.5 rounded-md border-hair border-ok bg-ok-tint px-4 py-3 text-[13px]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-2 font-semibold text-ok">
+              <Lock size={14} /> Evento cerrado{cerradaFecha ? ` el ${fecha(cerradaFecha)}` : ""} — margen final{" "}
+              {eur(margen)} ({num(margenPct, 0)}%)
+            </span>
+            <button
+              onClick={toggleCierre}
+              className="inline-flex items-center gap-1 rounded-sm border-med border-border-strong bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-secondary hover:bg-beige-warm"
+            >
+              <LockOpen size={12} /> Reabrir
+            </button>
+          </div>
+          {/* El margen final se calcula con los COSTES REALES, sin la contingencia
+              del presupuesto: si no hubo imprevistos, ese colchón ya está dentro
+              del margen (es beneficio). Se hace explícito para tranquilidad. */}
+          {contingenciaPct > 0 && desviacion <= 0 && (
+            <p className="text-[11.5px] text-ink-secondary">
+              ✔ No hubo sobrecostes: la contingencia del {num(contingenciaPct, 0)}% presupuestada
+              (~{eur(totalEstimado * (contingenciaPct / 100))}) no se ha gastado y está incluida en este margen como beneficio.
+            </p>
+          )}
         </div>
       )}
 

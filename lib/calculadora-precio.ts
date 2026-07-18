@@ -78,10 +78,14 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
   estructuraEncargoPct: 20,
   costeHoraSocio: 12,
   comisiones: { alquiler: 5, boda: 6, corporativo: 7 },
+  // Margen sobre el precio. El sugerido es el "ideal" (30% de referencia): como
+  // el coste ya lleva la estructura completa (horas cargadas + cuota), por
+  // encima del MÍNIMO cada punto es beneficio limpio. El 45% sigue disponible en
+  // la tabla de opciones para quien quiera apretar en temporada alta.
   margenes: {
-    alta: { verde: 40, ideal: 45 },
-    media: { verde: 35, ideal: 40 },
-    baja: { verde: 25, ideal: 30 },
+    alta: { verde: 20, ideal: 30 },
+    media: { verde: 20, ideal: 30 },
+    baja: { verde: 15, ideal: 25 },
   },
   margenesPorTipo: {
     corporativo: { verde: 15, ideal: 45 },
@@ -368,16 +372,27 @@ export function calcularPrecio(
   const factor = (margenPct: number) => Math.max(0.05, 1 - margenPct / 100 - com);
 
   const horasCristina = n(inputs.horas?.comercial) + n(inputs.horas?.pre) + n(inputs.horas?.durante) + n(inputs.horas?.post);
-  const costeCristina = horasCristina * cfg.costeHoraEmpleada;
-  // Resto de personas: aportadas (socios que no cobran) y pagadas (extras). Si
-  // hay líneas de persona se ignoran los campos viejos (evita doble conteo).
+  const costeCristinaBloque = horasCristina * cfg.costeHoraEmpleada;
   const personas = inputs.personas ?? [];
   const soloViejo = personas.length === 0;
+  // La empleada (Cristina) puede venir por el bloque de horas O como línea de
+  // persona (flujo de Costes, donde el bloque queda a cero). Se la reconoce por
+  // el flag esEmpleada o, en cálculos antiguos, por el nombre — "Cris" (socia)
+  // no cuela en /crist/i. Sus horas y su coste van SIEMPRE al cubo de la
+  // empleada, nunca a "personal extra".
+  const esEmpleadaLinea = (p: PersonaLinea) => p.esEmpleada ?? /crist/i.test(p.nombre);
+  const lineasEmpleada = personas.filter(esEmpleadaLinea);
+  const otrasPersonas = personas.filter((p) => !esEmpleadaLinea(p));
+  const horasEmpleada = horasCristina + lineasEmpleada.reduce((s, p) => s + n(p.horas), 0);
+  const costeCristina =
+    costeCristinaBloque + lineasEmpleada.reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0);
+  // Resto de personas: aportadas (socios que no cobran) y pagadas (extras). Si
+  // hay líneas de persona se ignoran los campos viejos (evita doble conteo).
   const costeAportado =
-    personas.filter((p) => p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
+    otrasPersonas.filter((p) => p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
     (soloViejo ? n(inputs.horasSocio) * cfg.costeHoraSocio : 0);
   const costePagado =
-    personas.filter((p) => !p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
+    otrasPersonas.filter((p) => !p.aportado).reduce((s, p) => s + n(p.horas) * n(p.precioHora), 0) +
     (soloViejo ? n(inputs.personalExtra) : 0);
   // Gastos: si hay líneas desglosadas mandan ellas; si no, los números sueltos.
   const gastos = inputs.gastos ?? [];
@@ -401,13 +416,8 @@ export function calcularPrecio(
   //  · Un ENCARGO/ALQUILER solo carga un % de sus costes directos (uso de
   //    taller/local), no la máquina de un evento; sus horas van a coste real.
   //    Lo que recaudan ayuda al bote (se ve en el Cuadro de mando).
-  // Las horas de la empleada pueden venir por el bloque de horas O como línea
-  // de persona (flujo de Costes, donde el bloque queda a cero): el recargo se
-  // aplica a TODAS ellas, vengan por donde vengan. Sin el flag guardado (cálculos
-  // antiguos), se la reconoce por nombre — "Cris" (socia) no cuela en /crist/i.
-  const esEmpleadaLinea = (p: PersonaLinea) => p.esEmpleada ?? /crist/i.test(p.nombre);
-  const horasEmpleadaPersonas = personas.filter(esEmpleadaLinea).reduce((s, p) => s + n(p.horas), 0);
-  const horasEmpleada = horasCristina + horasEmpleadaPersonas;
+  // El recargo de estructura se aplica a TODAS las horas de la empleada (bloque
+  // + líneas); los encargos/alquileres no lo llevan (sus horas van a coste real).
   const recargoEstructura = esAlquiler ? 0 : horasEmpleada * recargoEstructuraHora(cfg);
   const cuotaFijos = esAlquiler
     ? (directosSinExtras * n(cfg.estructuraEncargoPct)) / 100
@@ -513,7 +523,7 @@ export function calcularPrecio(
     margenVerde,
     margenIdeal,
     desglose: {
-      horasCristina,
+      horasCristina: horasEmpleada,
       costeCristina,
       costeSocio: costeAportado,
       personalExtra: costePagado,
