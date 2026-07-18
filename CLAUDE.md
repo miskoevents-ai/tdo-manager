@@ -6,9 +6,11 @@
 - **Jero** = socio (Jerónimo Alonso Marcos, emisor fiscal).
 - **Álvaro** = dueño/socio, con quien hablas en las sesiones.
 
-## Modelo de costes (estado)
-- Encargos/alquileres: 15% de costes directos como "estructura de taller" (sin cuota de evento). Alquileres puros: markup con mínimos 450 € montaje desplazado / 75 € entrega.
-- Propuesta pendiente de validar con Jero: tarifa cargada por horas (sueldo Cristina ÷ horas de evento, media móvil; arranque de referencia 6 eventos/mes y ~50% de sus horas) + cuota viva de fijos. Si Cristina dedica más horas a eventos, el recargo de estructura desciende automáticamente.
+## Modelo de costes (DECIDIDO jul 2026, implementado en lib/calculadora-precio.ts)
+- Estructura por consumo: sueldo de Cristina por horas con tarifa cargada (€/h real ÷ % horas a eventos; 20÷50% = 40 €/h, recargo 20 €/h) + cuota de fijos SIN sueldo ÷ 6 eventos de referencia FIJOS (decisión: mejor pasarse que ser baratos).
+- Tarifa anual alisada (el verano no se encarece). Si Cristina dedica más horas a eventos → subir "% horas a eventos" en Parámetros → recargo baja solo.
+- Encargos/alquileres: 20% de costes directos (antes 15). Su recaudación NO descuenta de la cuota (conservador); revisar con el Cuadro de mando en 2-3 meses. Alquileres puros: markup con mínimos 450/75.
+- Detalle completo en docs/modelo-costes.md §8.
 
 ## Convenciones del repo
 - Migraciones SQL en `supabase/migrations/` — el usuario las ejecuta a mano en Supabase (avisarle siempre). Última: 055.
