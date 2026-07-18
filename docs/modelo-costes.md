@@ -175,3 +175,32 @@ Regla de oro: si el panel dice que no cubrimos la máquina, la palanca es
 2. Si C: ¿activamos también el punto 4 (sueldo por partes de horas reales)?
 3. ¿Cuál es el "beneficio objetivo" mensual de los socios? (Para calibrar los
    márgenes con el marco del punto 6.)
+
+---
+
+## 8 · DECIDIDO (jul 2026): modelo por consumo — implementado
+
+Tras la objeción de Álvaro ("no es lo mismo 6 eventos de 2 horas que 3 de
+12"), la estructura se reparte **según lo que cada evento consume**:
+
+1. **Sueldo por horas con tarifa cargada.** El sueldo de Cristina se recupera
+   entero por sus horas de evento: tarifa = €/h real ÷ % de horas dedicado a
+   eventos (20 ÷ 50% = **40 €/h**; recargo de estructura = 20 €/h). Un evento
+   de 12 h carga 6 veces más sueldo-estructura que uno de 2 h. Si Cristina
+   dedica más horas a eventos, se sube el % y el recargo **baja solo**.
+2. **Tarifa anual alisada** (decidido): el €/h de la calculadora es la media
+   anual — el verano no se encarece por tener pocos eventos.
+3. **Cuota de fijos por evento** (decidido): bote de fijos SIN sueldo ÷
+   **6 eventos de referencia FIJOS** (decidido: mejor pasarse que quedarse
+   cortos por un error de cálculo). La cuota ya no lleva el 50% del sueldo.
+4. **Encargos/alquileres al 20%** de costes directos (antes 15%; decidido:
+   también consumen local/taller). Su recaudación ayuda al bote — de momento
+   NO descuenta de la cuota (conservador a propósito); el Cuadro de mando
+   dirá en 2-3 meses si el 20% se queda corto o sobra.
+5. **Cierre mensual**: el panel de cobertura de fijos del Cuadro de mando
+   compara contribución real vs máquina; es la referencia para recalibrar
+   el % de horas y los eventos de referencia — con datos, no a ojo.
+
+Pendiente (fase 2): calibrar automáticamente el % de horas a eventos con la
+media móvil de los partes de horas, y el descuento vivo de la aportación de
+encargos en la cuota.

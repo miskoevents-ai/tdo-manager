@@ -628,11 +628,18 @@ export function CalculadoraPrecio({
               <span>Mermas {num(cfg.mermasPct, 0)}%: <b className="tabular">{eur(r.desglose.mermas)}</b></span>
             )}
             {esEncargo ? (
-              <span title="Encargos/alquileres: solo un % de sus costes directos como uso de taller, no la cuota de un evento.">
+              <span title="Encargos/alquileres: solo un % de sus costes directos como uso de taller, no la estructura de un evento.">
                 Estructura taller {num(pctEncargo, 0)}%: <b className="tabular">{eur(r.desglose.cuotaFijos)}</b>
               </span>
             ) : (
-              <span>Cuota de fijos: <b className="tabular">{eur(r.desglose.cuotaFijos)}</b></span>
+              <>
+                <span title="El sueldo se recupera por horas: cada hora de evento arrastra su parte del resto de la jornada (admin, presupuestos, taller). Más horas = más estructura, como debe ser.">
+                  Estructura por horas ⓘ: <b className="tabular">{eur(r.desglose.recargoEstructura)}</b>
+                </span>
+                <span title="Local, trastero y software repartidos entre los eventos de referencia del mes (no lleva el sueldo: ese va por horas).">
+                  Cuota de fijos ⓘ: <b className="tabular">{eur(r.desglose.cuotaFijos)}</b>
+                </span>
+              </>
             )}
           </div>
         )}
@@ -915,8 +922,8 @@ export function CalculadoraPrecio({
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <NumInput label="€/h Cristina" value={cfg.costeHoraEmpleada} onChange={(v) => setCfg({ ...cfg, costeHoraEmpleada: v })} step={0.5} />
             <NumInput label="Coste sueldo €/mes" value={cfg.costeMensualEmpleada} onChange={(v) => setCfg({ ...cfg, costeMensualEmpleada: v })} step={10} />
-            <NumInput label="% sueldo a eventos" value={cfg.repartoEventosPct} onChange={(v) => setCfg({ ...cfg, repartoEventosPct: v })} sufijo="%" />
-            <NumInput label="Eventos / mes" value={cfg.eventosMes} onChange={(v) => setCfg({ ...cfg, eventosMes: v })} />
+            <NumInput label="% horas a eventos" value={cfg.repartoEventosPct} onChange={(v) => setCfg({ ...cfg, repartoEventosPct: v })} sufijo="%" hint="Referencia de cuántas horas de Cristina van a eventos (50% de partida). Fija la tarifa cargada: €/h ÷ este %. Si dedica más horas a eventos, súbelo y el recargo de estructura baja solo." />
+            <NumInput label="Eventos / mes" value={cfg.eventosMes} onChange={(v) => setCfg({ ...cfg, eventosMes: v })} hint="Referencia fija de partida: 6 (decisión socios). Entre estos se reparte el bote de fijos. El Cuadro de mando enseña la desviación real de cada mes." />
             <NumInput
               label="Contingencia"
               value={cfg.contingenciaPct}
@@ -949,7 +956,7 @@ export function CalculadoraPrecio({
               value={cfg.estructuraEncargoPct}
               onChange={(v) => setCfg({ ...cfg, estructuraEncargoPct: v })}
               sufijo="%"
-              hint="Estructura (uso de taller/local) que carga un encargo/alquiler, como % de sus costes directos. Un evento carga la cuota completa de fijos; un encargo solo este %. 0 = sin estructura."
+              hint="Estructura (uso de taller/local) que carga un encargo/alquiler, como % de sus costes directos (20% desde jul 2026: también consumen local). Un evento carga estructura por horas + cuota; un encargo solo este %. 0 = sin estructura."
             />
           </div>
           <p className="text-[11px] text-ink-muted">

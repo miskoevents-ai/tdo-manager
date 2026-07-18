@@ -8,12 +8,20 @@
 export type FaseHoras = { comercial: number; pre: number; durante: number; post: number };
 
 export type CalculadoraConfig = {
-  // Cristina (empleada): coste empresa por hora y al mes (bruto + SS).
+  // Cristina (empleada): coste empresa por hora y al mes (bruto + SS). El
+  // coste/hora es la media ANUAL alisada (decisión socios: tarifa estable todo
+  // el año, sin encarecer el verano por tener pocos eventos).
   costeHoraEmpleada: number;
   costeMensualEmpleada: number;
-  // % del sueldo que se recupera por horas en eventos; el resto va al bote de fijos.
+  // % de las horas de la empleada que se dedican a eventos (referencia de
+  // partida: 50%). De aquí sale la tarifa cargada: coste/hora ÷ este % — cada
+  // hora de evento arrastra su parte proporcional del resto de la jornada
+  // (admin, presupuestos, taller). Si dedica MÁS horas a eventos, sube este %
+  // y el recargo de estructura BAJA solo.
   repartoEventosPct: number;
-  // Eventos al mes entre los que se reparte el bote de fijos.
+  // Eventos al mes entre los que se reparte el bote de fijos. Referencia fija
+  // de partida: 6 (decisión socios — mejor pasarse que quedarse cortos; el
+  // Cuadro de mando enseña la desviación real de cada mes).
   eventosMes: number;
   contingenciaPct: number; // imprevistos sobre costes directos
   mermasPct: number; // roturas/mermas sobre materiales
@@ -66,7 +74,8 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
   // las roturas/mermas (decisión jul 2026: las mermas van dentro, no aparte).
   contingenciaPct: 6,
   mermasPct: 0,
-  estructuraEncargoPct: 15,
+  // 20% desde jul 2026 (antes 15): los encargos también consumen local/taller.
+  estructuraEncargoPct: 20,
   costeHoraSocio: 12,
   comisiones: { alquiler: 5, boda: 6, corporativo: 7 },
   margenes: {
@@ -233,11 +242,27 @@ export function boteFijosMes(
   return bote;
 }
 
-// Cuota por evento = (bote de fijos + parte estructural del sueldo) ÷ eventos/mes.
-// Va aparte del bote para poder recalcularse en vivo al probar parámetros.
+// Cuota por evento = bote de fijos ÷ eventos de referencia al mes. El sueldo ya
+// NO entra aquí: se recupera entero por horas con la tarifa cargada (abajo).
+// Modelo por consumo (decisión socios jul 2026): un evento de 12 h carga más
+// estructura que uno de 2 h, y la cuota solo lleva los fijos "de plaza"
+// (local, trastero, software), que no dependen de las horas.
 export function cuotaPorEvento(bote: number, cfg: CalculadoraConfig): number {
-  const estructural = cfg.costeMensualEmpleada * (1 - cfg.repartoEventosPct / 100);
-  return (bote + estructural) / Math.max(1, cfg.eventosMes);
+  return bote / Math.max(1, cfg.eventosMes);
+}
+
+// Tarifa cargada de la empleada: su sueldo entero se recupera SOLO por las
+// horas que dedica a eventos. Si dedica el 50% de la jornada, cada hora de
+// evento debe arrastrar dos horas de sueldo → tarifa = coste real ÷ 50%
+// (20 €/h → 40 €/h). Si dedica más horas a eventos, la tarifa baja sola.
+export function tarifaCargadaHora(cfg: CalculadoraConfig): number {
+  const r = Math.min(100, Math.max(5, Number(cfg.repartoEventosPct) || 50)) / 100;
+  return cfg.costeHoraEmpleada / r;
+}
+
+// Recargo de estructura por hora de evento = tarifa cargada − coste real.
+export function recargoEstructuraHora(cfg: CalculadoraConfig): number {
+  return Math.max(0, tarifaCargadaHora(cfg) - cfg.costeHoraEmpleada);
 }
 
 // Una persona más en el evento (además de la empleada principal): socio,
@@ -293,6 +318,7 @@ export type CalculoResultado = {
     otros: number;
     contingencia: number;
     mermas: number;
+    recargoEstructura: number; // horas × recargo de tarifa cargada (0 en encargos)
     cuotaFijos: number;
   };
   costeTotal: number; // sin comisión (la comisión depende del precio)
@@ -364,17 +390,20 @@ export function calcularPrecio(
   // Las mermas (roturas) solo aplican a materiales físicos, no a dietas/alquiler.
   const mermas = (materiales * cfg.mermasPct) / 100;
   const directos = directosSinExtras + contingencia + mermas;
-  // Estructura de fijos:
-  //  · Un EVENTO carga su cuota completa de la máquina (1/6, ~480 €): consume
-  //    local, sueldos y toda la estructura.
-  //  · Un ENCARGO/ALQUILER (cartel, pieza suelta) solo carga un % de sus costes
-  //    directos (uso de taller/local), no toda la máquina. Un cartel de 195 €
-  //    al 15% suma ~29 €, no 480 €. El resto de fijos lo cubren los eventos.
-  //    Decisión socios, jul 2026 — el % es ajustable en Parámetros.
+  // Estructura por consumo (decisión socios jul 2026):
+  //  · Un EVENTO carga estructura según lo que consume: sus horas de Cristina
+  //    llevan el recargo de la tarifa cargada (el sueldo entero se recupera por
+  //    horas: 12 h cargan 6 veces más que 2 h) + la cuota de fijos "de plaza"
+  //    (bote sin sueldo ÷ eventos de referencia). Sin contingencia encima: la
+  //    contingencia es para costes directos, no para estructura.
+  //  · Un ENCARGO/ALQUILER solo carga un % de sus costes directos (uso de
+  //    taller/local), no la máquina de un evento; sus horas van a coste real.
+  //    Lo que recaudan ayuda al bote (se ve en el Cuadro de mando).
+  const recargoEstructura = esAlquiler ? 0 : horasCristina * recargoEstructuraHora(cfg);
   const cuotaFijos = esAlquiler
     ? (directosSinExtras * n(cfg.estructuraEncargoPct)) / 100
     : ctx.cuotaFijos;
-  const costeTotal = directos + cuotaFijos;
+  const costeTotal = directos + recargoEstructura + cuotaFijos;
 
   // Tamaño del evento por su MAGNITUD intrínseca (precio natural por costes), no
   // por lo que ofrezca el cliente: así el precio sugerido es objetivo y estable.
@@ -484,6 +513,7 @@ export function calcularPrecio(
       otros,
       contingencia,
       mermas,
+      recargoEstructura,
       cuotaFijos,
     },
     costeTotal,
