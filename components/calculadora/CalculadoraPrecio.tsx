@@ -490,30 +490,32 @@ export function CalculadoraPrecio({
           {cristinaEnPersonas ? "Equipo del evento (desde Costes)" : "Más personas en el evento"}
         </p>
         <div className="space-y-2">
-          {(inputs.personas ?? []).map((p, idx) => (
-            <div key={idx} className="flex flex-wrap items-center gap-2 rounded-md bg-beige-light/70 px-2.5 py-2">
-              <span className="min-w-[110px] flex-1 text-[13px] font-medium">{p.nombre}</span>
-              <label className="flex items-center gap-1 text-[11px] text-ink-muted">
-                horas
-                <Input type="number" step={0.5} min={0} value={p.horas} onChange={(e) => setPersona(idx, { horas: Math.max(0, Number(e.target.value) || 0) })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
-              </label>
-              <label className="flex items-center gap-1 text-[11px] text-ink-muted">
-                €/h
-                <Input type="number" step={0.5} min={0} value={p.precioHora} onChange={(e) => setPersona(idx, { precioHora: Math.max(0, Number(e.target.value) || 0) })} className="w-[70px] py-1.5 text-right text-[12.5px] tabular" />
-              </label>
-              <span className="tabular text-[12.5px] font-semibold text-ink-secondary">{eur(p.horas * p.precioHora)}</span>
-              <label
-                className="flex cursor-pointer items-center gap-1.5 text-[11px] text-ink-secondary"
-                title="Aportado: cuenta como coste para el precio, pero no se paga (trabajo regalado por un socio)"
-              >
-                <input type="checkbox" checked={p.aportado} onChange={(e) => setPersona(idx, { aportado: e.target.checked })} className="h-3.5 w-3.5 accent-sage" />
-                aportado (no se cobra)
-              </label>
-              <button onClick={() => quitarPersona(idx)} className="ml-auto rounded-sm p-1 text-ink-muted hover:bg-error-tint hover:text-error" title="Quitar">
-                <X size={14} />
-              </button>
+          {(inputs.personas ?? []).length > 0 && (
+            <div className="overflow-hidden rounded-md border-hair border-border bg-white">
+              <div className="flex items-center gap-2 border-b border-border bg-beige-warm/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-ink-muted">
+                <span className="min-w-0 flex-1">Persona</span>
+                <span className="w-[58px] shrink-0 text-right">Horas</span>
+                <span className="w-[58px] shrink-0 text-right">€/h</span>
+                <span className="w-[74px] shrink-0 text-right">Coste</span>
+                <span className="w-[92px] shrink-0 text-center">No se cobra</span>
+                <span className="w-5 shrink-0" />
+              </div>
+              {(inputs.personas ?? []).map((p, idx) => (
+                <div key={idx} className="flex items-center gap-2 border-b border-border/50 px-3 last:border-0 hover:bg-beige-light/40">
+                  <span className="min-w-0 flex-1 truncate py-2.5 text-[13px] font-medium" title={p.nombre}>{p.nombre}</span>
+                  <input type="number" step={0.5} min={0} value={p.horas} onChange={(e) => setPersona(idx, { horas: Math.max(0, Number(e.target.value) || 0) })} className="w-[58px] shrink-0 bg-transparent py-2.5 text-right text-[13px] tabular outline-none" />
+                  <input type="number" step={0.5} min={0} value={p.precioHora} onChange={(e) => setPersona(idx, { precioHora: Math.max(0, Number(e.target.value) || 0) })} className="w-[58px] shrink-0 bg-transparent py-2.5 text-right text-[13px] tabular outline-none" />
+                  <span className="w-[74px] shrink-0 text-right text-[13px] font-semibold tabular text-ink-secondary">{eur(p.horas * p.precioHora)}</span>
+                  <span className="flex w-[92px] shrink-0 justify-center">
+                    <input type="checkbox" checked={p.aportado} onChange={(e) => setPersona(idx, { aportado: e.target.checked })} className="h-4 w-4 accent-sage" title="Aportado: cuenta como coste para el precio, pero no se paga (trabajo regalado por un socio)" />
+                  </span>
+                  <button onClick={() => quitarPersona(idx)} className="w-5 shrink-0 text-ink-muted hover:text-error" title="Quitar">
+                    <X size={14} className="mx-auto" />
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
           <div className="flex items-center gap-2">
             <Select value={personaSel} onChange={(e) => anadirPersona(e.target.value)} className="w-auto min-w-[220px] py-2 text-[13px]">
               <option value="">＋ Añadir persona…</option>
@@ -538,32 +540,46 @@ export function CalculadoraPrecio({
           {(inputs.gastos ?? []).length > 0 ? "Gastos del evento (desde Costes)" : "Gastos del evento"}
         </p>
         <div className="space-y-2">
-          {(inputs.gastos ?? []).map((g, idx) => (
-            <div key={idx} className="flex flex-wrap items-center gap-2 rounded-md bg-beige-light/70 px-2.5 py-2">
-              <Input
-                value={g.concepto}
-                placeholder="Concepto (flores, gasolina, dietas…)"
-                onChange={(e) => setGasto(idx, { concepto: e.target.value })}
-                className="min-w-[150px] flex-1 py-1.5 text-[13px]"
-              />
-              <Select
-                value={g.tipo}
-                onChange={(e) => setGasto(idx, { tipo: e.target.value as GastoLinea["tipo"] })}
-                className="w-auto min-w-[130px] py-1.5 text-[12px]"
-              >
-                <option value="materiales">Materiales</option>
-                <option value="transporte">Transporte</option>
-                <option value="otros">Dietas / alquiler</option>
-              </Select>
-              <label className="flex items-center gap-1 text-[11px] text-ink-muted">
-                €
-                <Input type="number" step={0.5} min={0} value={g.importe} onChange={(e) => setGasto(idx, { importe: Math.max(0, Number(e.target.value) || 0) })} className="w-[90px] py-1.5 text-right text-[12.5px] tabular" />
-              </label>
-              <button onClick={() => quitarGasto(idx)} className="ml-auto rounded-sm p-1 text-ink-muted hover:bg-error-tint hover:text-error" title="Quitar">
-                <X size={14} />
-              </button>
+          {(inputs.gastos ?? []).length > 0 && (
+            <div className="overflow-hidden rounded-md border-hair border-border bg-white">
+              <div className="flex items-center gap-2 border-b border-border bg-beige-warm/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.07em] text-ink-muted">
+                <span className="min-w-0 flex-1">Concepto</span>
+                <span className="w-[132px] shrink-0">Tipo</span>
+                <span className="w-[96px] shrink-0 text-right">Importe</span>
+                <span className="w-5 shrink-0" />
+              </div>
+              {(inputs.gastos ?? []).map((g, idx) => (
+                <div key={idx} className="flex items-center gap-2 border-b border-border/50 px-3 last:border-0 hover:bg-beige-light/40">
+                  <input
+                    value={g.concepto}
+                    placeholder="Flores, gasolina, dietas…"
+                    onChange={(e) => setGasto(idx, { concepto: e.target.value })}
+                    className="min-w-0 flex-1 bg-transparent py-2.5 text-[13px] outline-none placeholder:text-foot"
+                  />
+                  <select
+                    value={g.tipo}
+                    onChange={(e) => setGasto(idx, { tipo: e.target.value as GastoLinea["tipo"] })}
+                    className="w-[132px] shrink-0 cursor-pointer appearance-none border-l border-border/50 bg-transparent py-2.5 pl-2 text-[12.5px] text-ink-secondary outline-none"
+                  >
+                    <option value="materiales">Materiales</option>
+                    <option value="transporte">Transporte</option>
+                    <option value="otros">Dietas / alquiler</option>
+                  </select>
+                  <div className="flex w-[96px] shrink-0 items-center justify-end gap-1 border-l border-border/50 pl-2">
+                    <span className="text-[11px] text-ink-muted">€</span>
+                    <input
+                      type="number" step={0.5} min={0} value={g.importe}
+                      onChange={(e) => setGasto(idx, { importe: Math.max(0, Number(e.target.value) || 0) })}
+                      className="w-full bg-transparent py-2.5 text-right text-[13px] tabular outline-none"
+                    />
+                  </div>
+                  <button onClick={() => quitarGasto(idx)} className="w-5 shrink-0 text-ink-muted hover:text-error" title="Quitar">
+                    <X size={14} className="mx-auto" />
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="outline" size="sm" onClick={anadirGasto}>
               <Plus size={13} /> Añadir gasto
