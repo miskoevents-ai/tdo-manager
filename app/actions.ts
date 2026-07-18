@@ -1414,6 +1414,7 @@ export async function guardarEquipo(formData: FormData) {
     telefono: (formData.get("telefono") as string)?.trim() || null,
     porcentaje: numOrNull(formData.get("porcentaje")),
     precio_hora: numOrNull(formData.get("precio_hora")),
+    horas_semana: numOrNull(formData.get("horas_semana")),
     activo: formData.get("activo") === "on",
     es_caja: formData.get("es_caja") === "on",
     notas: (formData.get("notas") as string)?.trim() || null,
@@ -1423,10 +1424,11 @@ export async function guardarEquipo(formData: FormData) {
   const guardar = async (fila: Record<string, unknown>) =>
     id ? await sb.from("equipo").update(fila).eq("id", id) : await sb.from("equipo").insert(fila);
   let { error } = await guardar(payload);
-  // Si la migración 038 (es_caja) no está aplicada aún, reintenta sin ella.
-  if (error && /es_caja/.test(error.message) && /column/i.test(error.message)) {
-    const { es_caja: _c, ...sinCaja } = payload;
-    ({ error } = await guardar(sinCaja));
+  // Reintenta sin columnas de migraciones aún no aplicadas: es_caja (038) u
+  // horas_semana (055). Si el error las menciona, se quitan y se reintenta.
+  if (error && /column/i.test(error.message) && /(es_caja|horas_semana)/.test(error.message)) {
+    const { es_caja: _c, horas_semana: _h, ...resto } = payload;
+    ({ error } = await guardar(resto));
   }
   if (error) throw new Error(error.message);
   revalidatePath("/equipo");

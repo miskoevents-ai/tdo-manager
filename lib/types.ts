@@ -229,7 +229,8 @@ export type Equipo = {
   email: string | null;
   telefono: string | null;
   porcentaje: number | null;
-  precio_hora: number | null;
+  precio_hora: number | null; // €/hora fijo (colaboradores externos por trabajo)
+  horas_semana?: number | null; // horas de contrato/semana → deriva coste real por hora del sueldo vigente. Mig. 055
   activo: boolean;
   // Actúa como caja de TDO (hasta que exista la SL): sus cobros y pagos no
   // generan cuentas pendientes con el equipo. Migración 038.

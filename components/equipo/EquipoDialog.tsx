@@ -73,9 +73,16 @@ export function EquipoDialog({ persona }: { persona?: Equipo }) {
           <Field label="Email">
             <Input name="email" type="email" defaultValue={persona?.email ?? ""} />
           </Field>
-          <Field label="€/hora">
-            <Input type="number" step="0.01" name="precio_hora" defaultValue={persona?.precio_hora ?? ""} />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="€/hora (fijo)">
+              <Input type="number" step="0.01" name="precio_hora" defaultValue={persona?.precio_hora ?? ""} />
+              <p className="mt-1 text-[11px] text-ink-muted">Colaboradores externos que cobran por trabajo.</p>
+            </Field>
+            <Field label="Horas/semana (contrato)">
+              <Input type="number" step="0.5" name="horas_semana" defaultValue={persona?.horas_semana ?? ""} />
+              <p className="mt-1 text-[11px] text-ink-muted">Con esto y el sueldo, el €/h del equipo se calcula solo.</p>
+            </Field>
+          </div>
           <label className="flex items-center gap-2 text-[13px]">
             <input type="checkbox" name="activo" defaultChecked={persona?.activo ?? true} className="h-4 w-4 accent-sage" />
             Activo
