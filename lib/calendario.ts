@@ -53,7 +53,7 @@ export function construirEventos(
   // solo tienen sentido si el evento está CONTRATADO: un presupuesto enviado aún
   // no se monta. El día del evento sí se muestra aunque esté en negociación
   // (pipeline y aviso de solape de fecha).
-  const CONTRATADAS = ["confirmada", "realizada", "facturada"];
+  const CONTRATADAS = ["confirmada", "en_produccion", "realizada", "facturada"];
   const contratadas = new Set(
     oportunidades.filter((o) => CONTRATADAS.includes(o.estado)).map((o) => o.id),
   );

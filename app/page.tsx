@@ -81,7 +81,7 @@ export default async function Home() {
   const responsables = equipo.filter((e) => e.activo).map((e) => e.nombre);
 
   const contratadas = ops.filter((o) =>
-    ["confirmada", "realizada", "facturada"].includes(o.estado),
+    ["confirmada", "en_produccion", "realizada", "facturada"].includes(o.estado),
   );
 
   // Totales por oportunidad
@@ -91,7 +91,7 @@ export default async function Home() {
   });
 
   const cobrosPendientes = withTotals.filter(
-    (x) => x.pendiente > 0.01 && ["confirmada", "realizada", "facturada"].includes(x.o.estado),
+    (x) => x.pendiente > 0.01 && ["confirmada", "en_produccion", "realizada", "facturada"].includes(x.o.estado),
   );
   const totalPendiente = cobrosPendientes.reduce((s, x) => s + x.pendiente, 0);
 

@@ -170,7 +170,7 @@ export async function runSeed(
 
   const facturaRows: Any[] = [];
   for (const o of data.oportunidades) {
-    if (!["confirmada", "realizada", "facturada"].includes(o.estado)) continue;
+    if (!["confirmada", "en_produccion", "realizada", "facturada"].includes(o.estado)) continue;
     const m = opMeta[o.numero];
     const iva = r2((m.base * m.ivaPct) / 100);
     const ret = r2((m.base * m.retPct) / 100);

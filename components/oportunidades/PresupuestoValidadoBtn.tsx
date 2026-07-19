@@ -19,7 +19,7 @@ export function PresupuestoValidadoBtn({
   const [msg, setMsg] = React.useState<string | null>(null);
   const [confirmando, setConfirmando] = React.useState(false);
 
-  const yaConfirmada = ["confirmada", "realizada", "facturada"].includes(estado);
+  const yaConfirmada = ["confirmada", "en_produccion", "realizada", "facturada"].includes(estado);
 
   async function validar() {
     setBusy(true);

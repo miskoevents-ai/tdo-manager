@@ -48,6 +48,7 @@ export type OportunidadEstado =
   | "en_conversacion"
   | "presupuesto_enviado"
   | "confirmada"
+  | "en_produccion"
   | "realizada"
   | "facturada"
   | "perdida"

@@ -66,7 +66,7 @@ export function calcularAvisos(
   for (const t of tesoreria) bump(t.oportunidad_id, t.fecha);
 
   for (const o of oportunidades) {
-    const contratada = ["confirmada", "realizada", "facturada"].includes(o.estado);
+    const contratada = ["confirmada", "en_produccion", "realizada", "facturada"].includes(o.estado);
     const pendiente = Math.max(0, totalOp(o) - (o.cobrado ?? 0));
     // Perdida/rechazada: ya no está en juego, no debe generar avisos de fianza,
     // cobro ni seguimiento (el dinero de la fianza, si lo hubo, se resuelve aparte).

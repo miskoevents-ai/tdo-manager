@@ -13,7 +13,7 @@ import { ESTADO_META, TIPO_EVENTO_LABEL, CLIENTE_TIPO_LABEL } from "@/lib/estado
 import type { Cliente, Oportunidad } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-const CONTRATADAS = ["confirmada", "realizada", "facturada"];
+const CONTRATADAS = ["confirmada", "en_produccion", "realizada", "facturada"];
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   if (!supabaseConfigurado()) return <SetupNotice />;

@@ -44,7 +44,7 @@ export async function construirContexto(hoyISO: string): Promise<string> {
   const proximos = oportunidades
     .filter(
       (o) =>
-        ["confirmada", "realizada", "facturada"].includes(o.estado) &&
+        ["confirmada", "en_produccion", "realizada", "facturada"].includes(o.estado) &&
         o.fecha_evento &&
         o.fecha_evento >= hoyISO,
     )

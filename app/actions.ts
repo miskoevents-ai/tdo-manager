@@ -308,7 +308,7 @@ export async function cambiarEstado(id: string, estado: string) {
   const { error } = await sb.from("oportunidades").update({ estado }).eq("id", id);
   if (error) throw new Error(error.message);
   // Al confirmar por primera vez, sella la fecha de confirmación (tiempo de cierre).
-  if (["confirmada", "realizada", "facturada"].includes(estado)) {
+  if (["confirmada", "en_produccion", "realizada", "facturada"].includes(estado)) {
     const hoy = new Date().toISOString().slice(0, 10);
     await sb
       .from("oportunidades")
@@ -2946,7 +2946,9 @@ export async function emitirFactura(oportunidadId: string) {
     }
   }
 
-  await sb.from("oportunidades").update({ estado: "facturada" }).eq("id", op.id);
+  // Emitir factura NO cambia el estado del trabajo (se puede facturar por
+  // adelantado): la oportunidad sigue donde esté y la factura es un distintivo
+  // aparte. El estado solo avanza al dar por terminado (validarOportunidad).
   await sellarCreadoPor(sb, "facturas", facturaId, await usuarioActualNombre(sb));
   // Genera y guarda su PDF oficial (no bloqueante: si falla, la factura queda igual).
   await generarPdfFactura(facturaId).catch(() => {});
@@ -3022,7 +3024,7 @@ export async function validarPresupuesto(oportunidadId: string): Promise<{
   if (error) throw new Error(error.message);
 
   // 1) Confirmar la oportunidad, sin retroceder si ya está más avanzada.
-  const yaAvanzada = ["confirmada", "realizada", "facturada"].includes(op.estado as string);
+  const yaAvanzada = ["confirmada", "en_produccion", "realizada", "facturada"].includes(op.estado as string);
   let estadoCambiado = false;
   if (!["perdida", "descartada"].includes(op.estado as string) && !yaAvanzada) {
     const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
@@ -3141,16 +3143,16 @@ export async function validarOportunidad(
     }
   }
 
-  // Marcar cerrada (costes congelados). Si es amigos o no se facturó, al menos
-  // deja el estado como facturada/realizada cerrada.
+  // Dar por terminado: congela costes (cerrada) y avanza el estado del trabajo
+  // a "facturada" si hay factura, o "realizada" si el trato fue todo efectivo.
+  // (Emitir la factura por su cuenta NO cambia el estado; solo terminar aquí.)
   const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
-  const patch: Record<string, unknown> = { cerrada: true, cerrada_fecha: hoy };
-  if (op.tipo_operacion !== "normal") patch.estado = "facturada";
+  const estadoFinal = facturaId ? "facturada" : "realizada";
+  const patch: Record<string, unknown> = { cerrada: true, cerrada_fecha: hoy, estado: estadoFinal };
   let { error: updErr } = await sb.from("oportunidades").update(patch).eq("id", oportunidadId);
   // La columna cerrada es de la migración 020: si no está, cerramos sin ella.
   if (updErr && /cerrada/.test(updErr.message) && /column/i.test(updErr.message)) {
-    const patch2 = op.tipo_operacion !== "normal" ? { estado: "facturada" } : {};
-    ({ error: updErr } = await sb.from("oportunidades").update(patch2).eq("id", oportunidadId));
+    ({ error: updErr } = await sb.from("oportunidades").update({ estado: estadoFinal }).eq("id", oportunidadId));
   }
   if (updErr) throw new Error(updErr.message);
 
@@ -3404,13 +3406,9 @@ export async function crearFactura(input: {
     );
   }
 
-  // Si viene de una oportunidad confirmada/realizada, pasa a "facturada".
+  // Facturar NO cambia el estado del trabajo (puede ser por adelantado): la
+  // factura es un distintivo aparte. Solo se refresca la ficha.
   if (input.oportunidadId) {
-    await sb
-      .from("oportunidades")
-      .update({ estado: "facturada" })
-      .eq("id", input.oportunidadId)
-      .in("estado", ["confirmada", "realizada"]);
     revalidatePath(`/oportunidades/${input.oportunidadId}`);
     revalidatePath("/oportunidades");
   }
