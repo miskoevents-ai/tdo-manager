@@ -6,10 +6,16 @@ import { Plus, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Input, Field } from "@/components/ui/input";
-import { crearReserva, cambiarEstadoReserva, borrarReserva } from "@/app/actions";
+import { crearReserva, cambiarEstadoReserva, borrarReserva, registrarIncidenciaReserva } from "@/app/actions";
 import { disponible } from "@/lib/disponibilidad";
-import { fecha, normaliza } from "@/lib/format";
+import { fecha, eur, normaliza } from "@/lib/format";
 import type { Inventario, Reserva } from "@/lib/types";
+
+const INCID_TIPO: Record<string, string> = {
+  rota: "Rota",
+  danada: "Dañada",
+  no_devuelta: "No devuelta",
+};
 
 const ESTADO_RES: Record<string, { label: string; tone: BadgeTone }> = {
   presupuestado: { label: "En negociación", tone: "clay" },
@@ -50,6 +56,8 @@ export function MaterialTab({
   const [devolucion, setDevolucion] = React.useState(fechaDevolucionDefault);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  // Reserva cuyo detalle de incidencia se está editando.
+  const [incidFor, setIncidFor] = React.useState<string | null>(null);
 
   const art = inventario.find((i) => i.id === articuloId);
   const disp = art ? disponible(art.cantidad_total ?? 0, art.id, salida, devolucion, reservasGlobal) : 0;
@@ -186,9 +194,21 @@ export function MaterialTab({
             </thead>
             <tbody>
               {reservasEvento.map((r) => {
-                const est = ESTADO_RES[r.estado] ?? { label: r.estado, tone: "neutral" as const };
+                const incidCant = r.cantidad_incidencia ?? 0;
+                const resumenIncid =
+                  r.estado === "incidencia"
+                    ? [
+                        incidCant > 0 ? `${incidCant} ud.` : null,
+                        r.incidencia_tipo ? (INCID_TIPO[r.incidencia_tipo] ?? r.incidencia_tipo) : null,
+                        (r.coste_incidencia ?? 0) > 0 ? eur(r.coste_incidencia ?? 0) : null,
+                        r.incidencia_nota || null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                    : "";
                 return (
-                  <tr key={r.id} className="hover:bg-beige-light">
+                  <React.Fragment key={r.id}>
+                  <tr className="hover:bg-beige-light">
                     <td className="border-t border-border px-3 py-2 font-medium">{r.articulo?.articulo ?? "—"}</td>
                     <td className="border-t border-border px-3 py-2 tabular">{r.cantidad}</td>
                     <td className="border-t border-border px-3 py-2 text-ink-secondary">{fecha(r.fecha_salida)}</td>
@@ -198,9 +218,16 @@ export function MaterialTab({
                         value={r.estado}
                         disabled={busy === r.id}
                         onChange={async (e) => {
+                          const nuevo = e.target.value;
+                          // "Incidencia" abre el formulario de detalle en vez de
+                          // guardar directamente (hay que decir qué pasó).
+                          if (nuevo === "incidencia") {
+                            setIncidFor(r.id);
+                            return;
+                          }
                           setBusy(r.id);
                           try {
-                            await cambiarEstadoReserva(r.id, e.target.value, oportunidadId);
+                            await cambiarEstadoReserva(r.id, nuevo, oportunidadId);
                             router.refresh();
                           } finally {
                             setBusy(null);
@@ -212,7 +239,6 @@ export function MaterialTab({
                           <option key={s} value={s}>{ESTADO_RES[s].label}</option>
                         ))}
                       </select>
-                      <span className="ml-2 hidden">{est.label}</span>
                     </td>
                     <td className="border-t border-border px-3 py-2 text-right">
                       <button
@@ -231,12 +257,107 @@ export function MaterialTab({
                       </button>
                     </td>
                   </tr>
+                  {r.estado === "incidencia" && incidFor !== r.id && (
+                    <tr>
+                      <td colSpan={6} className="border-t border-border bg-error-tint/30 px-3 py-1.5 text-[11.5px] text-error">
+                        <span className="inline-flex items-center gap-1.5">
+                          <AlertTriangle size={12} /> {resumenIncid || "Incidencia sin detalle"}
+                        </span>
+                        <button onClick={() => setIncidFor(r.id)} className="ml-2 font-semibold underline hover:no-underline">
+                          editar
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                  {incidFor === r.id && (
+                    <tr>
+                      <td colSpan={6} className="border-t border-border bg-error-tint/40 px-3 py-3">
+                        <IncidenciaForm
+                          maxCant={r.cantidad}
+                          inicial={{
+                            cantidad: incidCant || r.cantidad,
+                            tipo: r.incidencia_tipo || "rota",
+                            coste: r.coste_incidencia ?? 0,
+                            nota: r.incidencia_nota || "",
+                          }}
+                          busy={busy === r.id}
+                          onCancel={() => setIncidFor(null)}
+                          onSave={async (d) => {
+                            setBusy(r.id);
+                            try {
+                              await registrarIncidenciaReserva(r.id, oportunidadId, d);
+                              setIncidFor(null);
+                              router.refresh();
+                            } finally {
+                              setBusy(null);
+                            }
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// Formulario del detalle de una incidencia de material (rotura / no devolución).
+function IncidenciaForm({
+  maxCant,
+  inicial,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  maxCant: number;
+  inicial: { cantidad: number; tipo: string; coste: number; nota: string };
+  busy: boolean;
+  onSave: (d: { cantidad: number; tipo: string; coste: number | null; nota: string | null }) => void;
+  onCancel: () => void;
+}) {
+  const [cantidad, setCantidad] = React.useState(inicial.cantidad);
+  const [tipo, setTipo] = React.useState(inicial.tipo);
+  const [coste, setCoste] = React.useState(inicial.coste);
+  const [nota, setNota] = React.useState(inicial.nota);
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Field label={`Uds. afectadas (de ${maxCant})`}>
+          <Input type="number" min="1" max={maxCant} value={cantidad || ""} onChange={(e) => setCantidad(Number(e.target.value))} autoFocus />
+        </Field>
+        <Field label="Tipo">
+          <select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+            className="w-full rounded-sm border-med border-border bg-white px-3 py-2 text-[14px]"
+          >
+            {Object.entries(INCID_TIPO).map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Coste reposición €">
+          <Input type="number" step="0.01" value={coste || ""} onChange={(e) => setCoste(Number(e.target.value))} />
+        </Field>
+        <Field label="Nota (opcional)">
+          <Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Detalle…" />
+        </Field>
+      </div>
+      <p className="text-[11px] text-ink-muted">
+        Si el cliente es responsable, puedes cubrir el coste reteniendo (parte de) la fianza en la pestaña de Cobros.
+      </p>
+      <div className="flex justify-end gap-1">
+        <Button size="sm" variant="danger" disabled={busy || !(cantidad > 0)} onClick={() => onSave({ cantidad, tipo, coste: coste > 0 ? coste : null, nota: nota || null })}>
+          {busy ? "Guardando…" : "Guardar incidencia"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>Cancelar</Button>
+      </div>
     </div>
   );
 }

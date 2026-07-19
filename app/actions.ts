@@ -1458,7 +1458,41 @@ export async function crearReserva(input: {
 
 export async function cambiarEstadoReserva(id: string, estado: string, oportunidadId: string) {
   const sb = createAdminClient();
-  const { error } = await sb.from("reservas_material").update({ estado }).eq("id", id);
+  // Al salir del estado "incidencia" se limpia el detalle (uds/tipo/coste) para
+  // no dejar datos huérfanos. Columnas opcionales → fallback tolerante.
+  const patch: Record<string, unknown> =
+    estado === "incidencia"
+      ? { estado }
+      : { estado, cantidad_incidencia: null, incidencia_tipo: null, incidencia_nota: null, coste_incidencia: null };
+  let { error } = await sb.from("reservas_material").update(patch).eq("id", id);
+  if (error && /(cantidad_incidencia|incidencia_tipo|incidencia_nota|coste_incidencia)/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("reservas_material").update({ estado }).eq("id", id));
+  }
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/inventario");
+}
+
+// Registra el detalle de una incidencia de material (rotura / no devolución):
+// cuántas unidades, de qué tipo, con qué coste de reposición y una nota. Deja
+// la reserva en estado "incidencia".
+export async function registrarIncidenciaReserva(
+  id: string,
+  oportunidadId: string,
+  detalle: { cantidad: number; tipo: string; coste: number | null; nota: string | null },
+) {
+  const sb = createAdminClient();
+  const patch = {
+    estado: "incidencia",
+    cantidad_incidencia: Math.max(0, Math.round(detalle.cantidad)) || null,
+    incidencia_tipo: detalle.tipo || null,
+    coste_incidencia: detalle.coste != null && detalle.coste > 0 ? detalle.coste : null,
+    incidencia_nota: detalle.nota?.trim() || null,
+  };
+  let { error } = await sb.from("reservas_material").update(patch).eq("id", id);
+  if (error && /(cantidad_incidencia|incidencia_tipo|incidencia_nota|coste_incidencia)/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("reservas_material").update({ estado: "incidencia" }).eq("id", id));
+  }
   if (error) throw new Error(error.message);
   revalidatePath(`/oportunidades/${oportunidadId}`);
   revalidatePath("/inventario");
