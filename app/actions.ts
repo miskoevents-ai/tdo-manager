@@ -224,6 +224,13 @@ export async function guardarOportunidad(formData: FormData) {
     pct_factura: formData.has("pct_factura")
       ? Math.max(0, Math.min(100, Math.round(numToNull(formData.get("pct_factura")) ?? 25)))
       : null,
+    // Probabilidad de cierre a mano (0–100); vacío = según estado. Migración 059.
+    probabilidad: formData.has("probabilidad")
+      ? (() => {
+          const v = numToNull(formData.get("probabilidad"));
+          return v == null ? null : Math.max(0, Math.min(100, Math.round(v)));
+        })()
+      : null,
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.titulo) throw new Error("El título es obligatorio.");
@@ -233,14 +240,15 @@ export async function guardarOportunidad(formData: FormData) {
   // → 034; envio* → 050): si el error las menciona, se quitan y se reintenta.
   const OPCIONALES = [
     "comision_equipo_id", "envio", "envio_coste", "envio_incluido",
-    "hora_montaje", "hora_desmontaje", "logistica", "pct_factura",
+    "hora_montaje", "hora_desmontaje", "logistica", "pct_factura", "probabilidad",
   ] as const;
   const faltaColumna = (msg: string) =>
     /column/i.test(msg) && OPCIONALES.some((c) => new RegExp(`\\b${c}\\b`).test(msg));
   const sinOpcionales = (p: typeof payload) => {
     const {
       comision_equipo_id: _c, envio: _e, envio_coste: _ec, envio_incluido: _ei,
-      hora_montaje: _hm, hora_desmontaje: _hd, logistica: _l, pct_factura: _pf, ...resto
+      hora_montaje: _hm, hora_desmontaje: _hd, logistica: _l, pct_factura: _pf,
+      probabilidad: _pr, ...resto
     } = p;
     return resto;
   };

@@ -8,7 +8,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogClose } from "@/components/
 import { Input, Select, Textarea, Field } from "@/components/ui/input";
 import { guardarOportunidad, crearClienteRapido } from "@/app/actions";
 import type { Cliente, Lugar, Oportunidad } from "@/lib/types";
-import { TIPO_EVENTO_LABEL, ESTADOS_TODOS, ESTADO_META, CANALES } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, ESTADOS_TODOS, ESTADO_META, CANALES, PROBABILIDAD_POR_ESTADO } from "@/lib/estados";
 
 // Suma días a una fecha ISO (YYYY-MM-DD).
 function sumaDias(iso: string, dias: number): string {
@@ -267,6 +267,24 @@ export function OportunidadDialog({
                 <option value="normal">Normal (con factura)</option>
                 <option value="amigos_prestamo">Amigos / préstamo</option>
               </Select>
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Probabilidad de cierre (%): vacío = según estado. Migración 059. */}
+            <Field label="Probabilidad de cierre %">
+              <Input
+                type="number"
+                name="probabilidad"
+                min={0}
+                max={100}
+                step={5}
+                defaultValue={oportunidad?.probabilidad ?? ""}
+                placeholder={`Auto: ${PROBABILIDAD_POR_ESTADO[oportunidad?.estado ?? "nueva"]}% (por estado)`}
+              />
+              <p className="mt-1 text-[11px] text-ink-muted">
+                Déjala en blanco para que siga al estado sola.
+              </p>
             </Field>
           </div>
 

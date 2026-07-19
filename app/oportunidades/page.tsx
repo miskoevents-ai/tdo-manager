@@ -7,6 +7,8 @@ import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog"
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades, getClientes, getLugares, getEquipo } from "@/lib/data";
 import { calcularTotales } from "@/lib/calc";
+import { probabilidadEfectiva } from "@/lib/estados";
+import { eur } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,7 @@ export default async function OportunidadesPage() {
       tipo_evento: o.tipo_evento,
       total: t.total,
       pendiente: Math.max(0, t.total - (o.cobrado ?? 0)),
+      probabilidad: probabilidadEfectiva(o),
       serie: o.serie,
       tipo_operacion: o.tipo_operacion,
       canal: o.canal,
@@ -56,12 +59,22 @@ export default async function OportunidadesPage() {
   });
 
   const activas = cards.filter((c) => !["perdida", "descartada"].includes(c.estado));
+  // Pipeline: total (lo posible) vs ponderado por probabilidad (lo probable).
+  const pipelineTotal = activas.reduce((s, c) => s + (c.total || 0), 0);
+  const pipelinePonderado = activas.reduce((s, c) => s + (c.total || 0) * ((c.probabilidad ?? 0) / 100), 0);
 
   return (
     <div className="space-y-5">
       <InfoNote id="oportunidades">Cada solicitud y evento, desde que entra el lead hasta que se factura. Aquí gestionas los estados, los presupuestos y el seguimiento del pipeline.</InfoNote>
-      <div className="flex items-center justify-between">
-        <Overline className="!mt-0">{activas.length} oportunidades activas</Overline>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <Overline className="!mt-0">{activas.length} oportunidades activas</Overline>
+          <span className="text-[12px] text-ink-muted">
+            Pipeline <b className="tabular text-ink-secondary">{eur(pipelineTotal)}</b>
+            <span className="mx-1.5 text-ink-muted/50">·</span>
+            ponderado <b className="tabular text-sage" title="Suma de total × probabilidad de cierre">{eur(pipelinePonderado)}</b>
+          </span>
+        </div>
         <OportunidadDialog
           clientes={clientes}
           lugares={lugares}

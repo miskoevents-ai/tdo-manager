@@ -246,6 +246,16 @@ export default async function GuiaPage() {
             activo y deja de dar la lata en avisos y calendario, pero no se borra: queda guardada en
             la sección plegable del final por si hay que consultarla.
           </Duda>
+          <Duda p="¿Qué es la «probabilidad de cierre» y para qué sirve?">
+            Es el <b>% de que esa oportunidad acabe en dinero</b>. Sirve para ver el pipeline{" "}
+            <b>ponderado</b>: en vez de «tengo 24k en el aire» (que nunca entran todos), ves lo que es{" "}
+            <b>realista</b> que entre (cada oportunidad × su %). Va <b>sola según el estado</b> (Nueva
+            10% · Contestada 25% · En conversación 45% · Presup. enviado 60% · Confirmada en adelante
+            100% · Perdida/Rechazada 0%), pero puedes <b>fijarla a mano</b> al editar si hueles que una
+            está casi hecha o muy fría (déjala en blanco para que siga al estado). El total ponderado
+            sale arriba en <b>Oportunidades</b> y en el <b>Cuadro de mando</b> («Previsión del
+            pipeline»); en cada tarjeta ves su % cuando aún no es venta segura.
+          </Duda>
           <Duda p="Un alquiler o encargo se cobra parte con factura y parte «de amigos». ¿Cómo lo pongo?">
             Al crear o editar la oportunidad (si es <b>alquiler / encargo</b>) aparece el campo{" "}
             <b>&quot;% con factura&quot;</b> (por defecto 25%): lo que va con factura; el resto se cobra
