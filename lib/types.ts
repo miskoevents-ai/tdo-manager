@@ -94,6 +94,9 @@ export type Oportunidad = {
   fianza: number | null;
   fianza_devuelta: boolean;
   fecha_devolucion_fianza: string | null;
+  fianza_cobrada?: boolean; // se ha recibido la fianza del cliente (está en depósito). Mig. 057
+  fianza_retenida_importe?: number | null; // importe retenido por daños (no se devuelve → ingreso). Mig. 057
+  fianza_retenida_motivo?: string | null; // motivo de la retención. Mig. 057
   pago_a_dias?: number; // 0 = al momento; 30 = el cliente paga a 30 días
   descuento_pct?: number | null; // % de descuento global del presupuesto (0–100)
   pct_factura?: number | null; // % del importe que se cobra con factura; el resto en efectivo/amigos. Solo alquiler/encargo. Mig. 054

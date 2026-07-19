@@ -99,7 +99,15 @@ export default async function Home() {
   // ningún resumen del inicio.
   const cerradaSinVenta = (o: { estado: string }) => ["perdida", "descartada"].includes(o.estado);
 
-  const fianzas = ops.filter((o) => !cerradaSinVenta(o) && (o.fianza ?? 0) > 0 && !o.fianza_devuelta);
+  // Fianzas por devolver: cobradas (en depósito), sin devolver ni retener por daños.
+  const fianzas = ops.filter(
+    (o) =>
+      !cerradaSinVenta(o) &&
+      (o.fianza ?? 0) > 0 &&
+      o.fianza_cobrada !== false &&
+      !o.fianza_devuelta &&
+      (o.fianza_retenida_importe ?? 0) <= 0,
+  );
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
 
   const avisosTodos = calcularAvisos(ops, HOY_ISO, reservas, tareas, reuniones, tesoreria);

@@ -73,8 +73,14 @@ export function calcularAvisos(
     // cobro ni seguimiento (el dinero de la fianza, si lo hubo, se resuelve aparte).
     const cerradaSinVenta = ["perdida", "descartada"].includes(o.estado);
 
+    // Fianza aún viva: hay importe, se cobró (está en depósito) y no se ha
+    // devuelto ni retenido por daños. Solo entonces hay algo que devolver.
+    const fianzaCobrada = o.fianza_cobrada !== false; // legacy/sin dato = asumimos cobrada
+    const fianzaRetenida = (o.fianza_retenida_importe ?? 0) > 0;
+    const fianzaViva = !cerradaSinVenta && (o.fianza ?? 0) > 0 && fianzaCobrada && !o.fianza_devuelta && !fianzaRetenida;
+
     // 1) Fianza cuya fecha de devolución ya pasó (o es hoy) y sigue sin devolver
-    if (!cerradaSinVenta && (o.fianza ?? 0) > 0 && !o.fianza_devuelta && o.fecha_devolucion_fianza && o.fecha_devolucion_fianza <= hoyISO) {
+    if (fianzaViva && o.fecha_devolucion_fianza && o.fecha_devolucion_fianza <= hoyISO) {
       avisos.push({
         id: `fianza-${o.id}`,
         href: `/oportunidades/${o.id}?tab=cobros`,
@@ -86,12 +92,11 @@ export function calcularAvisos(
       });
     }
 
-    // 1b) Fianza retenida: evento pasado hace +14 días, sin fecha de devolución
-    //     fijada y sin devolver → llevas demasiado tiempo el dinero del cliente.
+    // 1b) Fianza en depósito: evento pasado hace +14 días, sin fecha de
+    //     devolución fijada y sin resolver → llevas demasiado tiempo el dinero
+    //     del cliente (decide: devolver o retener por daños).
     if (
-      !cerradaSinVenta &&
-      (o.fianza ?? 0) > 0 &&
-      !o.fianza_devuelta &&
+      fianzaViva &&
       !o.fecha_devolucion_fianza &&
       o.fecha_evento &&
       o.fecha_evento < hoyISO &&
@@ -101,8 +106,8 @@ export function calcularAvisos(
       avisos.push({
         id: `fianza-ret-${o.id}`,
         href: `/oportunidades/${o.id}?tab=cobros`,
-        titulo: `Fianza retenida ${dias} días · ${o.titulo}`,
-        detalle: `${eur0(o.fianza ?? 0)} del cliente sin devolver desde el evento`,
+        titulo: `Fianza sin devolver ${dias} días · ${o.titulo}`,
+        detalle: `${eur0(o.fianza ?? 0)} del cliente en depósito desde el evento`,
         severidad: dias >= 30 ? "alta" : "media",
         categoria: "fianza",
         oportunidadId: o.id,
