@@ -627,6 +627,11 @@ export default async function GuiaPage() {
               <b>«Aplicar al modelo»</b> la afina con datos en vez de a ojo.
             </li>
             <li>
+              <b>Previsión del pipeline</b> (total vs. ponderado por probabilidad), <b>por qué no
+              cerramos</b> (motivos de las perdidas) y <b>conversión por canal</b> (de dónde vienen los
+              leads y cuáles cierran → dónde invertir).
+            </li>
+            <li>
               <b>Rentabilidad</b> por tipo de evento, cliente y canal; y <b>precisión</b> presupuestando
               (lo estimado vs. lo que costó de verdad, para ir ajustando).
             </li>
