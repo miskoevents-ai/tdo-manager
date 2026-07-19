@@ -852,6 +852,32 @@ function TarjetaTarea({
   const vencida = !hecha && Boolean(t.fecha_limite) && t.fecha_limite! < hoy;
   const p = PRIORIDAD[t.prioridad] ?? PRIORIDAD.normal;
 
+  // Color de la tarjeta entera para distinguirla de un vistazo: vencida manda
+  // (rojo fuerte); si no, por prioridad (urgente rojo, alta terracota, normal
+  // salvia, baja neutro). Las hechas se apagan (neutro + opacidad).
+  const acentoBorde = vencida
+    ? "border-l-error"
+    : t.estado === "no_puedo"
+      ? "border-l-sage"
+      : t.prioridad === "urgente"
+        ? "border-l-error"
+        : t.prioridad === "alta"
+          ? "border-l-clay"
+          : t.prioridad === "normal"
+            ? "border-l-sage-300"
+            : "border-l-border-strong";
+  const fondoTarjeta = hecha
+    ? ""
+    : vencida
+      ? "bg-error-tint/50"
+      : t.prioridad === "urgente"
+        ? "bg-error-tint/30"
+        : t.prioridad === "alta"
+          ? "bg-clay-tint/30"
+          : t.prioridad === "normal"
+            ? "bg-sage-tint/25"
+            : "bg-beige-warm/40";
+
   async function act(patch: Parameters<typeof actualizarTarea>[1]) {
     setBusy(true);
     try {
@@ -898,9 +924,7 @@ function TarjetaTarea({
 
   return (
     <Card
-      className={`space-y-2 p-4 ${hecha ? "opacity-60" : ""} ${
-        vencida ? "border-l-[3px] border-l-error" : t.estado === "no_puedo" ? "border-l-[3px] border-l-sage" : ""
-      }`}
+      className={`space-y-2 border-l-[3px] p-4 ${acentoBorde} ${fondoTarjeta} ${hecha ? "opacity-60" : ""}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
