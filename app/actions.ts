@@ -1568,6 +1568,18 @@ export async function borrarEquipo(id: string) {
 
 // --------------------------- Calculadora de precio ---------------------------
 
+// Guarda el objetivo mensual de facturación (€) en ajustes. 0 = sin objetivo.
+export async function guardarObjetivoMensual(valor: number) {
+  const sb = createAdminClient();
+  const v = Math.max(0, Math.round(Number(valor) || 0));
+  const { error } = await sb
+    .from("ajustes")
+    .upsert({ clave: "objetivo_facturacion_mensual", valor: String(v) }, { onConflict: "clave" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/");
+  await registrarActividad({ accion: `fijó el objetivo mensual en ${v} €`, entidad: "ajustes" });
+}
+
 // Guarda los parámetros de la calculadora (para todos) en ajustes.
 export async function guardarCalculadoraConfig(cfg: unknown) {
   const sb = createAdminClient();
