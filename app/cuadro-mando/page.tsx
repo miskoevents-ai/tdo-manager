@@ -11,7 +11,7 @@ import { SEMANAS_POR_MES } from "@/lib/coste-hora";
 import { JornadaCalibracion, type JornadaData } from "@/components/cuadro/JornadaCalibracion";
 import { comisionDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha, num } from "@/lib/format";
-import { TIPO_EVENTO_LABEL } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, probabilidadEfectiva, ESTADOS_PRE_CONFIRMACION } from "@/lib/estados";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +80,7 @@ export default async function CuadroMandoPage() {
   let precision: PrecisionRow[] = [];
   let cobertura: Cobertura | null = null;
   let jornada: JornadaData | null = null;
+  let forecast: { total: number; ponderado: number; abiertoTotal: number; abiertoPonderado: number } | null = null;
   try {
     const [ops, tesoreria, estimadosTodos, partesTodas, gastosFijos, calcRaw, comConfig, equipo] = await Promise.all([
       getOportunidades(),
@@ -118,6 +119,25 @@ export default async function CuadroMandoPage() {
         );
       }
     }
+    // Previsión del pipeline: valor total (lo posible) vs ponderado por la
+    // probabilidad de cierre (lo probable). "Abierto" = todavía sin confirmar.
+    {
+      const activasOps = ops.filter((o) => !["perdida", "descartada"].includes(o.estado));
+      const abiertosSet = new Set(ESTADOS_PRE_CONFIRMACION.filter((e) => !["perdida", "descartada"].includes(e)));
+      let total = 0, ponderado = 0, abiertoTotal = 0, abiertoPonderado = 0;
+      for (const o of activasOps) {
+        const t = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).total;
+        const p = probabilidadEfectiva(o) / 100;
+        total += t;
+        ponderado += t * p;
+        if (abiertosSet.has(o.estado)) {
+          abiertoTotal += t;
+          abiertoPonderado += t * p;
+        }
+      }
+      forecast = { total, ponderado, abiertoTotal, abiertoPonderado };
+    }
+
     precision = ops
       .filter((o) => (estPorOp.get(o.id) ?? 0) > 0)
       .map((o) => {
@@ -313,6 +333,21 @@ export default async function CuadroMandoPage() {
           no incluye horas de personal salvo que se registren como gasto.
         </p>
       </div>
+      {forecast && (forecast.total > 0 || forecast.abiertoTotal > 0) && (
+        <Card>
+          <Overline className="!mt-0">Previsión del pipeline</Overline>
+          <p className="mb-3 mt-1 text-[12px] text-ink-muted">
+            <b>Total</b> = todo lo que hay en juego. <b>Ponderado</b> = cada oportunidad × su
+            probabilidad de cierre (lo que es realista que entre).
+          </p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <ForecastKpi label="Pipeline total" value={eur(forecast.total)} tone="text-ink" />
+            <ForecastKpi label="Ponderado" value={eur(forecast.ponderado)} tone="text-sage" />
+            <ForecastKpi label="Abierto (sin confirmar)" value={eur(forecast.abiertoTotal)} tone="text-ink-secondary" />
+            <ForecastKpi label="Abierto ponderado" value={eur(forecast.abiertoPonderado)} tone="text-clay-600" />
+          </div>
+        </Card>
+      )}
       {cobertura && <CoberturaFijos c={cobertura} />}
       {jornada && <JornadaCalibracion j={jornada} />}
 
@@ -414,6 +449,15 @@ export default async function CuadroMandoPage() {
 
 // La barra de "¿cubrimos la máquina este mes?": fijos + parte estructural del
 // sueldo contra la contribución acumulada de los eventos del mes.
+function ForecastKpi({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <div className="rounded-md bg-beige-light p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-muted">{label}</div>
+      <div className={`mt-1 font-display text-[20px] tabular ${tone}`}>{value}</div>
+    </div>
+  );
+}
+
 function CoberturaFijos({ c }: { c: Cobertura }) {
   // Máquina a 0 (sueldo ya recuperado y sin fijos) → cubierta por definición.
   const pct = c.maquina > 0 ? (c.contribucion / c.maquina) * 100 : 100;

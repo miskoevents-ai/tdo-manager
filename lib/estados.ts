@@ -63,6 +63,34 @@ export const ESTADOS_MANUALES: OportunidadEstado[] = ESTADOS_TODOS.filter(
   (e) => e !== "facturada",
 );
 
+// Probabilidad de cierre por defecto según el estado (%). Sube a lo largo del
+// pipeline; confirmada en adelante = 100 (venta cerrada); perdida/rechazada = 0.
+export const PROBABILIDAD_POR_ESTADO: Record<OportunidadEstado, number> = {
+  nueva: 10,
+  contestada: 25,
+  en_conversacion: 45,
+  presupuesto_enviado: 60,
+  confirmada: 100,
+  en_produccion: 100,
+  realizada: 100,
+  facturada: 100,
+  perdida: 0,
+  descartada: 0,
+};
+
+// Probabilidad efectiva de una oportunidad: la fijada a mano (si la hay) o, en
+// su defecto, la que corresponde a su estado. Saneada a un entero 0–100.
+export function probabilidadEfectiva(o: {
+  estado: OportunidadEstado;
+  probabilidad?: number | null;
+}): number {
+  const manual = o.probabilidad;
+  if (manual != null && Number.isFinite(manual)) {
+    return Math.max(0, Math.min(100, Math.round(manual)));
+  }
+  return PROBABILIDAD_POR_ESTADO[o.estado] ?? 0;
+}
+
 // Estados anteriores a la confirmación (sin venta cerrada todavía).
 export const ESTADOS_PRE_CONFIRMACION: OportunidadEstado[] = [
   "nueva",

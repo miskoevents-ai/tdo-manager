@@ -19,6 +19,7 @@ export type KanbanCard = {
   tipo_evento: string;
   total: number;
   pendiente: number;
+  probabilidad?: number; // % de cierre efectivo
   // usados por los filtros del tablero
   serie?: string;
   tipo_operacion?: string;
@@ -191,11 +192,22 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                       <span className="tabular text-[12.5px] font-semibold text-sage">
                         {eur(c.total)}
                       </span>
-                      {c.pendiente > 0.01 ? (
-                        <Badge tone="warn">Pdte</Badge>
-                      ) : (
-                        <Badge tone="ok">Cobrado</Badge>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {/* % de cierre: solo cuando aún no es venta segura (100%). */}
+                        {c.probabilidad != null && c.probabilidad < 100 && (
+                          <span
+                            className="shrink-0 rounded-pill bg-beige-warm px-1.5 text-[9.5px] font-semibold tabular text-ink-muted"
+                            title="Probabilidad de cierre"
+                          >
+                            {c.probabilidad}%
+                          </span>
+                        )}
+                        {c.pendiente > 0.01 ? (
+                          <Badge tone="warn">Pdte</Badge>
+                        ) : (
+                          <Badge tone="ok">Cobrado</Badge>
+                        )}
+                      </div>
                     </div>
                     <select
                       value={c.estado}
