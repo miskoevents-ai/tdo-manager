@@ -242,9 +242,11 @@ export default async function GuiaPage() {
           </p>
           <Duda p="Un cliente ha dicho que no. ¿Qué hago con su tarjeta?">
             En el desplegable de la tarjeta (o en la ficha) elige <b>&quot;Perdida&quot;</b> (nos
-            dijeron que no) o <b>&quot;Rechazada&quot;</b> (la descartamos nosotros). Sale del tablero
-            activo y deja de dar la lata en avisos y calendario, pero no se borra: queda guardada en
-            la sección plegable del final por si hay que consultarla.
+            dijeron que no) o <b>&quot;Rechazada&quot;</b> (la descartamos nosotros). Te preguntará{" "}
+            <b>por qué</b> (precio, fecha ocupada, no responde, se fue con otro…): elígelo, que luego
+            el <b>Cuadro de mando</b> te dice en qué se pierden más ventas (oro para ajustar precios y
+            seguimiento). Sale del tablero activo y deja de dar la lata en avisos y calendario, pero
+            no se borra: queda guardada en la sección plegable del final.
           </Duda>
           <Duda p="¿Qué es la «probabilidad de cierre» y para qué sirve?">
             Es el <b>% de que esa oportunidad acabe en dinero</b>. Sirve para ver el pipeline{" "}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { cambiarEstado } from "@/app/actions";
 import { KANBAN_COLS, ESTADO_META, ESTADO_COLOR, TIPO_EVENTO_LABEL } from "@/lib/estados";
+import { MotivoPerdidaModal } from "@/components/oportunidades/MotivoPerdidaModal";
 import { eur, fecha } from "@/lib/format";
 import type { OportunidadEstado } from "@/lib/types";
 
@@ -43,14 +44,22 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
   // Arrastrar y soltar (escritorio): tarjeta en curso y columna resaltada.
   const [dragId, setDragId] = React.useState<string | null>(null);
   const [overCol, setOverCol] = React.useState<string | null>(null);
+  // Cambio a perdida/descartada pendiente de elegir motivo.
+  const [pidiendoMotivo, setPidiendoMotivo] = React.useState<{ id: string; estado: OportunidadEstado } | null>(null);
 
-  async function mover(id: string, estado: string) {
+  async function mover(id: string, estado: string, motivo?: string | null) {
+    // Perdida/Rechazada preguntan primero el motivo.
+    if ((estado === "perdida" || estado === "descartada") && motivo === undefined) {
+      setPidiendoMotivo({ id, estado: estado as OportunidadEstado });
+      return;
+    }
     setMoving(id);
     try {
-      await cambiarEstado(id, estado);
+      await cambiarEstado(id, estado, motivo);
       router.refresh();
     } finally {
       setMoving(null);
+      setPidiendoMotivo(null);
     }
   }
 
@@ -238,6 +247,14 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
           );
         })}
       </div>
+      {pidiendoMotivo && (
+        <MotivoPerdidaModal
+          estadoLabel={ESTADO_META[pidiendoMotivo.estado].label}
+          busy={moving === pidiendoMotivo.id}
+          onConfirm={(motivo) => mover(pidiendoMotivo.id, pidiendoMotivo.estado, motivo)}
+          onClose={() => setPidiendoMotivo(null)}
+        />
+      )}
     </div>
   );
 }

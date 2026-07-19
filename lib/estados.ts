@@ -108,6 +108,22 @@ export const FACTURA_META: Record<FacturaEstado, { label: string; tone: BadgeTon
   anulada: { label: "Anulada", tone: "neutral" },
 };
 
+// Motivos por los que se pierde/descarta una oportunidad. El Cuadro de mando
+// los agrega para ver por qué no se cierra. "otro" para lo que no encaje.
+export const MOTIVOS_PERDIDA: { value: string; label: string }[] = [
+  { value: "precio", label: "Precio / presupuesto alto" },
+  { value: "fecha_ocupada", label: "Fecha ocupada / no disponible" },
+  { value: "no_responde", label: "No responde / se enfrió" },
+  { value: "otro_proveedor", label: "Se fue con otro proveedor" },
+  { value: "cancelo_evento", label: "Canceló el evento" },
+  { value: "fuera_zona", label: "Fuera de zona / logística" },
+  { value: "otro", label: "Otro" },
+];
+
+export const MOTIVO_PERDIDA_LABEL: Record<string, string> = Object.fromEntries(
+  MOTIVOS_PERDIDA.map((m) => [m.value, m.label]),
+);
+
 export const TIPO_EVENTO_LABEL: Record<string, string> = {
   boda: "Boda",
   comunion: "Comunión",

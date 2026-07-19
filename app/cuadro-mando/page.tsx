@@ -11,7 +11,7 @@ import { SEMANAS_POR_MES } from "@/lib/coste-hora";
 import { JornadaCalibracion, type JornadaData } from "@/components/cuadro/JornadaCalibracion";
 import { comisionDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha, num } from "@/lib/format";
-import { TIPO_EVENTO_LABEL, probabilidadEfectiva, ESTADOS_PRE_CONFIRMACION } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, probabilidadEfectiva, ESTADOS_PRE_CONFIRMACION, MOTIVO_PERDIDA_LABEL } from "@/lib/estados";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +81,8 @@ export default async function CuadroMandoPage() {
   let cobertura: Cobertura | null = null;
   let jornada: JornadaData | null = null;
   let forecast: { total: number; ponderado: number; abiertoTotal: number; abiertoPonderado: number } | null = null;
+  let motivosPerdida: { label: string; n: number; pct: number }[] = [];
+  let perdidasTotal = 0;
   try {
     const [ops, tesoreria, estimadosTodos, partesTodas, gastosFijos, calcRaw, comConfig, equipo] = await Promise.all([
       getOportunidades(),
@@ -136,6 +138,24 @@ export default async function CuadroMandoPage() {
         }
       }
       forecast = { total, ponderado, abiertoTotal, abiertoPonderado };
+    }
+
+    // Por qué no cerramos: motivos de las oportunidades perdidas/rechazadas.
+    {
+      const perdidas = ops.filter((o) => ["perdida", "descartada"].includes(o.estado));
+      perdidasTotal = perdidas.length;
+      const cont = new Map<string, number>();
+      for (const o of perdidas) {
+        const k = o.motivo_perdida || "sin_motivo";
+        cont.set(k, (cont.get(k) ?? 0) + 1);
+      }
+      motivosPerdida = Array.from(cont.entries())
+        .map(([k, n]) => ({
+          label: k === "sin_motivo" ? "Sin especificar" : (MOTIVO_PERDIDA_LABEL[k] ?? k),
+          n,
+          pct: perdidasTotal > 0 ? Math.round((n / perdidasTotal) * 100) : 0,
+        }))
+        .sort((a, b) => b.n - a.n);
     }
 
     precision = ops
@@ -377,6 +397,32 @@ export default async function CuadroMandoPage() {
           </>
         );
       })()}
+
+      {/* Por qué no cerramos: motivos de las oportunidades perdidas/rechazadas. */}
+      {perdidasTotal > 0 && (
+        <>
+          <Overline>Por qué no cerramos</Overline>
+          <Card>
+            <p className="mb-3 text-[12px] text-ink-muted">
+              Motivos de las {perdidasTotal} oportunidades perdidas o rechazadas. Se rellena al
+              marcarlas «Perdida»/«Rechazada».
+            </p>
+            <div className="space-y-2">
+              {motivosPerdida.map((m) => (
+                <div key={m.label} className="flex items-center gap-3">
+                  <span className="w-[42%] shrink-0 truncate text-[13px] text-ink-secondary">{m.label}</span>
+                  <div className="h-2.5 flex-1 overflow-hidden rounded-pill bg-beige-warm">
+                    <div className="h-full rounded-pill bg-clay" style={{ width: `${m.pct}%` }} />
+                  </div>
+                  <span className="w-[70px] shrink-0 text-right text-[12px] tabular text-ink-muted">
+                    {m.n} · {m.pct}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </>
+      )}
 
       {/* ¿Nos equivocamos presupuestando? Pre vs real, evento a evento. */}
       {precision.length > 0 && (
