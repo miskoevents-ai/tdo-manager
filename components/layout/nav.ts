@@ -17,6 +17,7 @@ import {
   Shield,
   Truck,
   Percent,
+  Lightbulb,
   type LucideIcon,
 } from "lucide-react";
 
@@ -45,6 +46,7 @@ export const NAV: NavItem[] = [
   { href: "/clientes", label: "Clientes", icon: Contact, fase: 1 },
   { href: "/fidelizacion", label: "Fidelización", icon: Heart, fase: 4 },
   { href: "/mis-comisiones", label: "Mis comisiones", icon: Percent, fase: 4 },
+  { href: "/ayudas-venta", label: "Ayudas para vender", icon: Lightbulb, fase: 1 },
   { href: "/actividad", label: "Actividad", icon: History, fase: 4 },
   { href: "/usuarios", label: "Usuarios", icon: Shield, fase: 4, soloAdmin: true },
   { href: "/guia", label: "Guía", icon: BookOpen, fase: 4 },
