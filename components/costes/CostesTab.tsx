@@ -299,6 +299,18 @@ export function CostesTab({
               otrasOportunidades={otrasOportunidades}
               proveedores={proveedores}
             />
+            {/* Comisión prevista dentro del plan: para que quien la cobra (p. ej.
+                Cristina) la vea al planificar. No se teclea, sale del % por tipo
+                de evento; no suma al total del plan (se cuenta aparte en el margen). */}
+            {comisionDetalle.length > 0 && (
+              <div className="mt-3 flex items-center justify-between rounded-sm border-hair border-sage-tint-deep bg-white px-3 py-2 text-[12px]">
+                <span className="flex items-center gap-1.5 text-ink-secondary">
+                  <Percent size={12} className="text-sage" /> Comisión prevista ·{" "}
+                  {comisionDetalle.map((c) => `${c.persona} ${num(c.porcentaje, 0)}%`).join(" · ")}
+                </span>
+                <span className="tabular font-semibold text-sage">{eur(cComision)}</span>
+              </div>
+            )}
           </section>
 
           {/* ✅ REAL */}

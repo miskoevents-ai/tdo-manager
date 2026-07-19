@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades, getEquipo, getComisionesConfig, getComisiones } from "@/lib/data";
-import { computeDevengos } from "@/lib/comisiones";
+import { computeDevengos, computePrevistas } from "@/lib/comisiones";
 import { getUsuarioActual } from "@/lib/sesion";
 import { canonizarNombre } from "@/lib/personas";
 import { eur, num } from "@/lib/format";
@@ -39,21 +39,23 @@ export default async function MisComisionesPage() {
   const miFicha = miNombre ? equipo.find((e) => e.nombre === miNombre) : null;
 
   const devengos = computeDevengos(ops, config, pagadas);
-  const mios = miFicha
-    ? devengos.filter((d) => d.equipoId === miFicha.id)
-    : miNombre
-      ? devengos.filter((d) => d.persona === miNombre)
-      : [];
+  const filtraMios = <T extends { equipoId: string; persona: string }>(arr: T[]): T[] =>
+    miFicha ? arr.filter((d) => d.equipoId === miFicha.id) : miNombre ? arr.filter((d) => d.persona === miNombre) : [];
+  const mios = filtraMios(devengos);
+  // Previstas: confirmadas/en producción todavía sin cobrar (aún no devengadas).
+  const previstas = filtraMios(computePrevistas(ops, config));
 
   const devengado = mios.reduce((s, d) => s + d.importe, 0);
   const pagado = mios.reduce((s, d) => s + (d.pagada ? d.importe : 0), 0);
   const pendiente = Math.round((devengado - pagado) * 100) / 100;
+  const previstaTotal = Math.round(previstas.reduce((s, d) => s + d.importe, 0) * 100) / 100;
 
   return (
     <div className="space-y-5">
       <InfoNote id="mis-comisiones">
-        Tus comisiones por las oportunidades en las que figuras como responsable de comisión. Se
-        devengan cuando la oportunidad está cobrada.
+        Tus comisiones por las oportunidades en las que figuras como responsable de comisión. Ves la
+        comisión <b>prevista</b> desde que la venta se cierra, y pasa a <b>devengada</b> cuando el
+        evento se cobra.
       </InfoNote>
 
       {!usuario && (
@@ -67,11 +69,45 @@ export default async function MisComisionesPage() {
       {usuario && (
         <>
           <Overline className="!mt-0">Resumen</Overline>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Kpi label="Prevista (sin cobrar)" value={eur(previstaTotal)} tone="text-clay-600" />
             <Kpi label="Devengado" value={eur(devengado)} tone="text-sage" />
             <Kpi label="Cobrado / pagado" value={eur(pagado)} tone="text-ok" />
             <Kpi label="Pendiente" value={eur(pendiente)} tone="text-clay" />
           </div>
+
+          {previstas.length > 0 && (
+            <Card>
+              <CardTitle>
+                Prevista · en curso
+                <span className="font-body text-[11px] font-medium tracking-[0.03em] text-ink-muted">
+                  {previstas.length} {previstas.length === 1 ? "evento" : "eventos"}
+                </span>
+              </CardTitle>
+              <p className="mb-1 text-[11.5px] text-ink-muted">
+                Ventas cerradas en las que tienes comisión. Se confirmará como devengada cuando el evento se cobre.
+              </p>
+              {previstas.map((d) => (
+                <Link
+                  key={d.key}
+                  href={`/oportunidades/${d.oportunidadId}`}
+                  className="flex items-center justify-between gap-3 border-t border-border py-[10px] text-[13px] first:border-t-0 hover:text-clay"
+                >
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate">{d.evento}</span>
+                    <small className="text-[11.5px] text-ink-muted">
+                      {TIPO_EVENTO_LABEL[d.tipoEvento] ?? d.tipoEvento} · base {eur(d.base)} · {num(d.porcentaje, 0)}%
+                    </small>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="tabular font-semibold text-clay-600">{eur(d.importe)}</span>
+                    <Badge tone="clay">Prevista</Badge>
+                    <ChevronRight size={15} className="text-ink-muted" />
+                  </div>
+                </Link>
+              ))}
+            </Card>
+          )}
 
           <Card>
             <CardTitle>
