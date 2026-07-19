@@ -542,11 +542,28 @@ export default async function GuiaPage() {
 
       <Seccion id="ayudas-venta" titulo="Ayudas para vender" emoji="💡">
         <p>
-          Un cajón de <b>plantillas de mensajes</b> listas para copiar (primer contacto, seguimiento
-          de presupuesto, recordatorio de pago, post-evento, reactivar leads…), <b>respuestas a
-          objeciones</b> típicas (precio, «nos lo pensamos»…) y el <b>argumentario</b> de por qué
-          elegirnos. Copia, rellena los <b>[corchetes]</b> ([nombre], [evento], [fecha], [importe]) y
-          envíalo por WhatsApp o email. Disponible para todo el equipo.
+          Un cajón de recursos para responder y cerrar más rápido. Disponible para todo el equipo.
+        </p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>
+            <b>Plantillas de mensajes</b> listas para copiar: presentación de la empresa («quiénes
+            somos», servicios), primer contacto, <b>proponer una visita/vernos en persona</b> (ideal
+            para leads potentes o bodas grandes), seguimiento de presupuesto, recordatorio de señal y
+            de pago, post-evento + reseña y reactivar leads fríos.
+          </li>
+          <li>
+            <b>Rebatir objeciones</b> típicas (precio, «nos lo pensamos», «hemos visto algo más
+            barato»…) con una respuesta con tacto.
+          </li>
+          <li>
+            <b>Argumentario, servicios y «cómo trabajamos»</b>: por qué elegirnos (desde 2012, montaje
+            y desmontaje incluidos, equipo propio, publicados en medios…), la lista de servicios y el
+            proceso de principio a fin.
+          </li>
+        </ul>
+        <p className="text-[12.5px] text-ink-muted">
+          Copia lo que necesites, rellena los <b>[corchetes]</b> ([nombre], [evento], [fecha],
+          [importe]) y envíalo por WhatsApp o email.
         </p>
       </Seccion>
 
