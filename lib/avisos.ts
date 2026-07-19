@@ -8,7 +8,7 @@ export type Aviso = {
   titulo: string;
   detalle: string;
   severidad: "alta" | "media" | "baja";
-  categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead" | "material" | "tarea";
+  categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead" | "material" | "tarea" | "cierre";
   oportunidadId?: string;
 };
 
@@ -51,6 +51,7 @@ export function calcularAvisos(
 ): Aviso[] {
   const avisos: Aviso[] = [];
   const en7 = (f: string) => f >= hoyISO && diasEntre(hoyISO, f) <= 7;
+  const opById = new Map(oportunidades.map((o) => [o.id, o]));
 
   // Última "señal de vida" por oportunidad: la fecha más reciente entre su
   // entrada, sus reuniones y sus movimientos de tesorería. Sirve para detectar
@@ -196,6 +197,50 @@ export function calcularAvisos(
         }
       }
     }
+
+    // 8) Evento ya pasado pero con los costes SIN cerrar. Facturar/realizar no
+    //    congela los costes reales (se cierran a mano con "Dar por terminado"):
+    //    un evento pasado sin cerrar deja el margen real sin fijar y los costes
+    //    previstos "vivos". Se avisa a partir de 3 días para dar margen al post.
+    if (contratada && !o.cerrada && o.fecha_evento && o.fecha_evento < hoyISO) {
+      const dias = diasEntre(o.fecha_evento, hoyISO);
+      if (dias >= 3) {
+        avisos.push({
+          id: `cierre-${o.id}`,
+          href: `/oportunidades/${o.id}?tab=costes`,
+          titulo: `Cerrar costes · ${o.titulo}`,
+          detalle: `El evento fue hace ${dias} días y los costes siguen sin cerrar · revisa y da por terminado`,
+          severidad: dias >= 21 ? "alta" : "media",
+          categoria: "cierre",
+          oportunidadId: o.id,
+        });
+      }
+    }
+  }
+
+  // 9) Cobros a plazos (seña + resto): un cobro PREVISTO cuya fecha ya pasó y
+  //    sigue sin marcarse como cobrado. Cada plazo tiene su propia fecha, así
+  //    que se vigila uno a uno (el aviso 2 solo mira el vencimiento global del
+  //    evento). Solo ingresos de oportunidades que siguen en juego.
+  for (const t of tesoreria) {
+    if (t.tipo !== "ingreso" || t.estado !== "previsto") continue;
+    const f = (t.fecha ?? "").slice(0, 10);
+    if (!f || f >= hoyISO) continue;
+    const op = t.oportunidad_id ? opById.get(t.oportunidad_id) : null;
+    if (op && ["perdida", "descartada"].includes(op.estado)) continue;
+    const dias = diasEntre(f, hoyISO);
+    const titulo = op ? op.titulo : t.concepto;
+    avisos.push({
+      id: `plazo-${t.id}`,
+      href: op ? `/oportunidades/${op.id}?tab=cobros` : `/tesoreria`,
+      titulo: `Plazo vencido · ${titulo}`,
+      detalle: `${eur0(Number(t.importe))} · ${t.concepto} previsto para el ${fES(f)} y sin cobrar (hace ${dias} día${dias === 1 ? "" : "s"})`,
+      severidad: dias >= 14 ? "alta" : "media",
+      categoria: "cobro",
+      // Sin oportunidadId a propósito: el aviso enlaza a la pestaña de cobros
+      // (donde se marca el plazo concreto). No es resoluble con un clic, porque
+      // eso daría por cobrada TODA la oportunidad, no solo este plazo.
+    });
   }
 
   // 7b) Tareas del equipo con fecha límite pasada y sin hacer.
