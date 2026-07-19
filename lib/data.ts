@@ -265,6 +265,15 @@ export async function getObjetivoMensual(): Promise<number> {
   return isFinite(v) && v > 0 ? v : 0;
 }
 
+// Enlace de reservas de reunión (Calendly u otro). Vacío = sin configurar. Se
+// edita desde "Ayudas para vender" (socios) y sirve para que el equipo lo mande.
+export async function getCalendlyUrl(): Promise<string> {
+  if (mock.enabled) return "";
+  const sb = createAdminClient();
+  const { data } = await sb.from("ajustes").select("valor").eq("clave", "calendly_url").maybeSingle();
+  return String(data?.valor ?? "").trim();
+}
+
 // Correos a los que llegan los avisos por email (validar presupuesto, unirse a
 // reunión). Cadena separada por comas; se edita desde Usuarios (admins).
 export async function getAvisosEmails(): Promise<string> {
