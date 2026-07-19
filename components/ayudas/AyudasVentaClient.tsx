@@ -10,6 +10,33 @@ type Objecion = { objecion: string; respuesta: string };
 // Plantillas de mensajes para la venta. Los [corchetes] son huecos a rellenar.
 const PLANTILLAS: { grupo: string; items: Plantilla[] }[] = [
   {
+    grupo: "Presentación de la empresa",
+    items: [
+      {
+        titulo: "Quiénes somos",
+        cuando: "Cuando un cliente pregunta por vosotros o para abrir la propuesta.",
+        texto:
+          "En Tu Decoración Original diseñamos y decoramos bodas y eventos personalizados, cuidando cada detalle para que " +
+          "todos los espacios guarden armonía. Desde 2012 transformamos fincas y espacios con decoración, diseño floral y " +
+          "artesanía. Nos ocupamos del proyecto, la preparación, el montaje y el desmontaje, para que vosotros solo tengáis " +
+          "que disfrutar. 🌿",
+      },
+      {
+        titulo: "Nuestros servicios",
+        cuando: "Para enumerar todo lo que ofrecéis.",
+        texto:
+          "Esto es lo que hacemos por vosotros:\n" +
+          "• Ceremonias civiles y religiosas\n" +
+          "• Bienvenida y seating plan\n" +
+          "• Decoración floral y de mesas\n" +
+          "• Photocalls y rincones especiales\n" +
+          "• Cartelería personalizada\n" +
+          "• Alquiler de mobiliario\n\n" +
+          "Creamos una propuesta a medida, adaptada a vuestro estilo, vuestra finca y vuestra forma de celebrar.",
+      },
+    ],
+  },
+  {
     grupo: "Primer contacto",
     items: [
       {
@@ -26,6 +53,14 @@ const PLANTILLAS: { grupo: string; items: Plantilla[] }[] = [
         texto:
           "¡Hola [nombre]! Para afinar bien vuestra propuesta y que quede perfecta, ¿os viene bien una llamada rápida " +
           "esta semana? Con 15 minutos me hago una idea clara de lo que buscáis. ¿Qué día y hora os encaja mejor?",
+      },
+      {
+        titulo: "Proponer visita / conocernos en persona",
+        cuando: "Lead potente o boda grande: verse en persona (o visitar la finca) dispara el cierre.",
+        texto:
+          "¡Hola [nombre]! Vuestro [evento] tiene una pinta preciosa 😍 Para daros la mejor propuesta y que nos conozcáis, " +
+          "nos encantaría veros en persona —podemos quedar nosotros o acercarnos a [finca/lugar] y así visualizamos juntos " +
+          "la decoración sobre el terreno. ¿Os viene bien esta semana o la próxima? Nos adaptamos a vuestra agenda.",
       },
     ],
   },
@@ -133,11 +168,31 @@ const OBJECIONES: Objecion[] = [
 
 // Argumentos de valor: por qué elegir TDO (para tenerlos a mano).
 const ARGUMENTOS = [
-  "Diseño a medida, no packs cerrados: se adapta a vuestro estilo y espacio.",
-  "Nos encargamos de todo el día D: montaje, desmontaje y logística.",
-  "Material propio cuidado y de calidad (mobiliario, atrezzo, flor…).",
-  "Experiencia en bodas, comuniones, corporativos y decoración de fincas.",
+  "Desde 2012 transformando fincas y espacios: más de una década creando bodas y eventos.",
+  "Diseño a medida, no packs cerrados: cada evento refleja la personalidad de la pareja o cliente.",
+  "Nos ocupamos de todo: proyecto, preparación, montaje y desmontaje. Vosotros solo disfrutáis.",
+  "Equipo propio de diseño, producción y montaje.",
+  "Diseño floral, artesanía y material propio cuidado y de calidad.",
+  "Reseñas positivas de parejas y clientes, y proyectos publicados en medios especializados.",
   "Trato cercano y acompañamiento de principio a fin.",
+];
+
+// Cómo trabajamos, de principio a fin (para transmitir método y tranquilidad).
+const PROCESO = [
+  "Nos conocemos y escuchamos vuestras ideas.",
+  "Diseñamos una propuesta personalizada.",
+  "Preparamos cada elemento del proyecto.",
+  "Realizamos el montaje y el desmontaje.",
+];
+
+// Servicios que ofrecemos (para enumerar de un vistazo).
+const SERVICIOS = [
+  "Ceremonias civiles y religiosas",
+  "Bienvenida y seating plan",
+  "Decoración floral y de mesas",
+  "Photocalls y rincones especiales",
+  "Cartelería personalizada",
+  "Alquiler de mobiliario",
 ];
 
 function CopyBtn({ texto }: { texto: string }) {
@@ -226,6 +281,32 @@ export function AyudasVentaClient() {
           ))}
         </ul>
       </Card>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardTitle>Servicios que ofrecemos</CardTitle>
+          <ul className="mt-1 grid gap-1.5 text-[13px] text-ink-secondary">
+            {SERVICIOS.map((s) => (
+              <li key={s} className="flex items-center gap-2">
+                <Check size={13} className="shrink-0 text-sage" /> {s}
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card>
+          <CardTitle>Cómo trabajamos</CardTitle>
+          <ol className="mt-1 space-y-1.5 text-[13px] text-ink-secondary">
+            {PROCESO.map((p, i) => (
+              <li key={p} className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-clay-tint text-[10px] font-bold text-clay-600">
+                  {i + 1}
+                </span>
+                {p}
+              </li>
+            ))}
+          </ol>
+        </Card>
+      </div>
     </div>
   );
 }
