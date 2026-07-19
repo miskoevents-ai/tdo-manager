@@ -136,6 +136,40 @@ export function computeDevengos(
   return devengos;
 }
 
+// Comisiones PREVISTAS: eventos vivos (confirmada → facturada) con persona
+// asignada y regla vigente, cuya oportunidad AÚN NO está cobrada (por eso no se
+// han devengado todavía). Sirve para que cada persona vea su comisión "irse
+// acumulando" desde que se cierra la venta, sin esperar al cobro. No cuenta en
+// contabilidad ni cambia los devengos: es solo visibilidad.
+export function computePrevistas(
+  oportunidades: Oportunidad[],
+  config: ComisionConfig[],
+): Devengo[] {
+  const previstas: Devengo[] = [];
+  for (const o of oportunidades) {
+    if (!ESTADOS_VIVOS.includes(o.estado)) continue;
+    if (oportunidadCobrada(o)) continue; // ya se devenga (aparece en computeDevengos)
+    if (!o.comision_equipo_id) continue;
+    const base = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).base;
+    if (base <= 0) continue;
+    const cfg = reglaParaPersona(o, config, o.comision_equipo_id);
+    if (!cfg) continue;
+    previstas.push({
+      key: `prev:${o.id}:${o.comision_equipo_id}`,
+      oportunidadId: o.id,
+      evento: o.titulo,
+      tipoEvento: o.tipo_evento,
+      equipoId: o.comision_equipo_id,
+      persona: cfg.equipo?.nombre ?? "—",
+      base,
+      porcentaje: cfg.porcentaje,
+      importe: r2((base * cfg.porcentaje) / 100),
+      pagada: false,
+    });
+  }
+  return previstas;
+}
+
 // Resumen de comisiones para Tesorería/Contabilidad: totales y por persona.
 export function resumenComisiones(devengos: Devengo[]) {
   const porPersona = new Map<string, { devengado: number; pagado: number }>();
