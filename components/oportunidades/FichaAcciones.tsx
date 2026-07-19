@@ -6,6 +6,7 @@ import { FileText, Mail, CheckCircle2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { emitirFactura, cambiarEstado, marcarPresupuestoEnviado, validarOportunidad, borrarOportunidad } from "@/app/actions";
 import { ESTADO_META, ESTADO_COLOR, ESTADOS_MANUALES } from "@/lib/estados";
+import { MotivoPerdidaModal } from "@/components/oportunidades/MotivoPerdidaModal";
 import { eur } from "@/lib/format";
 import type { OportunidadEstado, OportunidadSerie } from "@/lib/types";
 
@@ -19,32 +20,40 @@ export function EstadoSelect({
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
+  // Estado pendiente de confirmar el motivo (perdida/descartada).
+  const [pidiendoMotivo, setPidiendoMotivo] = React.useState<OportunidadEstado | null>(null);
   const color = ESTADO_COLOR[estado];
   // "Facturada" no es elegible a mano, pero si ya lo está hay que mostrarlo.
   const opciones: OportunidadEstado[] = ESTADOS_MANUALES.includes(estado)
     ? ESTADOS_MANUALES
     : [estado, ...ESTADOS_MANUALES];
+
+  async function aplicar(nuevo: string, motivo?: string | null) {
+    setBusy(true);
+    try {
+      await cambiarEstado(oportunidadId, nuevo, motivo);
+      router.refresh();
+    } catch (err) {
+      window.alert((err as Error).message);
+    } finally {
+      setBusy(false);
+      setPidiendoMotivo(null);
+    }
+  }
+
   return (
+    <>
     <select
       value={estado}
       disabled={busy}
       onChange={async (e) => {
         const nuevo = e.target.value;
-        if (
-          (nuevo === "perdida" || nuevo === "descartada") &&
-          !window.confirm(`¿Marcar como "${ESTADO_META[nuevo as OportunidadEstado].label}"? Saldrá del pipeline activo.`)
-        ) {
+        // Perdida/Rechazada abren el modal de motivo en vez de guardar directo.
+        if (nuevo === "perdida" || nuevo === "descartada") {
+          setPidiendoMotivo(nuevo as OportunidadEstado);
           return;
         }
-        setBusy(true);
-        try {
-          await cambiarEstado(oportunidadId, nuevo);
-          router.refresh();
-        } catch (err) {
-          window.alert((err as Error).message);
-        } finally {
-          setBusy(false);
-        }
+        await aplicar(nuevo);
       }}
       className="cursor-pointer rounded-pill border-med px-3 py-1 text-[12px] font-semibold focus:outline-none disabled:opacity-60"
       style={{ color, background: `${color}1A`, borderColor: `${color}55` }}
@@ -55,6 +64,15 @@ export function EstadoSelect({
         </option>
       ))}
     </select>
+    {pidiendoMotivo && (
+      <MotivoPerdidaModal
+        estadoLabel={ESTADO_META[pidiendoMotivo].label}
+        busy={busy}
+        onConfirm={(motivo) => aplicar(pidiendoMotivo, motivo)}
+        onClose={() => setPidiendoMotivo(null)}
+      />
+    )}
+    </>
   );
 }
 

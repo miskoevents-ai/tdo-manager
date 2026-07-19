@@ -49,7 +49,7 @@ import { CalculadoraPrecio } from "@/components/calculadora/CalculadoraPrecio";
 import { calcularTotales } from "@/lib/calc";
 import { comisionDeOportunidad, comisionDetalleDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha } from "@/lib/format";
-import { TIPO_EVENTO_LABEL, CANAL_LABEL, ESTADO_META } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, CANAL_LABEL, ESTADO_META, MOTIVO_PERDIDA_LABEL } from "@/lib/estados";
 
 export const dynamic = "force-dynamic";
 
@@ -284,6 +284,11 @@ export default async function Page({
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="font-display text-h3 font-normal">{op.titulo}</h2>
             <EstadoSelect oportunidadId={op.id} estado={op.estado} />
+            {["perdida", "descartada"].includes(op.estado) && op.motivo_perdida && (
+              <span className="inline-flex items-center gap-1 rounded-pill bg-error-tint px-2.5 py-1 text-[11px] font-semibold text-error">
+                Motivo: {MOTIVO_PERDIDA_LABEL[op.motivo_perdida] ?? op.motivo_perdida}
+              </span>
+            )}
             {/* Serie: evento propio vs alquiler/encargo — visible para no confundir
                 (afecta a comisión, horas y a la calculadora de precio). */}
             {op.serie === "alquiler_encargo" ? (

@@ -305,7 +305,7 @@ export async function marcarPresupuestoEnviado(id: string) {
   revalidatePath("/oportunidades");
 }
 
-export async function cambiarEstado(id: string, estado: string) {
+export async function cambiarEstado(id: string, estado: string, motivo?: string | null) {
   const sb = createAdminClient();
   // "facturada" no se fija a mano: refleja que hay una factura emitida. Si no
   // la hay, se rechaza (el estado se alcanza emitiendo la factura).
@@ -313,7 +313,14 @@ export async function cambiarEstado(id: string, estado: string) {
     const { data: fac } = await sb.from("facturas").select("id").eq("oportunidad_id", id).limit(1).maybeSingle();
     if (!fac) throw new Error('Para marcar "Facturada" hay que emitir la factura desde la ficha.');
   }
-  const { error } = await sb.from("oportunidades").update({ estado }).eq("id", id);
+  // Motivo de pérdida: se guarda al marcar Perdida/Rechazada y se limpia si la
+  // oportunidad vuelve a estar activa. Columna opcional → fallback tolerante.
+  const esPerdida = estado === "perdida" || estado === "descartada";
+  const patch: Record<string, unknown> = { estado, motivo_perdida: esPerdida ? (motivo || null) : null };
+  let { error } = await sb.from("oportunidades").update(patch).eq("id", id);
+  if (error && /motivo_perdida/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("oportunidades").update({ estado }).eq("id", id));
+  }
   if (error) throw new Error(error.message);
   // Al confirmar por primera vez, sella la fecha de confirmación (tiempo de cierre).
   if (["confirmada", "en_produccion", "realizada", "facturada"].includes(estado)) {
