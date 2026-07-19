@@ -76,6 +76,7 @@ export default async function GuiaPage() {
     { id: "proveedores", label: "Proveedores", ruta: "/proveedores" },
     { id: "facturas", label: "Documentos", ruta: "/facturas" },
     { id: "comisiones", label: "Mis comisiones", ruta: null },
+    { id: "ayudas-venta", label: "Ayudas para vender", ruta: null },
     { id: "fidelizacion", label: "Fidelización", ruta: "/fidelizacion" },
     { id: "pautas", label: "Pautas comerciales", ruta: null },
     { id: "tesoreria", label: "Tesorería", ruta: "/tesoreria" },
@@ -536,6 +537,16 @@ export default async function GuiaPage() {
           cierra (confirmada, aún sin cobrar), y pasa a <b>devengada</b> cuando el evento se cobra.
           El <b>% depende del tipo de evento</b> (p. ej. un alquiler/encargo puede llevar un % y una
           boda otro). También aparece como línea informativa en <b>Costes → Previsto</b>.
+        </p>
+      </Seccion>
+
+      <Seccion id="ayudas-venta" titulo="Ayudas para vender" emoji="💡">
+        <p>
+          Un cajón de <b>plantillas de mensajes</b> listas para copiar (primer contacto, seguimiento
+          de presupuesto, recordatorio de pago, post-evento, reactivar leads…), <b>respuestas a
+          objeciones</b> típicas (precio, «nos lo pensamos»…) y el <b>argumentario</b> de por qué
+          elegirnos. Copia, rellena los <b>[corchetes]</b> ([nombre], [evento], [fecha], [importe]) y
+          envíalo por WhatsApp o email. Disponible para todo el equipo.
         </p>
       </Seccion>
 

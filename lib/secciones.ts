@@ -23,7 +23,7 @@ export const SECCIONES: Seccion[] = [
 
 // Inicio, Guía y "Mis comisiones" están siempre disponibles (cada uno ve solo
 // las suyas), no se pueden quitar.
-const SIEMPRE = ["/", "/guia", "/mis-comisiones"];
+const SIEMPRE = ["/", "/guia", "/mis-comisiones", "/ayudas-venta"];
 
 function coincide(path: string, prefijo: string): boolean {
   if (prefijo === "/") return path === "/";
