@@ -367,7 +367,81 @@ export async function borrarOportunidad(id: string) {
 
 export async function toggleFianzaDevuelta(id: string, devuelta: boolean) {
   const sb = createAdminClient();
-  const { error } = await sb.from("oportunidades").update({ fianza_devuelta: devuelta }).eq("id", id);
+  // Al devolver la fianza se fija la fecha de devolución (hoy) si no la había;
+  // al marcarla de nuevo como no devuelta se limpia. Columnas opcionales →
+  // fallback tolerante por si la migración de fecha aún no está.
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const patch: Record<string, unknown> = devuelta
+    ? { fianza_devuelta: true, fecha_devolucion_fianza: hoy }
+    : { fianza_devuelta: false };
+  let { error } = await sb.from("oportunidades").update(patch).eq("id", id);
+  if (error && /fecha_devolucion_fianza/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("oportunidades").update({ fianza_devuelta: devuelta }).eq("id", id));
+  }
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${id}`);
+  revalidatePath("/");
+}
+
+// Marca si la fianza se ha recibido del cliente (está en depósito) o no.
+export async function marcarFianzaCobrada(id: string, cobrada: boolean) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("oportunidades").update({ fianza_cobrada: cobrada }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${id}`);
+  revalidatePath("/");
+}
+
+// Retiene (parte de) la fianza por daños: no se devuelve, pasa a ser un ingreso
+// de TDO. Deja la fianza como resuelta (devuelta el resto, si lo hay) y registra
+// el importe retenido en tesorería como ingreso cobrado enlazado al evento.
+export async function retenerFianzaPorDanos(id: string, importe: number, motivo: string | null) {
+  const sb = createAdminClient();
+  const imp = Math.round((Number(importe) + Number.EPSILON) * 100) / 100;
+  if (!(imp > 0)) throw new Error("Indica el importe retenido (> 0).");
+  const hoy = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date());
+  const patch: Record<string, unknown> = {
+    fianza_retenida_importe: imp,
+    fianza_retenida_motivo: motivo?.trim() || null,
+    fianza_devuelta: true, // la fianza queda resuelta: se retiene esto y se devuelve el resto
+    fecha_devolucion_fianza: hoy,
+  };
+  let { error } = await sb.from("oportunidades").update(patch).eq("id", id);
+  if (error && /(fianza_retenida_importe|fianza_retenida_motivo|fecha_devolucion_fianza)/.test(error.message) && /column/i.test(error.message)) {
+    ({ error } = await sb.from("oportunidades").update({ fianza_devuelta: true }).eq("id", id));
+  }
+  if (error) throw new Error(error.message);
+
+  // El importe retenido es dinero que se queda TDO (compensación por daños).
+  // Se registra como ingreso cobrado para que aparezca en la contabilidad.
+  const { error: movErr } = await sb.from("tesoreria").insert({
+    concepto: "Fianza retenida por daños",
+    tipo: "ingreso",
+    naturaleza: "otro",
+    categoria: "Fianza retenida",
+    importe: imp,
+    fecha: hoy,
+    estado: "cobrado",
+    oportunidad_id: id,
+    computa_contabilidad: true,
+    notas: motivo?.trim() || null,
+  });
+  if (movErr) throw new Error(movErr.message);
+
+  revalidatePath(`/oportunidades/${id}`);
+  revalidatePath("/tesoreria");
+  revalidatePath("/");
+}
+
+// Deshace la retención por daños (limpia los campos de la oportunidad). El
+// ingreso registrado en tesorería NO se borra automáticamente: se avisa para
+// revisarlo a mano (puede estar ya liquidado).
+export async function quitarRetencionFianza(id: string) {
+  const sb = createAdminClient();
+  const { error } = await sb
+    .from("oportunidades")
+    .update({ fianza_retenida_importe: null, fianza_retenida_motivo: null })
+    .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(`/oportunidades/${id}`);
   revalidatePath("/");

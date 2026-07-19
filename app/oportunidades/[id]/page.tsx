@@ -7,7 +7,8 @@ import { FichaTabs } from "@/components/oportunidades/FichaTabs";
 import { SetupNotice } from "@/components/SetupNotice";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor";
-import { EmitirFacturaBtn, FianzaBtn, EstadoSelect, EnviarPresupuestoBtn, ValidarOportunidadBtn, BorrarOportunidadBtn } from "@/components/oportunidades/FichaAcciones";
+import { EmitirFacturaBtn, EstadoSelect, EnviarPresupuestoBtn, ValidarOportunidadBtn, BorrarOportunidadBtn } from "@/components/oportunidades/FichaAcciones";
+import { FianzaPanel } from "@/components/oportunidades/FianzaPanel";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { PlanPagos, BorrarPrevistoBtn, MarcarCobradoBtn } from "@/components/oportunidades/PlanPagos";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
@@ -625,12 +626,20 @@ export default async function Page({
 
         <TabsContent value="cobros">
           <Card>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3">
               <Overline className="!mt-0">Movimientos de cobro</Overline>
-              {op.fianza ? (
-                <FianzaBtn oportunidadId={op.id} devuelta={op.fianza_devuelta} />
-              ) : null}
             </div>
+            {op.fianza ? (
+              <FianzaPanel
+                oportunidadId={op.id}
+                fianza={op.fianza}
+                cobrada={op.fianza_cobrada !== false}
+                devuelta={op.fianza_devuelta}
+                fechaDevolucion={op.fecha_devolucion_fianza}
+                retenidaImporte={op.fianza_retenida_importe ?? null}
+                retenidaMotivo={op.fianza_retenida_motivo ?? null}
+              />
+            ) : null}
             {cobros.length === 0 && (
               <p className="py-2 text-small text-ink-muted">
                 Sin movimientos de tesorería enlazados todavía.

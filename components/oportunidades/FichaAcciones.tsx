@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { FileText, RotateCcw, Mail, CheckCircle2, Trash2 } from "lucide-react";
+import { FileText, Mail, CheckCircle2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { emitirFactura, toggleFianzaDevuelta, cambiarEstado, marcarPresupuestoEnviado, validarOportunidad, borrarOportunidad } from "@/app/actions";
+import { emitirFactura, cambiarEstado, marcarPresupuestoEnviado, validarOportunidad, borrarOportunidad } from "@/app/actions";
 import { ESTADO_META, ESTADO_COLOR, ESTADOS_MANUALES } from "@/lib/estados";
 import { eur } from "@/lib/format";
 import type { OportunidadEstado, OportunidadSerie } from "@/lib/types";
@@ -244,31 +244,3 @@ export function BorrarOportunidadBtn({
   );
 }
 
-export function FianzaBtn({
-  oportunidadId,
-  devuelta,
-}: {
-  oportunidadId: string;
-  devuelta: boolean;
-}) {
-  const router = useRouter();
-  const [loading, setLoading] = React.useState(false);
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={loading}
-      onClick={async () => {
-        setLoading(true);
-        try {
-          await toggleFianzaDevuelta(oportunidadId, !devuelta);
-          router.refresh();
-        } finally {
-          setLoading(false);
-        }
-      }}
-    >
-      <RotateCcw size={14} /> {devuelta ? "Marcar no devuelta" : "Marcar fianza devuelta"}
-    </Button>
-  );
-}
