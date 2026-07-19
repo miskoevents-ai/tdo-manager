@@ -39,7 +39,8 @@ export async function construirDigest(
   const eventos = avisos.filter((a) => a.categoria === "evento");
   const cierres = avisos.filter((a) => a.categoria === "cierre");
   const leadsFrios = avisos.filter((a) => a.categoria === "lead");
-  const solapes = avisos.filter((a) => a.categoria === "material");
+  const solapes = avisos.filter((a) => a.categoria === "material" && a.id.startsWith("solape-"));
+  const retornos = avisos.filter((a) => a.categoria === "material" && a.id.startsWith("retorno-"));
 
   const ym = hoyISO.slice(0, 7);
   const prevYm = restaMes(ym);
@@ -170,6 +171,7 @@ export async function construirDigest(
     <div style="border:1px solid #eee;border-top:none;border-radius:0 0 10px 10px;padding:22px 24px">
       ${bloqueResumen}
       ${seccion("🚨 Dobles reservas de material", "#B23B3B", solapes)}
+      ${seccion("📦 Material por registrar la vuelta", "#BE6E4C", retornos)}
       ${seccion("🔴 Cobros pendientes", "#B23B3B", cobros)}
       ${seccion("🟠 Fianzas por devolver", "#BE6E4C", fianzas)}
       ${seccion("🟡 Presupuestos sin respuesta", "#C99A2E", presupuestos)}
@@ -189,7 +191,7 @@ export async function construirDigest(
     ? `Resumen del mes · ${mesLabel}\nFacturación: ${eur(facturacionMes)} (${eventosMes.length} ev.) · Cobrado: ${eur(ingMes)} · Gastos: ${eur(gasMes)} · Resultado: ${eur(resultadoMes)}${tendencia != null ? ` · vs mes anterior ${tendencia >= 0 ? "+" : ""}${tendencia}%` : ""}`
     : `Resumen semanal TDO · ${mesLabel}\nEsta semana — Cobrado: ${eur(cobradoSemana)} · Confirmado: ${eur(valorConfirmadasSemana)} (${confirmadasSemana.length}) · Eventos: ${eventosSemana} · Leads: ${leadsSemana}\nAcumulado del mes — Facturación: ${eur(facturacionMes)} · Cobrado: ${eur(ingMes)} · Resultado: ${eur(resultadoMes)}`;
   const texto = `${encabezado}
-${esMensual ? bloque("Top clientes del mes", topClientesMes) + bloque("Por tipo de servicio", repartoTipoMes) : ""}${bloque("Dobles reservas de material", solapes)}${bloque("Cobros pendientes", cobros)}${bloque("Fianzas por devolver", fianzas)}${bloque("Presupuestos sin respuesta", presupuestos)}${bloque("Leads seguimiento", leadsFrios)}${bloque("Próximos eventos", eventos)}${bloque("Eventos por cerrar (costes)", cierres)}${bloque("Partes de horas", partesItems)}${bloque(`Amigos / préstamos (${eur(totalAmigos)})`, amigos)}
+${esMensual ? bloque("Top clientes del mes", topClientesMes) + bloque("Por tipo de servicio", repartoTipoMes) : ""}${bloque("Dobles reservas de material", solapes)}${bloque("Material por registrar la vuelta", retornos)}${bloque("Cobros pendientes", cobros)}${bloque("Fianzas por devolver", fianzas)}${bloque("Presupuestos sin respuesta", presupuestos)}${bloque("Leads seguimiento", leadsFrios)}${bloque("Próximos eventos", eventos)}${bloque("Eventos por cerrar (costes)", cierres)}${bloque("Partes de horas", partesItems)}${bloque(`Amigos / préstamos (${eur(totalAmigos)})`, amigos)}
 ${APP_URL}`;
 
   return {

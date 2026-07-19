@@ -293,6 +293,27 @@ export function calcularAvisos(
     }
   }
 
+  // 7c) Material que salió (entregado) y cuya fecha de devolución ya pasó, sin
+  //     registrar la vuelta (ni "devuelto" ni "incidencia"). Recuerda cotejar
+  //     lo que sale con lo que vuelve (roturas / no devoluciones).
+  for (const r of reservas) {
+    if (r.estado !== "entregado" || !r.fecha_devolucion) continue;
+    const f = r.fecha_devolucion.slice(0, 10);
+    if (f >= hoyISO) continue;
+    const dias = diasEntre(f, hoyISO);
+    if (dias < 2) continue;
+    const nombre = r.articulo?.articulo ?? "Material";
+    const opTitulo = r.oportunidad?.titulo ?? r.oportunidad?.numero ?? null;
+    avisos.push({
+      id: `retorno-${r.id}`,
+      href: r.oportunidad_id ? `/oportunidades/${r.oportunidad_id}?tab=material` : `/inventario`,
+      titulo: `Registrar vuelta de material · ${nombre}`,
+      detalle: `${r.cantidad} ud.${opTitulo ? ` · ${opTitulo}` : ""} · debía volver el ${fES(f)} · márcalo devuelto o abre incidencia`,
+      severidad: dias >= 14 ? "alta" : "media",
+      categoria: "material",
+    });
+  }
+
   const orden = { alta: 0, media: 1, baja: 2 } as const;
   return avisos.sort((a, b) => {
     const s = orden[a.severidad] - orden[b.severidad];

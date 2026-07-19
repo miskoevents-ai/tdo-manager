@@ -363,6 +363,10 @@ export type Reserva = {
   estado: string;
   notas: string | null;
   created_at: string;
+  cantidad_incidencia?: number | null; // uds. rotas / no devueltas. Mig. 058
+  incidencia_tipo?: string | null; // rota | no_devuelta | danada. Mig. 058
+  incidencia_nota?: string | null; // detalle de la incidencia. Mig. 058
+  coste_incidencia?: number | null; // coste de reposición / daño. Mig. 058
   articulo?: { articulo: string; cantidad_total: number | null } | null;
   oportunidad?: { numero: string; titulo: string } | null;
 };
