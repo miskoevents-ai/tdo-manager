@@ -141,16 +141,21 @@ export default async function GuiaPage() {
             pestaña Material.
           </Paso>
           <Paso n={6}>
+            <b>En producción</b> → mientras se prepara todo (material, fabricación…) puedes dejar el
+            estado en &quot;En producción&quot;. <b>Facturar no cierra el evento</b>: se puede
+            facturar por adelantado y seguir trabajando.
+          </Paso>
+          <Paso n={7}>
             <b>El día del evento</b> → montaje, evento y recogida ya están en el Calendario. Los
             gastos reales se apuntan en Costes.
           </Paso>
-          <Paso n={7}>
-            <b>Factura y cobro</b> → se emite la factura y, cuando llega el dinero, se marca como
-            cobrada.
-          </Paso>
           <Paso n={8}>
-            <b>Después</b> → devolver la fianza (te avisa solo) y pedir la reseña en Fidelización. Y
-            a por la siguiente 💪
+            <b>Cerrar</b> → al terminar, «Dar por terminado» congela los costes reales y fija el
+            margen. Si un evento ya pasó y sigue sin cerrar, te avisa.
+          </Paso>
+          <Paso n={9}>
+            <b>Después</b> → devolver la fianza (te avisa solo) o retenerla por daños, y pedir la
+            reseña en Fidelización. Y a por la siguiente 💪
           </Paso>
         </ol>
       </Seccion>
@@ -281,7 +286,10 @@ export default async function GuiaPage() {
             <li>
               <b>3 · Material.</b> Qué reservas del inventario y en qué fechas. <b>Las reservas se
               hacen aquí</b>, no en Inventario. Así el stock queda bloqueado y, si dos eventos piden
-              lo mismo el mismo día, la herramienta avisa.
+              lo mismo el mismo día, la herramienta avisa. Cada línea tiene su <b>estado</b>
+              (reservado → entregado → devuelto). Si algo vuelve <b>roto, dañado o no vuelve</b>,
+              marca <b>«Incidencia»</b> y anota unidades, tipo y coste de reposición. Y si pasa la
+              fecha de devolución sin registrar la vuelta, te sale un aviso para cotejarlo.
             </li>
             <li>
               <b>4 · Costes.</b> Lo que vas a gastar (o gastaste), organizado por módulos tipo Excel:
@@ -377,7 +385,10 @@ export default async function GuiaPage() {
             </li>
             <li>
               <b>7 · Cobros.</b> El dinero del evento y la fianza. Con el <b>plan de pagos</b> apuntas
-              los cobros previstos (fecha + importe) y aparecen en el Calendario.
+              los cobros previstos (fecha + importe) y aparecen en el Calendario; si un plazo
+              vence sin cobrarse, te avisa. La <b>fianza</b> tiene su propio panel con estado:
+              <b> pendiente de cobro → en depósito → devuelta</b>, o <b>«retenida por daños»</b> si
+              hay que quedarse (parte de) ella —eso se registra solo como ingreso en Tesorería.
             </li>
           </ul>
         </Seccion>
@@ -500,11 +511,14 @@ export default async function GuiaPage() {
       <Seccion id="comisiones" titulo="Mis comisiones" emoji="％">
         <p>
           Aquí ves <b>tus</b> comisiones: las de las oportunidades en las que figuras como
-          responsable de comisión. Arriba, el resumen (<b>devengado, cobrado y pendiente</b>);
-          debajo, el detalle por evento con su importe y si está pagada o pendiente.
+          responsable de comisión. Arriba, el resumen (<b>prevista, devengado, cobrado y
+          pendiente</b>); debajo, el detalle por evento con su importe.
         </p>
         <p className="text-[12.5px] text-ink-muted">
-          Cada persona ve solo las suyas. La comisión se devenga cuando la oportunidad está cobrada.
+          Cada persona ve solo las suyas. Ves la comisión <b>prevista</b> desde que la venta se
+          cierra (confirmada, aún sin cobrar), y pasa a <b>devengada</b> cuando el evento se cobra.
+          El <b>% depende del tipo de evento</b> (p. ej. un alquiler/encargo puede llevar un % y una
+          boda otro). También aparece como línea informativa en <b>Costes → Previsto</b>.
         </p>
       </Seccion>
 
