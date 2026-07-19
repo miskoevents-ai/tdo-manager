@@ -11,6 +11,7 @@ export type CalEvento = {
   tipo: CalTipo;
   titulo: string;
   href?: string;
+  tentativo?: boolean; // día de un evento aún sin confirmar (en negociación)
 };
 
 export const CAL_META: Record<CalTipo, { label: string; clase: string; punto: string }> = {
@@ -25,6 +26,13 @@ export const CAL_META: Record<CalTipo, { label: string; clase: string; punto: st
   cobro: { label: "Cobro previsto", clase: "bg-error-tint text-error", punto: "bg-error" },
   fianza: { label: "Devolución fianza", clase: "bg-clay-tint text-clay-600", punto: "bg-clay-300" },
 };
+
+// Clases del "pill" de un evento. Los tentativos (evento sin confirmar) van
+// rayados y atenuados, para distinguirlos de lo ya cerrado.
+export function pillClase(e: CalEvento): string {
+  const base = CAL_META[e.tipo].clase;
+  return e.tentativo ? `${base} border border-dashed border-current opacity-70` : base;
+}
 
 // Construye la lista de eventos del calendario a partir de los datos.
 export function construirEventos(
@@ -70,7 +78,10 @@ export function construirEventos(
     // El día del evento se clasifica por tipo: boda, corporativo u otros.
     const tipoDia: CalTipo =
       o.tipo_evento === "boda" ? "boda" : o.tipo_evento === "corporativo" ? "corporativo" : "evento";
-    if (o.fecha_evento) ev.push({ fecha: o.fecha_evento, tipo: tipoDia, titulo: o.titulo, href });
+    // El día del evento se muestra siempre (pipeline y solapes); si aún no está
+    // contratado, se marca como tentativo para pintarlo distinto.
+    if (o.fecha_evento)
+      ev.push({ fecha: o.fecha_evento, tipo: tipoDia, titulo: o.titulo, href, tentativo: !contratadas.has(o.id) });
     // Montaje y recogida: solo si la oportunidad está contratada.
     if (o.fecha_montaje && contratadas.has(o.id))
       ev.push({ fecha: o.fecha_montaje, tipo: "montaje", titulo: `Montaje · ${o.titulo}`, href });
