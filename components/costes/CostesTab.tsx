@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote, FileText, Warehouse, HelpCircle, Moon, Recycle } from "lucide-react";
+import { Plus, Trash2, Users, Truck, Flower2, Calculator, Paperclip, Lock, LockOpen, Zap, Utensils, Package, Copy, StickyNote, FileText, Warehouse, HelpCircle, Moon, Recycle, Percent } from "lucide-react";
 import { altaEnInventario } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Field } from "@/components/ui/input";
@@ -397,6 +397,27 @@ export function CostesTab({
                 </Tabla>
               )}
             </SubGrupo>
+
+            {/* Comisión: es coste real del evento (se paga a quien la lleva) y
+                cuenta en el total de arriba; se muestra aquí para que cuadre. */}
+            {cComision > 0 && (
+              <SubGrupo icon={<Percent size={13} />} titulo="Comisión" total={eur(cComision)}>
+                <p className="px-1 py-1.5 text-[11.5px] text-ink-muted">
+                  {comisionDetalle.length > 0 ? (
+                    <>
+                      Comisión de{" "}
+                      {comisionDetalle
+                        .map((c) => `${c.persona} (${num(c.porcentaje, 0)}%)`)
+                        .join(", ")}{" "}
+                      sobre la base del presupuesto ({eur(base)}). No se teclea: sale del campo
+                      «Comisión para» de la ficha (Editar).
+                    </>
+                  ) : (
+                    <>Comisión sobre la base del presupuesto ({eur(base)}).</>
+                  )}
+                </p>
+              </SubGrupo>
+            )}
           </section>
         </div>
       </div>
