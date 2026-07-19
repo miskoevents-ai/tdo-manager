@@ -255,6 +255,16 @@ export async function getKmPrecio(): Promise<number> {
   return isFinite(v) ? v : 0.26;
 }
 
+// Objetivo mensual de facturación (€). 0 = sin objetivo fijado. Se edita desde
+// el panel de Inicio (socios).
+export async function getObjetivoMensual(): Promise<number> {
+  if (mock.enabled) return 0;
+  const sb = createAdminClient();
+  const { data } = await sb.from("ajustes").select("valor").eq("clave", "objetivo_facturacion_mensual").maybeSingle();
+  const v = data?.valor ? Number(data.valor) : NaN;
+  return isFinite(v) && v > 0 ? v : 0;
+}
+
 // Correos a los que llegan los avisos por email (validar presupuesto, unirse a
 // reunión). Cadena separada por comas; se edita desde Usuarios (admins).
 export async function getAvisosEmails(): Promise<string> {

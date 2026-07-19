@@ -200,6 +200,11 @@ export default async function GuiaPage() {
             <b>Esta semana</b>: la agenda de los próximos 7 días (reuniones, montajes, eventos).
           </li>
           <li>
+            <b>Objetivo del mes</b> (socios): la barra de progreso de facturación. Se fija con
+            «Editar» y mide lo vendido este mes (eventos contratados con fecha en el mes) contra la
+            meta.
+          </li>
+          <li>
             <b>Próximos eventos y alquileres</b>: lo que viene, con su fecha y estado.
           </li>
         </ul>

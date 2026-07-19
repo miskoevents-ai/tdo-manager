@@ -8,7 +8,8 @@ import { AvisosPanel } from "@/components/home/AvisosPanel";
 import { EstaSemana } from "@/components/home/EstaSemana";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getReservas, getTesoreria, getReuniones, getTareas, getEquipo } from "@/lib/data";
+import { getOportunidades, getReservas, getTesoreria, getReuniones, getTareas, getEquipo, getObjetivoMensual } from "@/lib/data";
+import { ObjetivoMes } from "@/components/home/ObjetivoMes";
 import { getUsuarioActual } from "@/lib/sesion";
 import { canonizarNombre } from "@/lib/personas";
 import { calcularTotales } from "@/lib/calc";
@@ -65,15 +66,16 @@ export default async function Home() {
     timeZone: "Europe/Madrid",
   }).format(new Date());
 
-  let ops, reservas, tesoreria, reuniones, tareas, equipo;
+  let ops, reservas, tesoreria, reuniones, tareas, equipo, objetivoMensual;
   try {
-    [ops, reservas, tesoreria, reuniones, tareas, equipo] = await Promise.all([
+    [ops, reservas, tesoreria, reuniones, tareas, equipo, objetivoMensual] = await Promise.all([
       getOportunidades(),
       getReservas(),
       getTesoreria(),
       getReuniones(),
       getTareas(),
       getEquipo(),
+      getObjetivoMensual(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
@@ -109,6 +111,15 @@ export default async function Home() {
       (o.fianza_retenida_importe ?? 0) <= 0,
   );
   const totalFianzas = fianzas.reduce((s, o) => s + (o.fianza ?? 0), 0);
+
+  // Facturación del mes: eventos contratados con fecha de evento en el mes en
+  // curso (lo vendido), para el objetivo mensual.
+  const mesActual = HOY_ISO.slice(0, 7);
+  const facturadoMes = withTotals
+    .filter((x) => ["confirmada", "en_produccion", "realizada", "facturada"].includes(x.o.estado) && (x.o.fecha_evento ?? "").slice(0, 7) === mesActual)
+    .reduce((s, x) => s + x.total, 0);
+  const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const mesLabel = MESES[Number(mesActual.slice(5, 7)) - 1];
 
   const avisosTodos = calcularAvisos(ops, HOY_ISO, reservas, tareas, reuniones, tesoreria);
   const eventosCal = construirEventos(ops, reservas, tesoreria, reuniones);
@@ -173,6 +184,10 @@ export default async function Home() {
       <AvisosPanel avisos={avisos} responsables={responsables} />
 
       <EstaSemana eventos={eventosCal} hoy={HOY_ISO} />
+
+      {puedeVerDinero && (
+        <ObjetivoMes objetivo={objetivoMensual} facturado={facturadoMes} mesLabel={mesLabel} />
+      )}
 
       <Overline>Resumen</Overline>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
