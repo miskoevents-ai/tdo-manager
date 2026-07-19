@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { CAL_META, type CalEvento, type CalTipo } from "@/lib/calendario";
+import { CAL_META, pillClase, type CalEvento, type CalTipo } from "@/lib/calendario";
 
 const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
 const DIAS_LARGO = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
@@ -148,6 +148,10 @@ export function Calendario({
           </button>
         </p>
       )}
+      <p className="text-[11px] text-ink-muted">
+        Los eventos <span className="rounded-[4px] border border-dashed border-current px-1.5 opacity-70">◦ rayados</span> están{" "}
+        <b>sin confirmar</b> (en negociación). El montaje y la recogida solo aparecen cuando el evento se confirma.
+      </p>
 
       {/* Rejilla */}
       <div className="overflow-hidden rounded-lg border-hair border-border bg-white shadow-sm">
@@ -189,10 +193,10 @@ export function Calendario({
                   {evs.slice(0, 3).map((e, j) => {
                     const pill = (
                       <span
-                        className={`block truncate rounded-[5px] px-1.5 py-0.5 text-[10px] font-medium ${CAL_META[e.tipo].clase}`}
-                        title={e.titulo}
+                        className={`block truncate rounded-[5px] px-1.5 py-0.5 text-[10px] font-medium ${pillClase(e)}`}
+                        title={e.tentativo ? `${e.titulo} · sin confirmar` : e.titulo}
                       >
-                        {e.titulo}
+                        {e.tentativo ? "◦ " : ""}{e.titulo}
                       </span>
                     );
                     return e.href ? (
@@ -242,11 +246,11 @@ export function Calendario({
             <div className="space-y-1.5">
               {(porFecha.get(diaAbierto) ?? []).map((e, j) => {
                 const fila = (
-                  <div className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] ${CAL_META[e.tipo].clase}`}>
+                  <div className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-[13px] ${pillClase(e)}`}>
                     <span className={`h-2 w-2 shrink-0 rounded-full ${CAL_META[e.tipo].punto}`} />
                     <span className="min-w-0 flex-1 truncate font-medium">{e.titulo}</span>
                     <span className="shrink-0 text-[10.5px] uppercase tracking-[0.05em] opacity-70">
-                      {CAL_META[e.tipo].label}
+                      {e.tentativo ? "Sin confirmar" : CAL_META[e.tipo].label}
                     </span>
                   </div>
                 );

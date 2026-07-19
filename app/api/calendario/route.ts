@@ -62,9 +62,11 @@ export async function GET(req: Request) {
   ];
 
   eventos.forEach((e, i) => {
-    const resumen = TIPOS_EVENTO_CAL.includes(e.tipo)
+    const base = TIPOS_EVENTO_CAL.includes(e.tipo)
       ? `${CAL_META[e.tipo].label} · ${e.titulo}`
       : e.titulo;
+    // Los eventos sin confirmar (en negociación) se marcan en el título.
+    const resumen = e.tentativo ? `(Sin confirmar) ${base}` : base;
     const fechaCompacta = e.fecha.replace(/-/g, "");
     L.push("BEGIN:VEVENT");
     L.push(`UID:${e.fecha}-${e.tipo}-${i}@tdo-manager`);

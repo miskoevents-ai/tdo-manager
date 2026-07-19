@@ -25,8 +25,12 @@ export function EstaSemana({ eventos, hoy }: { eventos: CalEvento[]; hoy: string
   fin.setDate(fin.getDate() + 6);
   const finISO = `${fin.getFullYear()}-${String(fin.getMonth() + 1).padStart(2, "0")}-${String(fin.getDate()).padStart(2, "0")}`;
 
+  // "Esta semana" es la agenda de TRABAJO: solo lo que está cerrado o es una
+  // cita real. Los días de eventos aún sin confirmar (tentativos) no entran
+  // aquí — se ven en el Calendario, marcados. Un presupuesto enviado no es
+  // trabajo de esta semana.
   const semana = eventos
-    .filter((e) => e.fecha >= hoy && e.fecha <= finISO)
+    .filter((e) => e.fecha >= hoy && e.fecha <= finISO && !e.tentativo)
     .sort((a, b) =>
       a.fecha === b.fecha
         ? (a.hora ?? "99") < (b.hora ?? "99") ? -1 : 1
