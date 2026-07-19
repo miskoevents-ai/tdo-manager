@@ -1580,6 +1580,19 @@ export async function guardarObjetivoMensual(valor: number) {
   await registrarActividad({ accion: `fijó el objetivo mensual en ${v} €`, entidad: "ajustes" });
 }
 
+// Guarda el enlace de reservas de reunión (Calendly u otro) en ajustes.
+export async function guardarCalendlyUrl(url: string) {
+  const sb = createAdminClient();
+  const v = (url || "").trim();
+  if (v && !/^https?:\/\//i.test(v)) throw new Error("El enlace debe empezar por http:// o https://");
+  const { error } = await sb
+    .from("ajustes")
+    .upsert({ clave: "calendly_url", valor: v }, { onConflict: "clave" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/ayudas-venta");
+  await registrarActividad({ accion: "actualizó el enlace de reservas de reunión", entidad: "ajustes" });
+}
+
 // Guarda los parámetros de la calculadora (para todos) en ajustes.
 export async function guardarCalculadoraConfig(cfg: unknown) {
   const sb = createAdminClient();

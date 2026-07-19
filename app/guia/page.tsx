@@ -560,6 +560,11 @@ export default async function GuiaPage() {
             y desmontaje incluidos, equipo propio, publicados en medios…), la lista de servicios y el
             proceso de principio a fin.
           </li>
+          <li>
+            <b>Enlace de reservas (Calendly)</b>: arriba del todo. Los socios pegan una vez el enlace
+            de Calendly; luego cualquiera lo copia (o copia el mensaje ya hecho) para que el cliente
+            elija hueco de reunión solo.
+          </li>
         </ul>
         <p className="text-[12.5px] text-ink-muted">
           Copia lo que necesites, rellena los <b>[corchetes]</b> ([nombre], [evento], [fecha],

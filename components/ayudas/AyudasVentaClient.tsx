@@ -1,8 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Copy, Check, MessageSquare, Shield, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Copy, Check, MessageSquare, Shield, Sparkles, CalendarClock, ExternalLink, Pencil } from "lucide-react";
 import { Card, CardTitle, Overline } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { guardarCalendlyUrl } from "@/app/actions";
 
 type Plantilla = { titulo: string; cuando: string; texto: string };
 type Objecion = { objecion: string; respuesta: string };
@@ -195,6 +199,107 @@ const SERVICIOS = [
   "Alquiler de mobiliario",
 ];
 
+// Enlace de reservas de reunión (Calendly u otro): copiar/abrir y, si eres
+// socio, editarlo. Incluye un mensaje listo con el enlace dentro.
+function ReservaReunion({ calendlyUrl, esAdmin }: { calendlyUrl: string; esAdmin: boolean }) {
+  const router = useRouter();
+  const [editando, setEditando] = React.useState(false);
+  const [url, setUrl] = React.useState(calendlyUrl);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function guardar() {
+    setBusy(true);
+    setError(null);
+    try {
+      await guardarCalendlyUrl(url);
+      setEditando(false);
+      router.refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const mensaje = calendlyUrl
+    ? `¡Hola [nombre]! Para veros y contaros nuestra propuesta con calma, elige el hueco que mejor te venga aquí y nos ` +
+      `organizamos: ${calendlyUrl} · ¡Nos vemos! 😊`
+    : "";
+
+  // Editor (socios) o invitación a configurarlo.
+  if (editando || (!calendlyUrl && esAdmin)) {
+    return (
+      <Card>
+        <CardTitle>
+          <span className="flex items-center gap-2">
+            <CalendarClock size={15} className="text-clay" /> Enlace de reservas de reunión
+          </span>
+        </CardTitle>
+        <p className="mb-2 mt-1 text-[12px] text-ink-muted">
+          Pega tu enlace de Calendly (o similar) para que el equipo pueda enviarlo y el cliente elija
+          hueco solo.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://calendly.com/tu-usuario/reunion"
+            className="min-w-[240px] flex-1"
+            autoFocus
+          />
+          <Button size="sm" onClick={guardar} disabled={busy}>{busy ? "Guardando…" : "Guardar"}</Button>
+          {calendlyUrl && (
+            <Button size="sm" variant="ghost" onClick={() => { setEditando(false); setUrl(calendlyUrl); }}>Cancelar</Button>
+          )}
+        </div>
+        {error && <p className="mt-2 text-caption text-error">{error}</p>}
+      </Card>
+    );
+  }
+
+  // Sin enlace y sin ser socio: no molestar.
+  if (!calendlyUrl) return null;
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CardTitle className="!mb-0">
+          <span className="flex items-center gap-2">
+            <CalendarClock size={15} className="text-clay" /> Agenda una reunión
+          </span>
+        </CardTitle>
+        {esAdmin && (
+          <button onClick={() => setEditando(true)} className="flex items-center gap-1 text-[11px] font-semibold text-ink-muted hover:text-clay">
+            <Pencil size={12} /> Cambiar enlace
+          </button>
+        )}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <a
+          href={calendlyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 truncate rounded-sm bg-beige-light px-3 py-1.5 text-[12.5px] text-sage hover:underline"
+        >
+          <ExternalLink size={13} /> {calendlyUrl}
+        </a>
+        <CopyBtn texto={calendlyUrl} />
+      </div>
+      <div className="mt-3 rounded-md border-hair border-border bg-beige-light/60 p-3">
+        <div className="mb-1 flex items-start justify-between gap-2">
+          <div>
+            <b className="text-[13px]">Mensaje para enviar el enlace</b>
+            <p className="text-[11px] text-ink-muted">Copia y rellena [nombre].</p>
+          </div>
+          <CopyBtn texto={mensaje} />
+        </div>
+        <p className="whitespace-pre-line text-[12.5px] leading-relaxed text-ink-secondary">{mensaje}</p>
+      </div>
+    </Card>
+  );
+}
+
 function CopyBtn({ texto }: { texto: string }) {
   const [ok, setOk] = React.useState(false);
   async function copiar() {
@@ -218,9 +323,17 @@ function CopyBtn({ texto }: { texto: string }) {
   );
 }
 
-export function AyudasVentaClient() {
+export function AyudasVentaClient({
+  calendlyUrl = "",
+  esAdmin = false,
+}: {
+  calendlyUrl?: string;
+  esAdmin?: boolean;
+}) {
   return (
     <div className="space-y-5">
+      <ReservaReunion calendlyUrl={calendlyUrl} esAdmin={esAdmin} />
+
       {/* Plantillas de mensajes */}
       <div className="flex items-center gap-2">
         <MessageSquare size={16} className="text-clay" />
