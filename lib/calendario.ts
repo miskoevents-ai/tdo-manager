@@ -41,6 +41,14 @@ export function construirEventos(
   const descartadas = new Set(
     oportunidades.filter((o) => ["perdida", "descartada"].includes(o.estado)).map((o) => o.id),
   );
+  // Las LOGÍSTICAS de trabajo (montaje, recogida, salida/devolución de material)
+  // solo tienen sentido si el evento está CONTRATADO: un presupuesto enviado aún
+  // no se monta. El día del evento sí se muestra aunque esté en negociación
+  // (pipeline y aviso de solape de fecha).
+  const CONTRATADAS = ["confirmada", "realizada", "facturada"];
+  const contratadas = new Set(
+    oportunidades.filter((o) => CONTRATADAS.includes(o.estado)).map((o) => o.id),
+  );
 
   for (const r of reuniones) {
     if (r.oportunidad_id && descartadas.has(r.oportunidad_id)) continue;
@@ -63,14 +71,20 @@ export function construirEventos(
     const tipoDia: CalTipo =
       o.tipo_evento === "boda" ? "boda" : o.tipo_evento === "corporativo" ? "corporativo" : "evento";
     if (o.fecha_evento) ev.push({ fecha: o.fecha_evento, tipo: tipoDia, titulo: o.titulo, href });
-    if (o.fecha_montaje) ev.push({ fecha: o.fecha_montaje, tipo: "montaje", titulo: `Montaje · ${o.titulo}`, href });
-    if (o.fecha_recogida) ev.push({ fecha: o.fecha_recogida, tipo: "recogida", titulo: `Recogida · ${o.titulo}`, href });
+    // Montaje y recogida: solo si la oportunidad está contratada.
+    if (o.fecha_montaje && contratadas.has(o.id))
+      ev.push({ fecha: o.fecha_montaje, tipo: "montaje", titulo: `Montaje · ${o.titulo}`, href });
+    if (o.fecha_recogida && contratadas.has(o.id))
+      ev.push({ fecha: o.fecha_recogida, tipo: "recogida", titulo: `Recogida · ${o.titulo}`, href });
     if (o.fecha_devolucion_fianza && !o.fianza_devuelta)
       ev.push({ fecha: o.fecha_devolucion_fianza, tipo: "fianza", titulo: `Devolver fianza · ${o.titulo}`, href });
   }
 
   for (const r of reservas) {
     if (r.oportunidad_id && descartadas.has(r.oportunidad_id)) continue;
+    // Salida/devolución de material: logística; solo si está contratada (o si
+    // la reserva no cuelga de ninguna oportunidad).
+    if (r.oportunidad_id && !contratadas.has(r.oportunidad_id)) continue;
     const art = r.articulo?.articulo ?? "Material";
     const href = r.oportunidad_id ? `/oportunidades/${r.oportunidad_id}` : undefined;
     if (r.fecha_salida) ev.push({ fecha: r.fecha_salida, tipo: "salida", titulo: `Salida · ${art}`, href });
