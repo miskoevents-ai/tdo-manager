@@ -11,7 +11,7 @@ import { SEMANAS_POR_MES } from "@/lib/coste-hora";
 import { JornadaCalibracion, type JornadaData } from "@/components/cuadro/JornadaCalibracion";
 import { comisionDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha, num } from "@/lib/format";
-import { TIPO_EVENTO_LABEL, probabilidadEfectiva, ESTADOS_PRE_CONFIRMACION, MOTIVO_PERDIDA_LABEL } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, probabilidadEfectiva, ESTADOS_PRE_CONFIRMACION, MOTIVO_PERDIDA_LABEL, CANAL_LABEL } from "@/lib/estados";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +83,7 @@ export default async function CuadroMandoPage() {
   let forecast: { total: number; ponderado: number; abiertoTotal: number; abiertoPonderado: number } | null = null;
   let motivosPerdida: { label: string; n: number; pct: number }[] = [];
   let perdidasTotal = 0;
+  let conversionCanal: { label: string; leads: number; ganadas: number; pctCierre: number; facturacion: number }[] = [];
   try {
     const [ops, tesoreria, estimadosTodos, partesTodas, gastosFijos, calcRaw, comConfig, equipo] = await Promise.all([
       getOportunidades(),
@@ -156,6 +157,38 @@ export default async function CuadroMandoPage() {
           pct: perdidasTotal > 0 ? Math.round((n / perdidasTotal) * 100) : 0,
         }))
         .sort((a, b) => b.n - a.n);
+    }
+
+    // Conversión por canal: de dónde vienen los leads y cuántos cierran. La
+    // tasa de cierre se mide sobre los ya decididos (ganados + perdidos); los
+    // que siguen abiertos cuentan como "leads" pero no penalizan la tasa.
+    {
+      type C = { leads: number; ganadas: number; perdidas: number; facturacion: number };
+      const m = new Map<string, C>();
+      for (const o of ops) {
+        const k = o.canal || "sin_canal";
+        const c = m.get(k) ?? { leads: 0, ganadas: 0, perdidas: 0, facturacion: 0 };
+        c.leads += 1;
+        if (CONTRATADAS.includes(o.estado)) {
+          c.ganadas += 1;
+          c.facturacion += calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).total;
+        } else if (["perdida", "descartada"].includes(o.estado)) {
+          c.perdidas += 1;
+        }
+        m.set(k, c);
+      }
+      conversionCanal = Array.from(m.entries())
+        .map(([k, c]) => {
+          const decididas = c.ganadas + c.perdidas;
+          return {
+            label: k === "sin_canal" ? "Sin especificar" : (CANAL_LABEL[k] ?? k),
+            leads: c.leads,
+            ganadas: c.ganadas,
+            pctCierre: decididas > 0 ? Math.round((c.ganadas / decididas) * 100) : 0,
+            facturacion: c.facturacion,
+          };
+        })
+        .sort((a, b) => b.leads - a.leads);
     }
 
     precision = ops
@@ -419,6 +452,47 @@ export default async function CuadroMandoPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* Conversión por canal: de dónde vienen los leads y cuáles cierran. */}
+      {conversionCanal.length > 0 && (
+        <>
+          <Overline>Conversión por canal</Overline>
+          <p className="-mt-2 text-[12px] text-ink-muted">
+            De dónde vienen los leads y qué % acaba cerrando (sobre los ya decididos, ganados +
+            perdidos). Dónde merece la pena invertir.
+          </p>
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-[0.08em] text-ink-muted">
+                    <th className="py-1.5 text-left font-semibold">Canal</th>
+                    <th className="py-1.5 text-right font-semibold">Leads</th>
+                    <th className="py-1.5 text-right font-semibold">Ganadas</th>
+                    <th className="py-1.5 text-right font-semibold">% cierre</th>
+                    <th className="py-1.5 text-right font-semibold">Facturación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conversionCanal.map((c) => (
+                    <tr key={c.label}>
+                      <td className="border-t border-border/60 py-1.5">{c.label}</td>
+                      <td className="border-t border-border/60 py-1.5 text-right tabular">{c.leads}</td>
+                      <td className="border-t border-border/60 py-1.5 text-right tabular">{c.ganadas}</td>
+                      <td className="border-t border-border/60 py-1.5 text-right tabular font-semibold">
+                        <span className={c.pctCierre >= 50 ? "text-ok" : c.pctCierre >= 25 ? "text-warn" : "text-error"}>
+                          {c.pctCierre}%
+                        </span>
+                      </td>
+                      <td className="border-t border-border/60 py-1.5 text-right tabular text-sage">{eur(c.facturacion)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
         </>
