@@ -16,7 +16,7 @@ export type Devengo = {
   tesoreriaId?: string | null;
 };
 
-const ESTADOS_VIVOS = ["confirmada", "realizada", "facturada"];
+const ESTADOS_VIVOS = ["confirmada", "en_produccion", "realizada", "facturada"];
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 // Fecha de referencia de una oportunidad para la vigencia de comisiones: la

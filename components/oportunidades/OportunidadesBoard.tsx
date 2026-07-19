@@ -38,7 +38,7 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
     if (canal && c.canal !== canal) return false;
     if (recurrencia === "nuevos" && c.clienteRecurrente !== false) return false;
     if (recurrencia === "recurrentes" && c.clienteRecurrente !== true) return false;
-    if (soloContratadas && !["confirmada", "realizada", "facturada"].includes(c.estado)) return false;
+    if (soloContratadas && !["confirmada", "en_produccion", "realizada", "facturada"].includes(c.estado)) return false;
     if (soloPipeline && !["nueva", "contestada", "en_conversacion", "presupuesto_enviado"].includes(c.estado)) return false;
     if (temporal) {
       const f = c.fecha_evento ?? "";

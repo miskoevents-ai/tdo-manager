@@ -256,7 +256,7 @@ export default async function Page({
   // Conflicto de fechas: otras oportunidades vivas el mismo día del evento.
   // No bloquea (la pauta es "se estudia con refuerzo"), pero avisa: los eventos
   // contratados en ámbar fuerte, y lo que está en conversación como nota suave.
-  const CONTRATADA = ["confirmada", "realizada", "facturada"];
+  const CONTRATADA = ["confirmada", "en_produccion", "realizada", "facturada"];
   const mismoDia =
     op.fecha_evento && !["perdida", "descartada"].includes(op.estado)
       ? todasOps.filter(
@@ -361,10 +361,10 @@ export default async function Page({
             serie={op.serie}
             pctFactura={op.pct_factura ?? null}
           />
-          {["confirmada", "realizada"].includes(op.estado) && !op.cerrada && (
+          {["confirmada", "en_produccion", "realizada"].includes(op.estado) && !op.cerrada && (
             <ValidarOportunidadBtn oportunidadId={op.id} yaFacturada={Boolean(factura)} />
           )}
-          {["confirmada", "realizada"].includes(op.estado) &&
+          {["confirmada", "en_produccion", "realizada"].includes(op.estado) &&
             op.tipo_operacion === "normal" &&
             !factura && <EmitirFacturaBtn oportunidadId={op.id} />}
           {factura && (
@@ -377,6 +377,16 @@ export default async function Page({
           )}
         </div>
       </div>
+
+      {/* Facturado por adelantado: hay factura pero el evento aún no se ha
+          cerrado (producción pendiente). Evita confundir facturado con hecho. */}
+      {factura && !op.cerrada && (
+        <div className="rounded-md border-med border-clay bg-clay-tint px-4 py-3 text-[13px] text-clay-600">
+          🧾 <b>Facturado por adelantado.</b> La factura {factura.numero} ya está emitida, pero el evento
+          sigue <b>en marcha</b>: prepara la producción y, al terminar, ciérralo en <b>Costes</b> («Cerrar
+          evento» o «Validar y facturar»). Facturar no significa que esté hecho.
+        </div>
+      )}
 
       {/* Conflicto de fechas: mismo día que otro evento */}
       {conflictosFirmes.length > 0 && (

@@ -9,7 +9,7 @@ import { eur, num } from "@/lib/format";
 import type { Inventario, Oportunidad } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-const CONTRATADAS = ["confirmada", "realizada", "facturada"];
+const CONTRATADAS = ["confirmada", "en_produccion", "realizada", "facturada"];
 
 export default async function RoiPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;

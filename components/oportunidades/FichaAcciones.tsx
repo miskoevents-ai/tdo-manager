@@ -144,7 +144,9 @@ export function EmitirFacturaBtn({ oportunidadId }: { oportunidadId: string }) {
       variant="secondary"
       size="sm"
       disabled={loading}
+      title="Emite la factura sin cerrar el evento (para facturar por adelantado). El estado del trabajo no cambia."
       onClick={async () => {
+        if (!window.confirm("¿Emitir la factura ahora?\n\nEmite la factura SIN cerrar el evento ni marcarlo como hecho — puedes facturar por adelantado y seguir con la producción.")) return;
         setLoading(true);
         try {
           await emitirFactura(oportunidadId);
@@ -178,8 +180,8 @@ export function ValidarOportunidadBtn({
         if (
           !window.confirm(
             yaFacturada
-              ? "¿Cerrar la oportunidad? Los costes quedarán congelados."
-              : "¿Validar la oportunidad? Se generará la factura y quedará cerrada con los costes congelados.",
+              ? "¿Dar por TERMINADO el evento? Se congelan los costes y se marca como hecho. (La factura ya está emitida.)"
+              : "¿Dar por TERMINADO el evento? Se genera la factura, se congelan los costes y se marca como hecho.\n\nSi solo quieres facturar por adelantado sin cerrar el evento, usa «Emitir factura».",
           )
         )
           return;
@@ -195,7 +197,7 @@ export function ValidarOportunidadBtn({
         }
       }}
     >
-      <CheckCircle2 size={14} /> {loading ? "Validando…" : "Validar y facturar"}
+      <CheckCircle2 size={14} /> {loading ? "Terminando…" : yaFacturada ? "Dar por terminado" : "Terminar y facturar"}
     </Button>
   );
 }

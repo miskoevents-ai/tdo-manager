@@ -181,7 +181,7 @@ function build() {
   });
 
   const facturas: Factura[] = data.oportunidades
-    .filter((o) => ["confirmada", "realizada", "facturada"].includes(o.estado))
+    .filter((o) => ["confirmada", "en_produccion", "realizada", "facturada"].includes(o.estado))
     .map((o) => {
       const op = oportunidades.find((x) => x.numero === o.numero)!;
       const base = r2(

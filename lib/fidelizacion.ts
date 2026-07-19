@@ -13,7 +13,7 @@ function dias(aISO: string, bISO: string): number {
   return Math.floor((b - a) / 86_400_000);
 }
 
-const CONTRATADA = ["confirmada", "realizada", "facturada"];
+const CONTRATADA = ["confirmada", "en_produccion", "realizada", "facturada"];
 const nombreDe = (o: Oportunidad) => o.cliente?.nombre ?? o.titulo;
 
 // ── Bloque 1 · Pedir reseña ─────────────────────────────────────────────

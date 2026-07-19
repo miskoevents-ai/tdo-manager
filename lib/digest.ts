@@ -6,7 +6,7 @@ import { eur } from "@/lib/format";
 import { TIPO_EVENTO_LABEL } from "@/lib/estados";
 import type { Oportunidad } from "@/lib/types";
 
-const CONTRATADAS = ["confirmada", "realizada", "facturada"];
+const CONTRATADAS = ["confirmada", "en_produccion", "realizada", "facturada"];
 const APP_URL = process.env.APP_URL || "https://tdo-manager.vercel.app";
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 

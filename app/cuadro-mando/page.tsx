@@ -15,7 +15,7 @@ import { TIPO_EVENTO_LABEL } from "@/lib/estados";
 
 export const dynamic = "force-dynamic";
 
-const CONTRATADAS = ["confirmada", "realizada", "facturada"];
+const CONTRATADAS = ["confirmada", "en_produccion", "realizada", "facturada"];
 
 // Agrupa las oportunidades contratadas por una clave (tipo de evento, cliente…)
 // y calcula ingresos, gastos, margen, margen % y ticket medio.

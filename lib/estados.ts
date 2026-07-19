@@ -9,6 +9,7 @@ export const ESTADO_COLOR: Record<OportunidadEstado, string> = {
   en_conversacion: "#E0A458",
   presupuesto_enviado: "#BE6E4C",
   confirmada: "#5FA463",
+  en_produccion: "#4F9D8A",
   realizada: "#3F8F7A",
   facturada: "#7D6BA6",
   perdida: "#C0574B",
@@ -21,6 +22,7 @@ export const ESTADO_META: Record<OportunidadEstado, { label: string; tone: Badge
   en_conversacion: { label: "En conversación", tone: "sage" },
   presupuesto_enviado: { label: "Presup. enviado", tone: "clay" },
   confirmada: { label: "Confirmada", tone: "ok" },
+  en_produccion: { label: "En producción", tone: "sage" },
   realizada: { label: "Realizada", tone: "ok" },
   facturada: { label: "Facturada", tone: "sage" },
   perdida: { label: "Perdida", tone: "error" },
@@ -34,6 +36,16 @@ export const KANBAN_COLS: OportunidadEstado[] = [
   "en_conversacion",
   "presupuesto_enviado",
   "confirmada",
+  "en_produccion",
+  "realizada",
+  "facturada",
+];
+
+// Estados con la venta cerrada (contratada): confirmada en adelante. Fuente
+// única para no dejarse ninguno al añadir/quitar estados.
+export const ESTADOS_CONTRATADA: OportunidadEstado[] = [
+  "confirmada",
+  "en_produccion",
   "realizada",
   "facturada",
 ];

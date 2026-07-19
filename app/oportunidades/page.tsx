@@ -72,7 +72,7 @@ export default async function OportunidadesPage() {
             .map((c) => ({
               fecha: c.fecha_evento!,
               titulo: c.titulo,
-              contratada: ["confirmada", "realizada", "facturada"].includes(c.estado),
+              contratada: ["confirmada", "en_produccion", "realizada", "facturada"].includes(c.estado),
             }))}
         />
       </div>
