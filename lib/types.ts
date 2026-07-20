@@ -359,6 +359,14 @@ export type Desplazamiento = {
   created_at: string;
 };
 
+export type OportunidadFoto = {
+  id: string;
+  oportunidad_id: string;
+  url: string;
+  nota: string | null;
+  created_at: string;
+};
+
 export type Reserva = {
   id: string;
   oportunidad_id: string | null;
