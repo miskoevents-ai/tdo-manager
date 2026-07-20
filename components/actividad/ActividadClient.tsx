@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Select } from "@/components/ui/input";
+import { Select, Input } from "@/components/ui/input";
 import type { RegistroActividad } from "@/lib/types";
 
 const COLORES = ["bg-sage", "bg-clay", "bg-ok", "bg-warn", "bg-[#7a6cae]", "bg-[#3f7fa3]"];
@@ -56,6 +56,7 @@ function agrupaPorDia(items: RegistroActividad[]) {
 export function ActividadClient({ registros }: { registros: RegistroActividad[] }) {
   const [persona, setPersona] = React.useState("");
   const [entidad, setEntidad] = React.useState("");
+  const [busca, setBusca] = React.useState("");
 
   const personas = React.useMemo(
     () => Array.from(new Set(registros.map((r) => r.usuario).filter(Boolean) as string[])).sort(),
@@ -66,8 +67,15 @@ export function ActividadClient({ registros }: { registros: RegistroActividad[] 
     [registros],
   );
 
+  const t = busca.trim().toLowerCase();
   const filtrados = registros.filter(
-    (r) => (!persona || r.usuario === persona) && (!entidad || r.entidad === entidad),
+    (r) =>
+      (!persona || r.usuario === persona) &&
+      (!entidad || r.entidad === entidad) &&
+      (!t ||
+        (r.detalle ?? "").toLowerCase().includes(t) ||
+        (r.accion ?? "").toLowerCase().includes(t) ||
+        (r.usuario ?? "").toLowerCase().includes(t)),
   );
   const dias = agrupaPorDia(filtrados);
 
@@ -87,6 +95,10 @@ export function ActividadClient({ registros }: { registros: RegistroActividad[] 
             <option value="">Todo</option>
             {entidades.map((en) => <option key={en} value={en}>{ENTIDADES[en] ?? en}</option>)}
           </Select>
+        </label>
+        <label className="text-[12px]">
+          <span className="mb-1 block font-semibold uppercase tracking-[0.08em] text-ink-muted">Buscar</span>
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Concepto, acción…" className="w-auto" />
         </label>
         <span className="pb-2 text-[12px] text-ink-muted">{filtrados.length} acciones</span>
       </div>

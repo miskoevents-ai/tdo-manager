@@ -649,15 +649,19 @@ export async function guardarMovimiento(formData: FormData) {
   };
   if (!payload.concepto) throw new Error("El concepto es obligatorio.");
 
-  // cobrado_por/liquidado son de la migración 032: si no están, se omiten.
+  // Al dar de alta (no al editar) se sella quién lo crea, para auditoría.
+  const creador = id ? null : (await getUsuarioActual())?.nombre ?? null;
+  const full: Record<string, unknown> = id ? { ...payload } : { ...payload, creado_por: creador };
+
+  // cobrado_por/liquidado (mig. 032) y creado_por (mig. 062): si no están, se omiten.
   async function persistir(p: Record<string, unknown>) {
     return id
       ? sb.from("tesoreria").update(p).eq("id", id)
       : sb.from("tesoreria").insert(p);
   }
-  let { error } = await persistir(payload);
-  if (error && /(cobrado_por|liquidado)/.test(error.message) && /column/i.test(error.message)) {
-    const { cobrado_por: _c, liquidado: _l, ...sin } = payload;
+  let { error } = await persistir(full);
+  if (error && /(cobrado_por|liquidado|creado_por)/.test(error.message) && /column/i.test(error.message)) {
+    const { cobrado_por: _c, liquidado: _l, creado_por: _cr, ...sin } = full;
     ({ error } = await persistir(sin));
   }
   if (error) throw new Error(error.message);

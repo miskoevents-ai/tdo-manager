@@ -530,6 +530,9 @@ export function TesoreriaClient({
                     {!m.computa_contabilidad && (
                       <span className="ml-2 rounded-xs bg-beige-warm px-1 text-[9.5px] uppercase text-ink-muted">no computa</span>
                     )}
+                    {m.creado_por && (
+                      <span className="mt-0.5 block text-[10.5px] text-ink-muted">Creado por {m.creado_por}</span>
+                    )}
                   </td>
                   <td className="border-t border-border px-[14px] py-3 text-[12px] text-ink-secondary">
                     {NATURALEZA_LABEL[m.naturaleza] ?? m.naturaleza}
