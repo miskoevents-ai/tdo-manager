@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getInventario, getOportunidades } from "@/lib/data";
-import { eur, num } from "@/lib/format";
+import { eur, num, fecha } from "@/lib/format";
 import type { Inventario, Oportunidad } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -98,7 +98,10 @@ export default async function RoiPage() {
               <tr key={f.it.id} className="hover:bg-beige-light">
                 <td className="border-b border-[#f0eae1] py-2">
                   <div className="font-medium">{f.it.articulo}</div>
-                  <div className="text-[11px] text-ink-muted">{f.it.categoria ?? "—"}</div>
+                  <div className="text-[11px] text-ink-muted">
+                    {f.it.categoria ?? "—"}
+                    {f.it.fecha_compra ? ` · comprado ${fecha(f.it.fecha_compra)}` : ""}
+                  </div>
                 </td>
                 <td className="border-b border-[#f0eae1] py-2 text-right tabular">{f.veces}</td>
                 <td className="border-b border-[#f0eae1] py-2 text-right tabular font-semibold">{eur(f.ingresos)}</td>
@@ -112,7 +115,12 @@ export default async function RoiPage() {
                   ) : f.amortizado ? (
                     <Badge tone="ok">Amortizado</Badge>
                   ) : (
-                    <Badge tone="warn">En camino</Badge>
+                    <span className="inline-flex flex-col items-end gap-0.5">
+                      <Badge tone="warn">En camino</Badge>
+                      {f.inversion > f.ingresos && (
+                        <span className="text-[10.5px] text-ink-muted">faltan {eur(f.inversion - f.ingresos)}</span>
+                      )}
+                    </span>
                   )}
                 </td>
               </tr>

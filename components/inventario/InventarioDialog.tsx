@@ -89,6 +89,9 @@ export function InventarioDialog({ articulo }: { articulo?: Inventario }) {
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <Field label="Fecha de compra">
+              <Input type="date" name="fecha_compra" defaultValue={articulo?.fecha_compra ?? ""} />
+            </Field>
             <Field label="Fianza sugerida €">
               <Input type="number" step="0.01" name="fianza_sugerida" defaultValue={articulo?.fianza_sugerida ?? ""} />
             </Field>
