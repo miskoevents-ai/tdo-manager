@@ -14,6 +14,7 @@ import type {
   Inventario,
   Reserva,
   OportunidadFoto,
+  Seguimiento,
   ParteHoras,
   Desplazamiento,
   Reunion,
@@ -296,6 +297,41 @@ export async function getContabilidadInicio(): Promise<string> {
     .maybeSingle();
   const v = (data?.valor as string | undefined)?.trim();
   return v && /^\d{4}-\d{2}$/.test(v) ? v : "2026-05";
+}
+
+// Bitácora de seguimiento de una oportunidad (notas cronológicas, más reciente
+// primero). Tolerante si la tabla (mig. 065) aún no existe.
+export async function getSeguimientos(oportunidadId: string): Promise<Seguimiento[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("seguimientos")
+    .select("*")
+    .eq("oportunidad_id", oportunidadId)
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  return (data ?? []) as Seguimiento[];
+}
+
+// La nota de seguimiento MÁS RECIENTE de cada oportunidad (para los avisos de
+// "seguimiento pendiente"). Se traen todas ordenadas y se deja la última por
+// oportunidad. Tolerante si la tabla aún no existe.
+export async function getUltimosSeguimientos(): Promise<Seguimiento[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("seguimientos")
+    .select("*, oportunidad:oportunidades(titulo)")
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  const vistos = new Set<string>();
+  const ultimos: Seguimiento[] = [];
+  for (const s of (data ?? []) as Seguimiento[]) {
+    if (vistos.has(s.oportunidad_id)) continue;
+    vistos.add(s.oportunidad_id);
+    ultimos.push(s);
+  }
+  return ultimos;
 }
 
 // Fotos de referencia/inspiración de una oportunidad. Tolerante: si la tabla

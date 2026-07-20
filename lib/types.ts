@@ -359,6 +359,16 @@ export type Desplazamiento = {
   created_at: string;
 };
 
+export type Seguimiento = {
+  id: string;
+  oportunidad_id: string;
+  texto: string;
+  recordar: string | null;
+  autor: string | null;
+  created_at: string;
+  oportunidad?: { titulo: string } | null;
+};
+
 export type OportunidadFoto = {
   id: string;
   oportunidad_id: string;
