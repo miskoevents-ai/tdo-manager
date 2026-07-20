@@ -61,6 +61,17 @@ export function MovimientoDialog({
   // Importe y concepto controlados: se pueden precargar desde el plan de cobros.
   const [importeVal, setImporteVal] = React.useState(movimiento?.importe != null ? String(movimiento.importe) : "");
   const [conceptoVal, setConceptoVal] = React.useState(movimiento?.concepto ?? "");
+  // Desglose del gasto/ingreso en líneas (concepto + importe). Importe como
+  // texto para editar cómodo; se serializa a JSON en un input oculto.
+  const [lineas, setLineas] = React.useState<{ concepto: string; importe: string }[]>(
+    (movimiento?.desglose ?? []).map((l) => ({ concepto: l.concepto, importe: String(l.importe) })),
+  );
+  const sumaDesglose = lineas.reduce((s, l) => s + (Number(l.importe) || 0), 0);
+  const desgloseJSON = JSON.stringify(
+    lineas
+      .filter((l) => l.concepto.trim() && Number(l.importe) > 0)
+      .map((l) => ({ concepto: l.concepto.trim(), importe: Number(l.importe) })),
+  );
   // Solicitud (oportunidad) enlazada, con buscador.
   const [eventoId, setEventoId] = React.useState(movimiento?.oportunidad_id ?? "");
   const eventoSel = oportunidades.find((o) => o.id === eventoId) ?? null;
@@ -382,6 +393,13 @@ export function MovimientoDialog({
                   <p className="text-[10px] text-ink-muted">Pincha uno para cuadrar concepto e importe.</p>
                 </div>
               )}
+              <p className="mt-1 text-[10px] text-ink-muted">
+                Enlázalo a una solicitud del sistema (podrás ir a ella y ver sus costes). Si no está,
+                usa «Evento de referencia».
+              </p>
+            </Field>
+            <Field label="Evento de referencia (opcional)">
+              <Input name="evento_ref" defaultValue={movimiento?.evento_ref ?? ""} placeholder="Nombre del evento (si no está en el sistema)" />
             </Field>
             <Field label="Cliente (opcional)">
               <Select name="cliente_id" defaultValue={movimiento?.cliente_id ?? ""}>
@@ -461,6 +479,63 @@ export function MovimientoDialog({
                 </>
               )}
             </span>
+          </div>
+
+          {/* Desglose del importe en líneas (concepto + importe). Opcional. */}
+          <input type="hidden" name="desglose" value={desgloseJSON} />
+          <div className="rounded-md border-hair border-border bg-beige-light/50 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-ink-muted">Desglose (opcional)</span>
+              <button
+                type="button"
+                onClick={() => setLineas((l) => [...l, { concepto: "", importe: "" }])}
+                className="inline-flex items-center gap-1 rounded-sm border-med border-border bg-white px-2 py-1 text-[11.5px] font-semibold text-ink-secondary hover:border-sage-300"
+              >
+                <Plus size={12} /> Añadir línea
+              </button>
+            </div>
+            {lineas.length === 0 ? (
+              <p className="text-[11px] text-ink-muted">Divide el importe en partes (p. ej. Guirnaldas 300 · Árbol 400 · Luces 200).</p>
+            ) : (
+              <div className="space-y-1.5">
+                {lineas.map((l, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={l.concepto}
+                      onChange={(e) => setLineas((arr) => arr.map((x, j) => (j === i ? { ...x, concepto: e.target.value } : x)))}
+                      placeholder="Concepto"
+                      className="flex-1"
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={l.importe}
+                      onChange={(e) => setLineas((arr) => arr.map((x, j) => (j === i ? { ...x, importe: e.target.value } : x)))}
+                      placeholder="€"
+                      className="w-[90px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLineas((arr) => arr.filter((_, j) => j !== i))}
+                      className="rounded-sm px-1.5 text-[15px] text-ink-muted hover:text-error"
+                      title="Quitar"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {(() => {
+                  const total = Number(importeVal) || 0;
+                  const cuadra = Math.abs(sumaDesglose - total) < 0.01;
+                  return (
+                    <p className={`pt-1 text-[11px] ${cuadra ? "text-ok" : "text-warn"}`}>
+                      Suma del desglose: <b>{eur(sumaDesglose)}</b>
+                      {total > 0 && (cuadra ? " · cuadra con el total ✓" : ` · el total es ${eur(total)} (difieren ${eur(Math.abs(total - sumaDesglose))})`)}
+                    </p>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           <Field label="Notas">

@@ -3,12 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Check, ChevronDown } from "lucide-react";
+import { ExternalLink, Check, ChevronDown, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
 import { Donut, DONUT_COLORS } from "@/components/ui/Donut";
-import { marcarMovimientoPagado, cambiarEstadoMovimiento, marcarMovimientoLiquidado, reembolsarMovimiento } from "@/app/actions";
+import { marcarMovimientoPagado, cambiarEstadoMovimiento, marcarMovimientoLiquidado, reembolsarMovimiento, borrarMovimiento } from "@/app/actions";
 import { PersonaCajaModal } from "@/components/ui/PersonaCajaModal";
 import { canonizarNombre } from "@/lib/personas";
 import { eur, fecha } from "@/lib/format";
@@ -530,6 +530,11 @@ export function TesoreriaClient({
                     {!m.computa_contabilidad && (
                       <span className="ml-2 rounded-xs bg-beige-warm px-1 text-[9.5px] uppercase text-ink-muted">no computa</span>
                     )}
+                    {m.desglose && m.desglose.length > 0 && (
+                      <span className="mt-0.5 block text-[10.5px] text-ink-muted">
+                        Desglose: {m.desglose.map((d) => `${d.concepto} ${eur(d.importe)}`).join(" · ")}
+                      </span>
+                    )}
                     {m.creado_por && (
                       <span className="mt-0.5 block text-[10.5px] text-ink-muted">Creado por {m.creado_por}</span>
                     )}
@@ -540,12 +545,15 @@ export function TesoreriaClient({
                   <td className="border-t border-border px-[14px] py-3 text-[12px]">
                     {m.oportunidad_id && m.oportunidad ? (
                       <Link
-                        href={`/oportunidades/${m.oportunidad_id}`}
+                        href={`/oportunidades/${m.oportunidad_id}?tab=costes`}
                         className="inline-flex items-center gap-1 font-medium text-clay hover:text-clay-600 hover:underline"
+                        title="Ir al evento y ver sus costes"
                       >
                         {m.oportunidad.titulo}
                         <ExternalLink size={12} className="opacity-70" />
                       </Link>
+                    ) : m.evento_ref ? (
+                      <span className="text-ink-secondary">{m.evento_ref}</span>
                     ) : (
                       <span className="text-ink-muted">{m.cliente?.nombre ?? "—"}</span>
                     )}
@@ -558,6 +566,7 @@ export function TesoreriaClient({
                     <span className="inline-flex items-center">
                       <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} planPorOportunidad={planPorOportunidad} movimiento={m} duplicar categoriasExtra={categoriasUsadas} />
                       <MovimientoDialog clientes={clientes} oportunidades={oportunidades} proveedores={proveedores} responsables={responsables} planPorOportunidad={planPorOportunidad} movimiento={m} categoriasExtra={categoriasUsadas} />
+                      <BorrarMovBtn id={m.id} concepto={m.concepto} importe={Number(m.importe)} />
                     </span>
                   </td>
                 </tr>
@@ -604,6 +613,34 @@ export function TesoreriaClient({
         })}
       </div>
     </div>
+  );
+}
+
+// Papelera de un movimiento (con doble confirmación). Para entradas erróneas o
+// de prueba. Borra el movimiento por completo (queda registrado en Actividad).
+function BorrarMovBtn({ id, concepto, importe }: { id: string; concepto: string; importe: number }) {
+  const router = useRouter();
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <button
+      title="Eliminar movimiento"
+      disabled={busy}
+      onClick={async () => {
+        if (!window.confirm(`¿Eliminar el movimiento «${concepto}» (${eur(importe)})?\n\nNo se puede deshacer. Queda registrado en Actividad quién lo borró.`)) return;
+        setBusy(true);
+        try {
+          await borrarMovimiento(id);
+          router.refresh();
+        } catch (e) {
+          window.alert((e as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+      className="rounded-sm p-1.5 text-ink-muted hover:bg-error-tint hover:text-error disabled:opacity-50"
+    >
+      <Trash2 size={15} />
+    </button>
   );
 }
 

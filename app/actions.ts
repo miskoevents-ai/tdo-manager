@@ -619,6 +619,21 @@ async function canonizarPersonaEquipo(
   return bruto;
 }
 
+// Parsea el desglose (JSON del formulario) a líneas saneadas {concepto, importe}.
+function parseDesglose(raw: string | null): { concepto: string; importe: number }[] | null {
+  if (!raw) return null;
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return null;
+    const lineas = arr
+      .map((l) => ({ concepto: String(l?.concepto ?? "").trim(), importe: Number(l?.importe) || 0 }))
+      .filter((l) => l.concepto && l.importe > 0);
+    return lineas.length ? lineas : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function guardarMovimiento(formData: FormData) {
   const sb = createAdminClient();
   const id = (formData.get("id") as string) || null;
@@ -645,6 +660,9 @@ export async function guardarMovimiento(formData: FormData) {
     // §5.4: computa se deriva SIEMPRE de la naturaleza (regla única en
     // lib/computa.ts); el usuario ya no lo decide a mano.
     computa_contabilidad: computaSegunNaturaleza(formData.get("naturaleza") as string),
+    // Desglose en líneas (JSON) y evento de referencia en texto libre. Mig. 063.
+    desglose: parseDesglose(formData.get("desglose") as string),
+    evento_ref: (formData.get("evento_ref") as string)?.trim() || null,
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.concepto) throw new Error("El concepto es obligatorio.");
@@ -660,8 +678,8 @@ export async function guardarMovimiento(formData: FormData) {
       : sb.from("tesoreria").insert(p);
   }
   let { error } = await persistir(full);
-  if (error && /(cobrado_por|liquidado|creado_por)/.test(error.message) && /column/i.test(error.message)) {
-    const { cobrado_por: _c, liquidado: _l, creado_por: _cr, ...sin } = full;
+  if (error && /(cobrado_por|liquidado|creado_por|desglose|evento_ref)/.test(error.message) && /column/i.test(error.message)) {
+    const { cobrado_por: _c, liquidado: _l, creado_por: _cr, desglose: _d, evento_ref: _er, ...sin } = full;
     ({ error } = await persistir(sin));
   }
   if (error) throw new Error(error.message);
