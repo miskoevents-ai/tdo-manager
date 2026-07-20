@@ -222,10 +222,33 @@ function ReservaReunion({ calendlyUrl, esAdmin }: { calendlyUrl: string; esAdmin
     }
   }
 
-  const mensaje = calendlyUrl
-    ? `¡Hola [nombre]! Para veros y contaros nuestra propuesta con calma, elige el hueco que mejor te venga aquí y nos ` +
-      `organizamos: ${calendlyUrl} · ¡Nos vemos! 😊`
-    : "";
+  // Mensajes listos con el enlace de reservas ya dentro, por situación.
+  const mensajes: { titulo: string; texto: string }[] = calendlyUrl
+    ? [
+        {
+          titulo: "General",
+          texto:
+            `¡Hola [nombre]! Para veros y contaros nuestra propuesta con calma, elige el hueco que mejor te venga ` +
+            `aquí y nos organizamos: ${calendlyUrl} · ¡Nos vemos! 😊`,
+        },
+        {
+          titulo: "Videollamada · Corporativo",
+          texto:
+            `Hola, [empresa]:\n\n` +
+            `Selecciona en el calendario el día y la hora que mejor te vengan para presentarnos el evento y ` +
+            `analizar con detalle sus necesidades: ${calendlyUrl}\n\n` +
+            `Recibirás la confirmación y el enlace directo a la videollamada. Un saludo,\nTu Decoración Original`,
+        },
+        {
+          titulo: "Videollamada · Bodas",
+          texto:
+            `Hola, [nombres]:\n\n` +
+            `Seleccionad en el calendario el día y la hora que mejor os vengan para conocernos, contarnos cómo ` +
+            `imagináis vuestra boda, explicaros cómo trabajamos y ver si podemos ayudaros: ${calendlyUrl}\n\n` +
+            `Recibiréis la confirmación y el enlace de acceso a la videollamada. ¡Un abrazo!\nTu Decoración Original`,
+        },
+      ]
+    : [];
 
   // Editor (socios) o invitación a configurarlo.
   if (editando || (!calendlyUrl && esAdmin)) {
@@ -286,15 +309,22 @@ function ReservaReunion({ calendlyUrl, esAdmin }: { calendlyUrl: string; esAdmin
         </a>
         <CopyBtn texto={calendlyUrl} />
       </div>
-      <div className="mt-3 rounded-md border-hair border-border bg-beige-light/60 p-3">
-        <div className="mb-1 flex items-start justify-between gap-2">
-          <div>
-            <b className="text-[13px]">Mensaje para enviar el enlace</b>
-            <p className="text-[11px] text-ink-muted">Copia y rellena [nombre].</p>
+      <p className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted">
+        Mensajes listos (con el enlace dentro)
+      </p>
+      <div className="space-y-2">
+        {mensajes.map((m) => (
+          <div key={m.titulo} className="rounded-md border-hair border-border bg-beige-light/60 p-3">
+            <div className="mb-1 flex items-start justify-between gap-2">
+              <div>
+                <b className="text-[13px]">{m.titulo}</b>
+                <p className="text-[11px] text-ink-muted">Copia y rellena los [corchetes].</p>
+              </div>
+              <CopyBtn texto={m.texto} />
+            </div>
+            <p className="whitespace-pre-line text-[12.5px] leading-relaxed text-ink-secondary">{m.texto}</p>
           </div>
-          <CopyBtn texto={mensaje} />
-        </div>
-        <p className="whitespace-pre-line text-[12.5px] leading-relaxed text-ink-secondary">{mensaje}</p>
+        ))}
       </div>
     </Card>
   );
