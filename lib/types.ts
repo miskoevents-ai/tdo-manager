@@ -289,6 +289,7 @@ export type Tesoreria = {
   quien_lo_paga?: string | null; // gasto adelantado por una persona → TDO le debe
   cobrado_por?: string | null; // ingreso recibido por una persona → debe a TDO
   liquidado?: boolean | null; // el cobro ya se entregó a la caja de TDO
+  creado_por?: string | null; // usuario que dio de alta el movimiento. Mig. 062
   notas?: string | null;
   computa_contabilidad: boolean;
   created_at: string;
