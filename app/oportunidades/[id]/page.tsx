@@ -10,6 +10,7 @@ import { PresupuestoEditor } from "@/components/oportunidades/PresupuestoEditor"
 import { EmitirFacturaBtn, EstadoSelect, EnviarPresupuestoBtn, ValidarOportunidadBtn, BorrarOportunidadBtn } from "@/components/oportunidades/FichaAcciones";
 import { FianzaPanel } from "@/components/oportunidades/FianzaPanel";
 import { FotosReferencia } from "@/components/oportunidades/FotosReferencia";
+import { SeguimientoTimeline } from "@/components/oportunidades/SeguimientoTimeline";
 import { MaterialTab } from "@/components/reservas/MaterialTab";
 import { PlanPagos, BorrarPrevistoBtn, MarcarCobradoBtn } from "@/components/oportunidades/PlanPagos";
 import { MovimientoDialog } from "@/components/tesoreria/MovimientoDialog";
@@ -33,6 +34,7 @@ import {
   getDesplazamientos,
   getReunionesDeOportunidad,
   getFotosReferencia,
+  getSeguimientos,
   getEquipo,
   getProveedores,
   getKmPrecio,
@@ -76,10 +78,10 @@ export default async function Page({
   if (!supabaseConfigurado()) return <SetupNotice />;
   const { id } = await params;
   const { tab } = (await searchParams) ?? {};
-  const TABS = ["datos", "reuniones", "referencias", "presupuesto", "material", "costes", "cobros", "calculadora"];
+  const TABS = ["datos", "seguimiento", "reuniones", "referencias", "presupuesto", "material", "costes", "cobros", "calculadora"];
   const tabInicial = tab && TABS.includes(tab) ? tab : "datos";
 
-  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados, comConfig, gastosFijos, calcConfigRaw, calculoGuardado, todasOps, sueldos, fotosRef] =
+  const [op, clientes, lugares, cobros, reservas, inventario, partes, desplazamientos, equipo, proveedores, kmPrecio, reuniones, factura, versiones, costesEstimados, comConfig, gastosFijos, calcConfigRaw, calculoGuardado, todasOps, sueldos, fotosRef, seguimientos] =
     await Promise.all([
       getOportunidad(id),
       getClientes(),
@@ -103,6 +105,7 @@ export default async function Page({
       getOportunidades(),
       getSueldos(),
       getFotosReferencia(id),
+      getSeguimientos(id),
     ]);
   if (!op) notFound();
   // Comisión del evento: cuenta como coste (afecta al margen).
@@ -452,6 +455,7 @@ export default async function Page({
       <FichaTabs tabs={TABS} initial={tabInicial}>
         <TabsList>
           <TabsTrigger value="datos">Datos</TabsTrigger>
+          <TabsTrigger value="seguimiento">Seguimiento{seguimientos.length > 0 ? ` (${seguimientos.length})` : ""}</TabsTrigger>
           <TabsTrigger value="reuniones">Reuniones</TabsTrigger>
           <TabsTrigger value="referencias">Referencias{fotosRef.length > 0 ? ` (${fotosRef.length})` : ""}</TabsTrigger>
           <TabsTrigger value="material">Material</TabsTrigger>
@@ -579,6 +583,15 @@ export default async function Page({
             <div className="mt-4 space-y-2 border-t border-border pt-4">
               <PresupuestoValidadoBtn oportunidadId={op.id} estado={op.estado} />
               <SolicitarValidacionBtn oportunidadId={op.id} />
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="seguimiento">
+          <Card>
+            <Overline className="!mt-0">Seguimiento del contacto</Overline>
+            <div className="mt-3">
+              <SeguimientoTimeline oportunidadId={op.id} seguimientos={seguimientos} hoy={hoyMadrid} />
             </div>
           </Card>
         </TabsContent>

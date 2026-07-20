@@ -2611,6 +2611,35 @@ export async function borrarSueldo(id: string) {
   revalidatePath("/equipo");
 }
 
+// Añade una nota de seguimiento a la bitácora de la oportunidad (mig. 065),
+// con autor = usuario conectado y un "recordar el" opcional.
+export async function crearSeguimiento(input: { oportunidadId: string; texto: string; recordar?: string | null }) {
+  const sb = createAdminClient();
+  const texto = input.texto?.trim();
+  if (!texto) throw new Error("Escribe algo en el seguimiento.");
+  const autor = (await getUsuarioActual())?.nombre ?? null;
+  const { error } = await sb.from("seguimientos").insert({
+    oportunidad_id: input.oportunidadId,
+    texto,
+    recordar: input.recordar || null,
+    autor,
+  });
+  if (error) {
+    if (/seguimientos/.test(error.message)) throw new Error("Falta ejecutar la migración 065 (seguimientos) en Supabase.");
+    throw new Error(error.message);
+  }
+  revalidatePath(`/oportunidades/${input.oportunidadId}`);
+  revalidatePath("/");
+}
+
+export async function borrarSeguimiento(id: string, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("seguimientos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+  revalidatePath("/");
+}
+
 // Sube una o varias fotos de referencia a una oportunidad (moodboard). Van al
 // bucket público "tickets", carpeta referencias/<opp>/, y se enlazan en la
 // tabla oportunidad_fotos (migración 064).

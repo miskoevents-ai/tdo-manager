@@ -8,7 +8,7 @@ import { AvisosPanel } from "@/components/home/AvisosPanel";
 import { EstaSemana } from "@/components/home/EstaSemana";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getReservas, getTesoreria, getReuniones, getTareas, getEquipo, getObjetivoMensual } from "@/lib/data";
+import { getOportunidades, getReservas, getTesoreria, getReuniones, getTareas, getEquipo, getObjetivoMensual, getUltimosSeguimientos } from "@/lib/data";
 import { ObjetivoMes } from "@/components/home/ObjetivoMes";
 import { getUsuarioActual } from "@/lib/sesion";
 import { canonizarNombre } from "@/lib/personas";
@@ -66,9 +66,9 @@ export default async function Home() {
     timeZone: "Europe/Madrid",
   }).format(new Date());
 
-  let ops, reservas, tesoreria, reuniones, tareas, equipo, objetivoMensual;
+  let ops, reservas, tesoreria, reuniones, tareas, equipo, objetivoMensual, seguimientos;
   try {
-    [ops, reservas, tesoreria, reuniones, tareas, equipo, objetivoMensual] = await Promise.all([
+    [ops, reservas, tesoreria, reuniones, tareas, equipo, objetivoMensual, seguimientos] = await Promise.all([
       getOportunidades(),
       getReservas(),
       getTesoreria(),
@@ -76,6 +76,7 @@ export default async function Home() {
       getTareas(),
       getEquipo(),
       getObjetivoMensual(),
+      getUltimosSeguimientos(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
@@ -121,7 +122,7 @@ export default async function Home() {
   const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
   const mesLabel = MESES[Number(mesActual.slice(5, 7)) - 1];
 
-  const avisosTodos = calcularAvisos(ops, HOY_ISO, reservas, tareas, reuniones, tesoreria);
+  const avisosTodos = calcularAvisos(ops, HOY_ISO, reservas, tareas, reuniones, tesoreria, seguimientos);
   const eventosCal = construirEventos(ops, reservas, tesoreria, reuniones);
 
   // Saludo personalizado: tareas del usuario conectado.

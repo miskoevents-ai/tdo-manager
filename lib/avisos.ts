@@ -1,6 +1,6 @@
 import { calcularTotales } from "@/lib/calc";
 import { solapan, disponible } from "@/lib/disponibilidad";
-import type { Oportunidad, Reserva, Tarea, Reunion, Tesoreria } from "@/lib/types";
+import type { Oportunidad, Reserva, Tarea, Reunion, Tesoreria, Seguimiento } from "@/lib/types";
 
 export type Aviso = {
   id: string;
@@ -8,7 +8,7 @@ export type Aviso = {
   titulo: string;
   detalle: string;
   severidad: "alta" | "media" | "baja";
-  categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead" | "material" | "tarea" | "cierre";
+  categoria: "cobro" | "fianza" | "evento" | "presupuesto" | "lead" | "material" | "tarea" | "cierre" | "seguimiento";
   oportunidadId?: string;
 };
 
@@ -48,6 +48,7 @@ export function calcularAvisos(
   tareas: Tarea[] = [],
   reuniones: Reunion[] = [],
   tesoreria: Tesoreria[] = [],
+  seguimientos: Seguimiento[] = [],
 ): Aviso[] {
   const avisos: Aviso[] = [];
   const en7 = (f: string) => f >= hoyISO && diasEntre(hoyISO, f) <= 7;
@@ -311,6 +312,26 @@ export function calcularAvisos(
       detalle: `${r.cantidad} ud.${opTitulo ? ` · ${opTitulo}` : ""} · debía volver el ${fES(f)} · márcalo devuelto o abre incidencia`,
       severidad: dias >= 14 ? "alta" : "media",
       categoria: "material",
+    });
+  }
+
+  // 8) Seguimiento pendiente: la última nota de la bitácora tiene un "recordar
+  //    el" que ya llegó y la oportunidad sigue viva → toca retomar el contacto.
+  for (const s of seguimientos) {
+    if (!s.recordar || s.recordar.slice(0, 10) > hoyISO) continue;
+    const op = opById.get(s.oportunidad_id);
+    if (op && ["perdida", "descartada"].includes(op.estado)) continue;
+    const dias = diasEntre(s.recordar.slice(0, 10), hoyISO);
+    const titulo = op?.titulo ?? s.oportunidad?.titulo ?? "Oportunidad";
+    const nota = s.texto.length > 70 ? s.texto.slice(0, 70) + "…" : s.texto;
+    avisos.push({
+      id: `seg-${s.oportunidad_id}`,
+      href: `/oportunidades/${s.oportunidad_id}?tab=seguimiento`,
+      titulo: `Retomar · ${titulo}`,
+      detalle: `${nota} · ${dias === 0 ? "recordatorio para hoy" : `hace ${dias} día${dias === 1 ? "" : "s"}`}`,
+      severidad: dias >= 3 ? "alta" : "media",
+      categoria: "seguimiento",
+      oportunidadId: s.oportunidad_id,
     });
   }
 
