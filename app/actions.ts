@@ -2611,6 +2611,54 @@ export async function borrarSueldo(id: string) {
   revalidatePath("/equipo");
 }
 
+// Sube una o varias fotos de referencia a una oportunidad (moodboard). Van al
+// bucket público "tickets", carpeta referencias/<opp>/, y se enlazan en la
+// tabla oportunidad_fotos (migración 064).
+export async function subirFotosReferencia(formData: FormData) {
+  const sb = createAdminClient();
+  const oportunidadId = String(formData.get("oportunidadId") ?? "");
+  if (!oportunidadId) throw new Error("Falta la oportunidad.");
+  const files = formData.getAll("fotos").filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) throw new Error("Selecciona al menos una imagen.");
+
+  for (const file of files) {
+    if (file.size > 10 * 1024 * 1024) throw new Error(`«${file.name}» pesa más de 10 MB.`);
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const ruta = `referencias/${oportunidadId}/${crypto.randomUUID()}.${ext}`;
+    const { error: upErr } = await sb.storage
+      .from("tickets")
+      .upload(ruta, file, { upsert: true, contentType: file.type || undefined });
+    if (upErr) {
+      if (/bucket/i.test(upErr.message)) throw new Error("Falta el bucket de archivos (migración 020).");
+      throw new Error(upErr.message);
+    }
+    const { data: pub } = sb.storage.from("tickets").getPublicUrl(ruta);
+    const { error } = await sb.from("oportunidad_fotos").insert({ oportunidad_id: oportunidadId, url: pub.publicUrl });
+    if (error) {
+      if (/oportunidad_fotos/.test(error.message)) throw new Error("Falta ejecutar la migración 064 (fotos de referencia) en Supabase.");
+      throw new Error(error.message);
+    }
+  }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Actualiza la nota de una foto de referencia.
+export async function guardarNotaFoto(id: string, oportunidadId: string, nota: string | null) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("oportunidad_fotos").update({ nota: nota?.trim() || null }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Borra una foto de referencia (registro; el archivo en Storage se puede
+// limpiar aparte, no es crítico dejarlo).
+export async function borrarFotoReferencia(id: string, oportunidadId: string) {
+  const sb = createAdminClient();
+  const { error } = await sb.from("oportunidad_fotos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
 // Adjunta la foto del ticket/justificante a un movimiento de tesorería
 // (bucket público "tickets" en Supabase Storage).
 export async function adjuntarTicket(formData: FormData) {

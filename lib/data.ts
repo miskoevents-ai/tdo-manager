@@ -13,6 +13,7 @@ import type {
   Comision,
   Inventario,
   Reserva,
+  OportunidadFoto,
   ParteHoras,
   Desplazamiento,
   Reunion,
@@ -295,6 +296,20 @@ export async function getContabilidadInicio(): Promise<string> {
     .maybeSingle();
   const v = (data?.valor as string | undefined)?.trim();
   return v && /^\d{4}-\d{2}$/.test(v) ? v : "2026-05";
+}
+
+// Fotos de referencia/inspiración de una oportunidad. Tolerante: si la tabla
+// aún no existe (migración 064), devuelve lista vacía.
+export async function getFotosReferencia(oportunidadId: string): Promise<OportunidadFoto[]> {
+  if (mock.enabled) return [];
+  const sb = createAdminClient();
+  const { data, error } = await sb
+    .from("oportunidad_fotos")
+    .select("*")
+    .eq("oportunidad_id", oportunidadId)
+    .order("created_at", { ascending: true });
+  if (error) return [];
+  return (data ?? []) as OportunidadFoto[];
 }
 
 export async function getReservas(): Promise<Reserva[]> {
