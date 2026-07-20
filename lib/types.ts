@@ -250,6 +250,7 @@ export type Inventario = {
   categoria: string | null;
   cantidad_total: number | null;
   coste_unitario: number | null;
+  fecha_compra?: string | null; // cuándo se compró la pieza. Mig. 061
   precio_alquiler: number | null;
   fianza_sugerida: number | null;
   fianza_especial: boolean;

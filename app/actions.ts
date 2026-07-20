@@ -1768,6 +1768,7 @@ export async function guardarInventario(formData: FormData) {
     categoria: (formData.get("categoria") as string)?.trim() || null,
     cantidad_total: numOrNull(formData.get("cantidad_total")),
     coste_unitario: numOrNull(formData.get("coste_unitario")),
+    fecha_compra: (formData.get("fecha_compra") as string) || null,
     precio_alquiler: numOrNull(formData.get("precio_alquiler")),
     fianza_sugerida: numOrNull(formData.get("fianza_sugerida")),
     fianza_especial: formData.get("fianza_especial") === "on",
@@ -1777,12 +1778,17 @@ export async function guardarInventario(formData: FormData) {
     notas: (formData.get("notas") as string)?.trim() || null,
   };
   if (!payload.articulo) throw new Error("El nombre del artículo es obligatorio.");
+  // fecha_compra es de la migración 061: si aún no está, se guarda sin ella.
+  const sinFechaCompra = () => { const { fecha_compra: _f, ...r } = payload; return r; };
+  const faltaFechaCompra = (m: string) => /fecha_compra/.test(m) && /column/i.test(m);
 
   if (id) {
-    const { error } = await sb.from("inventario").update(payload).eq("id", id);
+    let { error } = await sb.from("inventario").update(payload).eq("id", id);
+    if (error && faltaFechaCompra(error.message)) ({ error } = await sb.from("inventario").update(sinFechaCompra()).eq("id", id));
     if (error) throw new Error(error.message);
   } else {
-    const { error } = await sb.from("inventario").insert(payload);
+    let { error } = await sb.from("inventario").insert(payload);
+    if (error && faltaFechaCompra(error.message)) ({ error } = await sb.from("inventario").insert(sinFechaCompra()));
     if (error) throw new Error(error.message);
   }
   revalidatePath("/inventario");
