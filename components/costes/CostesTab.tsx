@@ -745,7 +745,7 @@ function ModulosPrevisto({
         return (
           <div className="rounded-md border-hair border-sage-tint-deep bg-sage-tint/20 p-3">
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-sage">
-              Coste por zona
+              Coste por zona / subproyecto
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12.5px]">
               {[...porZona.entries()].sort((a, b) => b[1] - a[1]).map(([z, t]) => (
@@ -806,6 +806,20 @@ function ModulosPrevisto({
             horasPersona.set(nombre, (horasPersona.get(nombre) ?? 0) + Number(e.cantidad ?? 0));
           }
         }
+        // Subproyectos: si el módulo tiene líneas en 2+ zonas con nombre, se
+        // agrupan por zona (estilo Excel: cada subproyecto separado con su
+        // subtotal). Una sola zona (o ninguna) → lista plana como siempre.
+        const zonaDe = (e: CosteEstimado) => (e.zona ?? "").trim();
+        const zonasModulo: string[] = [];
+        for (const e of filas) {
+          const z = zonaDe(e);
+          if (!zonasModulo.includes(z)) zonasModulo.push(z);
+        }
+        const agrupaZona = zonasModulo.filter(Boolean).length >= 2;
+        // Columnas de la tabla (para el colSpan de la cabecera de subproyecto):
+        // concepto+zona+cant+precio+total+hueco (6) + persona|paga (1) +
+        // proveedor (materiales/alquiler) + cuadrar (si no está cerrada).
+        const nColsTabla = 6 + 1 + (m.key === "materiales" || m.key === "alquiler" ? 1 : 0) + (!cerrada ? 1 : 0);
         return (
           <div key={m.key} className="rounded-md border-hair border-border bg-beige-light/40 p-3">
             <div className="mb-2 flex items-center justify-between">
@@ -837,20 +851,52 @@ function ModulosPrevisto({
                     </tr>
                   </thead>
                   <tbody>
-                    {filas.map((e) => (
-                      <FilaEstimado
-                        key={e.id}
-                        e={e}
-                        modulo={m}
-                        oportunidadId={oportunidadId}
-                        equipo={equipo}
-                        proveedores={proveedores}
-                        cerrada={cerrada}
-                        busy={busy}
-                        run={run}
-                        onDone={onDone}
-                      />
-                    ))}
+                    {agrupaZona
+                      ? zonasModulo.map((z) => {
+                          const grupo = filas.filter((e) => zonaDe(e) === z);
+                          if (grupo.length === 0) return null;
+                          const subt = grupo.reduce((s, e) => s + Number(e.importe), 0);
+                          return (
+                            <React.Fragment key={z || "sin-zona"}>
+                              <tr>
+                                <td colSpan={nColsTabla} className="bg-sage-tint/25 px-1 pb-1 pt-2.5">
+                                  <div className="flex items-center justify-between text-[10.5px] font-semibold uppercase tracking-[0.06em] text-sage">
+                                    <span>{z || "Sin subproyecto"}</span>
+                                    <span className="tabular">{eur(subt)}</span>
+                                  </div>
+                                </td>
+                              </tr>
+                              {grupo.map((e) => (
+                                <FilaEstimado
+                                  key={e.id}
+                                  e={e}
+                                  modulo={m}
+                                  oportunidadId={oportunidadId}
+                                  equipo={equipo}
+                                  proveedores={proveedores}
+                                  cerrada={cerrada}
+                                  busy={busy}
+                                  run={run}
+                                  onDone={onDone}
+                                />
+                              ))}
+                            </React.Fragment>
+                          );
+                        })
+                      : filas.map((e) => (
+                          <FilaEstimado
+                            key={e.id}
+                            e={e}
+                            modulo={m}
+                            oportunidadId={oportunidadId}
+                            equipo={equipo}
+                            proveedores={proveedores}
+                            cerrada={cerrada}
+                            busy={busy}
+                            run={run}
+                            onDone={onDone}
+                          />
+                        ))}
                   </tbody>
                 </table>
               </div>
