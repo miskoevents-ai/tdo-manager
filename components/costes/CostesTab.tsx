@@ -243,26 +243,32 @@ export function CostesTab({
                   <tr key={nombre}>
                     <td className="border-t border-border/60 py-1.5">{nombre}</td>
                     <td className="border-t border-border/60 py-1.5 text-right tabular">{eur(est)}</td>
-                    <td className="border-t border-border/60 py-1.5 text-right tabular">{eur(real)}</td>
-                    <td className={`border-t border-border/60 py-1.5 text-right tabular font-semibold ${real - est > 0.01 ? "text-error" : "text-ok"}`}>
-                      {real - est > 0 ? "+" : ""}{eur(real - est)}
+                    <td className="border-t border-border/60 py-1.5 text-right tabular">
+                      {usarPrevisto ? <span className="text-ink-muted">—</span> : eur(real)}
+                    </td>
+                    <td className={`border-t border-border/60 py-1.5 text-right tabular font-semibold ${usarPrevisto ? "text-ink-muted" : real - est > 0.01 ? "text-error" : "text-ok"}`}>
+                      {usarPrevisto ? "—" : `${real - est > 0 ? "+" : ""}${eur(real - est)}`}
                     </td>
                   </tr>
                 ))}
                 <tr className="font-semibold">
                   <td className="border-t-2 border-ink/40 py-1.5">Total (+{num(contingenciaPct, 0)}% contingencia)</td>
                   <td className="border-t-2 border-ink/40 py-1.5 text-right tabular">{eur(estimadoConColchon)}</td>
-                  <td className="border-t-2 border-ink/40 py-1.5 text-right tabular">{eur(costes)}</td>
-                  <td className={`border-t-2 border-ink/40 py-1.5 text-right tabular ${desviacion > 0.01 ? "text-error" : "text-ok"}`}>
-                    {desviacion > 0 ? "+" : ""}{eur(desviacion)}
+                  <td className="border-t-2 border-ink/40 py-1.5 text-right tabular">
+                    {usarPrevisto ? <span className="text-ink-muted">—</span> : eur(costes)}
+                  </td>
+                  <td className={`border-t-2 border-ink/40 py-1.5 text-right tabular ${usarPrevisto ? "text-ink-muted" : desviacion > 0.01 ? "text-error" : "text-ok"}`}>
+                    {usarPrevisto ? "—" : `${desviacion > 0 ? "+" : ""}${eur(desviacion)}`}
                   </td>
                 </tr>
                 <tr>
                   <td className="py-1.5 text-ink-secondary">Margen (sobre base {eur(base)})</td>
                   <td className="py-1.5 text-right tabular">{eur(base - estimadoConColchon)}</td>
-                  <td className={`py-1.5 text-right tabular font-semibold ${margen >= 0 ? "text-ok" : "text-error"}`}>{eur(margen)}</td>
-                  <td className={`py-1.5 text-right tabular ${margen - (base - estimadoConColchon) < -0.01 ? "text-error" : "text-ok"}`}>
-                    {margen - (base - estimadoConColchon) > 0 ? "+" : ""}{eur(margen - (base - estimadoConColchon))}
+                  <td className={`py-1.5 text-right tabular font-semibold ${usarPrevisto ? "text-ink-muted" : margen >= 0 ? "text-ok" : "text-error"}`}>
+                    {usarPrevisto ? "—" : eur(margen)}
+                  </td>
+                  <td className={`py-1.5 text-right tabular ${usarPrevisto ? "text-ink-muted" : margen - (base - estimadoConColchon) < -0.01 ? "text-error" : "text-ok"}`}>
+                    {usarPrevisto ? "—" : `${margen - (base - estimadoConColchon) > 0 ? "+" : ""}${eur(margen - (base - estimadoConColchon))}`}
                   </td>
                 </tr>
               </tbody>
@@ -282,8 +288,8 @@ export function CostesTab({
           <div className="text-[12px] text-ink-secondary">
             Previsto <b className="tabular">{eur(estimadoConColchon)}</b>
             <span className="mx-1.5 text-ink-muted">·</span>
-            Real <b className="tabular">{eur(costes)}</b>
-            {totalEstimado > 0 && (
+            Real <b className="tabular">{usarPrevisto ? <span className="text-ink-muted">—</span> : eur(costes)}</b>
+            {totalEstimado > 0 && !usarPrevisto && (
               <>
                 <span className="mx-1.5 text-ink-muted">·</span>
                 Desviación{" "}
