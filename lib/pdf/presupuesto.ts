@@ -64,6 +64,7 @@ export async function renderPresupuestoPdf(
   const t = calcularTotales(lineas, ivaPct, retPct, dtoPct);
   const cli = op.cliente;
   const esAlquiler = op.serie === "alquiler_encargo";
+  const esEncargo = esAlquiler && (op.es_encargo ?? false);
   const esAmigos = op.tipo_operacion === "amigos_prestamo";
 
   // Modalidades (opciones excluyentes) o, si no hay, bloques — igual que la
@@ -123,7 +124,7 @@ export async function renderPresupuestoPdf(
     numero: op.numero,
     version: version ? version.version : null,
     fecha: fecha(version ? version.created_at : op.fecha_entrada ?? op.created_at),
-    eventoLabel: op.fecha_evento ? `${esAlquiler ? "Alquiler" : "Evento"}: ${fecha(op.fecha_evento)}` : null,
+    eventoLabel: op.fecha_evento ? `${esEncargo ? "Entrega" : esAlquiler ? "Alquiler" : "Evento"}: ${fecha(op.fecha_evento)}` : null,
     emisor: {
       nombre: EMPRESA.nombre,
       razon: EMPRESA.razon_social || "",
@@ -169,7 +170,7 @@ export async function renderPresupuestoPdf(
     total: eur(t.total),
     descuentoNota: descuentoTotal > 0 ? `Incluye un descuento de ${eur(descuentoTotal)}` : null,
     fianza: (op.fianza ?? 0) > 0 ? eur(op.fianza ?? 0) : null,
-    condiciones: condicionesPara(op.serie),
+    condiciones: condicionesPara(op.serie, esEncargo),
     pago: EMPRESA.iban || EMPRESA.titular_cuenta ? [EMPRESA.titular_cuenta, EMPRESA.iban].filter(Boolean).join(" · ") : null,
     gracias: `¡Gracias por confiar en ${EMPRESA.nombre}!`,
   };

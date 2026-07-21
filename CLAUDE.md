@@ -22,7 +22,8 @@
 - En el tab Costes hay toggle **"por subproyecto"** (recuadros con color elegible, sub-módulos dentro, add-line que fija la zona) **/ "por módulo"** (la vista clásica). Componente: `ModulosPrevisto` acepta `zonaFiltro/zonaNueva/ocultarResumenes/soloConLineas`.
 
 ## Convenciones del repo
-- Migraciones SQL en `supabase/migrations/` — el usuario las ejecuta a mano en Supabase (avisarle siempre). Última: 067.
+- Migraciones SQL en `supabase/migrations/` — el usuario las ejecuta a mano en Supabase (avisarle siempre). Última: 068.
+- **Alquiler vs Encargo** (mig 068): dentro de `serie='alquiler_encargo'`, el flag `oportunidades.es_encargo` distingue alquiler (devolución + fianza) de encargo/producción a medida (se lo queda el cliente). Cambia las condiciones del presupuesto (`condicionesPara(serie, esEncargo)` en lib/empresa.ts: CONDICIONES_ALQUILER vs CONDICIONES_ENCARGO). Selector en OportunidadDialog.
 - Columnas nuevas en server actions: patrón de fallback tolerante (OPCIONALES + reintento sin columnas).
 - Antes de desplegar nada que toque middleware/infra: `npm run build` completo obligatorio (un matcher mal compilado tumbó toda la app una vez). Cambios en `public/` son seguros.
 - Flujo de deploy: typecheck → build → commit → PR → merge squash → rebase de la rama de trabajo sobre main.

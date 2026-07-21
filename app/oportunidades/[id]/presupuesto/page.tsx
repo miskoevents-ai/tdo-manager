@@ -55,6 +55,7 @@ export default async function Page({
   const t = calcularTotales(lineas, ivaPct, retPct, dtoPct);
   const cli = op.cliente;
   const esAlquiler = op.serie === "alquiler_encargo";
+  const esEncargo = esAlquiler && (op.es_encargo ?? false);
   const esAmigos = op.tipo_operacion === "amigos_prestamo";
   const docLabel = esAmigos ? "NOTA (AMIGOS)" : "PRESUPUESTO";
 
@@ -157,7 +158,7 @@ export default async function Page({
             </div>
             {op.fecha_evento && (
               <div className="text-[12px] text-ink-secondary">
-                {esAlquiler ? "Alquiler" : "Evento"}: {fecha(op.fecha_evento)}
+                {esEncargo ? "Entrega" : esAlquiler ? "Alquiler" : "Evento"}: {fecha(op.fecha_evento)}
               </div>
             )}
           </div>
@@ -360,7 +361,7 @@ export default async function Page({
         <div className="avoid-break mt-8 border-t border-border pt-5 text-[11px] leading-relaxed text-ink-secondary">
           <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">Condiciones</div>
           <ul className="list-disc space-y-0.5 pl-4">
-            {condicionesPara(op.serie).map((c, i) => (
+            {condicionesPara(op.serie, esEncargo).map((c, i) => (
               <li key={i}>{c}</li>
             ))}
           </ul>
