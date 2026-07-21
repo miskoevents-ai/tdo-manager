@@ -254,6 +254,23 @@ export function OportunidadDialog({
             </Field>
           </div>
 
+          {/* Dentro de alquiler/encargo: alquiler (se devuelve, con fianza) vs
+              encargo/producción (fabricación a medida, se lo queda el cliente).
+              Cambia las condiciones del presupuesto. Migración 068. */}
+          {esAlquiler && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="¿Alquiler o encargo?">
+                <Select name="es_encargo" defaultValue={oportunidad?.es_encargo ? "encargo" : "alquiler"}>
+                  <option value="alquiler">Alquiler (se devuelve)</option>
+                  <option value="encargo">Encargo / producción (se lo queda el cliente)</option>
+                </Select>
+                <p className="mt-1 text-[11px] text-ink-muted">
+                  Cambia las condiciones del presupuesto: fianza y devolución (alquiler) o fabricación a medida (encargo).
+                </p>
+              </Field>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Estado">
               <Select name="estado" defaultValue={oportunidad?.estado ?? "nueva"}>

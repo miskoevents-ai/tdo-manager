@@ -73,6 +73,7 @@ export type Oportunidad = {
   titulo: string;
   creado_por?: string | null; // usuario que la creó (migración 040)
   serie: OportunidadSerie;
+  es_encargo?: boolean; // dentro de alquiler_encargo: true = producción/encargo a medida (no alquiler). Mig 068
   tipo_evento: TipoEvento;
   tipo_operacion: TipoOperacion;
   estado: OportunidadEstado;

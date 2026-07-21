@@ -51,10 +51,25 @@ export const CONDICIONES_ALQUILER = [
   "Precios con IVA incluido según se detalla. Las empresas aplican retención de IRPF del 15 %.",
 ];
 
-// Devuelve las condiciones que corresponden a la oportunidad según su serie:
-// alquiler/encargo → condiciones de alquiler; el resto → condiciones de evento.
-export function condicionesPara(serie: string | null | undefined): string[] {
-  return serie === "alquiler_encargo" ? CONDICIONES_ALQUILER : CONDICIONES_EVENTO;
+// Condiciones para ENCARGO / PRODUCCIÓN a medida: fabricamos algo y se lo
+// queda el cliente (no hay devolución ni fianza). Editables.
+export const CONDICIONES_ENCARGO = [
+  "Presupuesto válido durante 30 días desde su emisión.",
+  "Para iniciar la producción se abona una señal del 50 %; el resto a la entrega.",
+  "El precio incluye el diseño, los materiales y la fabricación del encargo según lo detallado.",
+  "Los plazos de entrega se acuerdan al aceptar el presupuesto y pueden variar según la disponibilidad de materiales.",
+  "Cualquier cambio sobre lo presupuestado (medidas, materiales o cantidades) puede modificar el precio final.",
+  "Por tratarse de una fabricación a medida, el encargo no admite devolución y pasa a ser propiedad del cliente tras el pago completo.",
+  "Precios con IVA incluido según se detalla.",
+];
+
+// Devuelve las condiciones que corresponden a la oportunidad:
+//   serie alquiler_encargo + esEncargo → condiciones de encargo/producción;
+//   serie alquiler_encargo (alquiler)  → condiciones de alquiler;
+//   el resto                            → condiciones de evento.
+export function condicionesPara(serie: string | null | undefined, esEncargo = false): string[] {
+  if (serie === "alquiler_encargo") return esEncargo ? CONDICIONES_ENCARGO : CONDICIONES_ALQUILER;
+  return CONDICIONES_EVENTO;
 }
 
 // Alias retrocompatible (por defecto, condiciones de evento).

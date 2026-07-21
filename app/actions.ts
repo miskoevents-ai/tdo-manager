@@ -192,6 +192,9 @@ export async function guardarOportunidad(formData: FormData) {
     numero,
     titulo: (formData.get("titulo") as string)?.trim(),
     serie: formData.get("serie") as string,
+    // Dentro de alquiler/encargo: "encargo" = producción a medida (condiciones
+    // distintas al alquiler). Migración 068.
+    es_encargo: formData.get("serie") === "alquiler_encargo" && formData.get("es_encargo") === "encargo",
     tipo_evento: formData.get("tipo_evento") as string,
     tipo_operacion: formData.get("tipo_operacion") as string,
     estado: formData.get("estado") as string,
@@ -240,7 +243,7 @@ export async function guardarOportunidad(formData: FormData) {
   // → 034; envio* → 050): si el error las menciona, se quitan y se reintenta.
   const OPCIONALES = [
     "comision_equipo_id", "envio", "envio_coste", "envio_incluido",
-    "hora_montaje", "hora_desmontaje", "logistica", "pct_factura", "probabilidad",
+    "hora_montaje", "hora_desmontaje", "logistica", "pct_factura", "probabilidad", "es_encargo",
   ] as const;
   const faltaColumna = (msg: string) =>
     /column/i.test(msg) && OPCIONALES.some((c) => new RegExp(`\\b${c}\\b`).test(msg));
@@ -248,7 +251,7 @@ export async function guardarOportunidad(formData: FormData) {
     const {
       comision_equipo_id: _c, envio: _e, envio_coste: _ec, envio_incluido: _ei,
       hora_montaje: _hm, hora_desmontaje: _hd, logistica: _l, pct_factura: _pf,
-      probabilidad: _pr, ...resto
+      probabilidad: _pr, es_encargo: _ee, ...resto
     } = p;
     return resto;
   };
