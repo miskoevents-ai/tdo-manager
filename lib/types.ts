@@ -106,6 +106,7 @@ export type Oportunidad = {
   margen_objetivo_pct?: number | null; // % de margen mínimo para cuadrar el precio
   cerrada?: boolean; // evento cerrado: costes validados y congelados
   cerrada_fecha?: string | null;
+  subproyectos?: { nombre: string; color: string }[] | null; // elementos del evento (color/orden). Mig. 067
 
   fecha_confirmacion?: string | null;
   resena_pedida?: boolean;
