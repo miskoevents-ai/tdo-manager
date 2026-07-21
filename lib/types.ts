@@ -137,6 +137,7 @@ export type PresupuestoLinea = {
   via?: "factura" | "efectivo" | null; // con IVA (oficial) o sin IVA (amigos)
   foto?: string | null; // foto de la línea: URL o archivo del bucket (galería / IA)
   descuento_pct?: number | null; // % de descuento de la línea (0–100)
+  modalidad?: string | null; // opción excluyente (mig 066): vacío = común a todas
 };
 
 // Coste estimado antes del presupuesto (escandallo previsto): sirve para

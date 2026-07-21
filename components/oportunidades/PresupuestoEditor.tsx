@@ -6,7 +6,7 @@ import { Plus, Trash2, Package, Search, ImagePlus, X, Upload, Link2 } from "luci
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { guardarLineas, subirFotoPresupuesto } from "@/app/actions";
-import { calcularTotales, importeLinea } from "@/lib/calc";
+import { calcularTotales, importeLinea, resumenModalidades } from "@/lib/calc";
 import { eur, num, normaliza } from "@/lib/format";
 import { CATALOGO, fotoUrl } from "@/lib/catalogo";
 import type { PresupuestoLinea } from "@/lib/types";
@@ -20,7 +20,7 @@ const TARIFARIO: RefCatalogo[] = CATALOGO.filter((c) => (c.precio ?? 0) > 0).map
   foto: c.archivo ?? null,
 }));
 
-type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null; descuento_pct?: number | null };
+type Fila = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null; descuento_pct?: number | null; modalidad?: string | null };
 
 const red2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -54,6 +54,8 @@ async function comprimirImagen(file: File): Promise<File> {
 
 // Bloques sugeridos (los de los presupuestos reales); se puede escribir otro.
 const BLOQUES_SUGERIDOS = ["Decoración", "Alquiler de material", "Flores", "Transporte y montaje"];
+// Opciones/modalidades habituales (el cliente elige una).
+const MODALIDADES_SUGERIDAS = ["C&C (recogida)", "Con montaje/desmontaje"];
 export type CatalogoItem = {
   id: string;
   articulo: string;
@@ -93,8 +95,9 @@ export function PresupuestoEditor({
           via: l.via ?? "factura",
           foto: l.foto ?? null,
           descuento_pct: l.descuento_pct ?? null,
+          modalidad: l.modalidad ?? null,
         }))
-      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: null, via: "factura", foto: null, descuento_pct: null }],
+      : [{ concepto: "", cantidad: 1, precio_unitario: 0, articulo_id: null, bloque: null, via: "factura", foto: null, descuento_pct: null, modalidad: null }],
   );
   const [iva, setIva] = React.useState(ivaPct);
   const [ret, setRet] = React.useState(retPct);
@@ -104,6 +107,14 @@ export function PresupuestoEditor({
   const [totalObjetivo, setTotalObjetivo] = React.useState("");
 
   const totales = calcularTotales(filas, iva, ret, dto);
+  // Modalidades: opciones excluyentes (el cliente elige una). Si alguna línea
+  // lleva "opción", los totales reales van por opción (común + sus líneas), no
+  // sumando todo.
+  const filasConConcepto = filas.filter((f) => f.concepto.trim() !== "");
+  const resumen = resumenModalidades(filasConConcepto, iva, ret, dto);
+  const modalidadesUsadas = Array.from(
+    new Set(filas.map((f) => f.modalidad?.trim()).filter((m): m is string => Boolean(m))),
+  );
 
   // "Cuadrar al total": escribes el TOTAL final (con IVA y retención) y se
   // reparte entre las líneas — proporcionalmente si ya tienen precio, a
@@ -172,6 +183,7 @@ export function PresupuestoEditor({
         articulo_id: null,
         bloque: f[f.length - 1]?.bloque ?? null,
         via: f[f.length - 1]?.via ?? "factura",
+        modalidad: f[f.length - 1]?.modalidad ?? null,
       },
     ]);
   }
@@ -205,6 +217,7 @@ export function PresupuestoEditor({
       const nueva: Fila = {
         concepto: "Envío", cantidad: 1, precio_unitario: envioAparte,
         articulo_id: null, bloque: f[f.length - 1]?.bloque ?? null, via: "factura", foto: null, descuento_pct: null,
+        modalidad: f[f.length - 1]?.modalidad ?? null,
       };
       const soloVacia = f.length === 1 && !f[0].concepto.trim() && !f[0].articulo_id;
       return soloVacia ? [nueva] : [...f, nueva];
@@ -242,6 +255,9 @@ export function PresupuestoEditor({
           <thead>
             <tr className="text-[10.5px] uppercase tracking-[0.08em] text-ink-secondary">
               <th className="w-[130px] border-b border-border py-2 text-left font-semibold">Bloque</th>
+              <th className="w-[120px] border-b border-border py-2 text-left font-semibold" title="Opción excluyente: deja en blanco para que la línea vaya en todas las opciones">
+                Opción
+              </th>
               <th className="border-b border-border py-2 text-left font-semibold">Concepto</th>
               <th className="w-[70px] border-b border-border py-2 text-right font-semibold">Cant.</th>
               <th className="w-[110px] border-b border-border py-2 text-right font-semibold">Precio €</th>
@@ -261,6 +277,16 @@ export function PresupuestoEditor({
                     list="bloques-presupuesto"
                     placeholder="—"
                     className="py-2 text-[12px]"
+                  />
+                </td>
+                <td className="border-b border-[#f0eae1] py-1.5 pr-2">
+                  <Input
+                    value={f.modalidad ?? ""}
+                    onChange={(e) => setFila(i, { modalidad: e.target.value || null })}
+                    list="modalidades-presupuesto"
+                    placeholder="Común"
+                    title="Opción a la que pertenece la línea. En blanco = común a todas."
+                    className={`py-2 text-[12px] ${f.modalidad ? "font-semibold text-sage" : ""}`}
                   />
                 </td>
                 <td className="border-b border-[#f0eae1] py-1.5 pr-2">
@@ -353,6 +379,13 @@ export function PresupuestoEditor({
             <option key={b} value={b} />
           ),
         )}
+      </datalist>
+
+      {/* Sugerencias de opción: las ya usadas + las habituales */}
+      <datalist id="modalidades-presupuesto">
+        {Array.from(new Set([...modalidadesUsadas, ...MODALIDADES_SUGERIDAS])).map((m) => (
+          <option key={m} value={m} />
+        ))}
       </datalist>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -490,10 +523,33 @@ export function PresupuestoEditor({
               </div>
             </>
           )}
-          <div className="flex justify-between border-t-2 border-ink pt-2 font-display text-[17px] font-bold">
-            <span>Total</span>
-            <span className="tabular">{eur(totales.total)}</span>
-          </div>
+          {resumen.hay ? (
+            <div className="mt-2 border-t-2 border-ink pt-2">
+              <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
+                Precio por opción · el cliente elige una
+              </div>
+              {resumen.comunTotal > 0 && (
+                <div className="flex justify-between py-0.5 text-[12px] text-ink-muted">
+                  <span>Común a todas</span>
+                  <span className="tabular">{eur(resumen.comunTotal)}</span>
+                </div>
+              )}
+              {resumen.opciones.map((o) => (
+                <div key={o.nombre} className="flex justify-between py-1 font-display text-[15px] font-bold text-sage">
+                  <span>{o.nombre}</span>
+                  <span className="tabular">{eur(o.total)}</span>
+                </div>
+              ))}
+              <p className="mt-1 text-[10px] leading-snug text-ink-muted">
+                Cada opción = común + sus líneas. El desglose de arriba suma todas las líneas.
+              </p>
+            </div>
+          ) : (
+            <div className="flex justify-between border-t-2 border-ink pt-2 font-display text-[17px] font-bold">
+              <span>Total</span>
+              <span className="tabular">{eur(totales.total)}</span>
+            </div>
+          )}
         </div>
       </div>
 

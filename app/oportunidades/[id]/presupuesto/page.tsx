@@ -8,7 +8,7 @@ import { PrintButton } from "@/components/presupuesto/PrintButton";
 import { DescargarPdfBtn } from "@/components/presupuesto/DescargarPdfBtn";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
-import { calcularTotales, importeLinea } from "@/lib/calc";
+import { calcularTotales, importeLinea, resumenModalidades } from "@/lib/calc";
 import { eur, fecha, num } from "@/lib/format";
 import { EMPRESA, condicionesPara, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
@@ -64,15 +64,32 @@ export default async function Page({
   const lineasDoc = lineas;
   const totalDoc = t.total;
 
-  // Agrupación por bloques (en orden de aparición). Sin bloques → tabla plana.
-  const grupos: { nombre: string | null; lineas: typeof lineas }[] = [];
-  for (const l of lineasDoc) {
-    const nombre = l.bloque ?? null;
-    const g = grupos.find((x) => x.nombre === nombre);
-    if (g) g.lineas.push(l);
-    else grupos.push({ nombre, lineas: [l] });
+  // Modalidades: opciones excluyentes (el cliente elige una). Si las hay, la
+  // agrupación de nivel superior va por opción (común + cada opción), no por
+  // bloque; y el "total" se convierte en un precio por opción.
+  const resumen = resumenModalidades(lineasDoc, ivaPct, retPct, dtoPct);
+  const hayModalidades = resumen.hay;
+
+  type Grupo = { nombre: string | null; lineas: typeof lineas; comun?: boolean; opcion?: boolean };
+  const grupos: Grupo[] = [];
+  if (hayModalidades) {
+    const comunes = lineasDoc.filter((l) => !(l.modalidad ?? "").trim());
+    if (comunes.length) grupos.push({ nombre: null, lineas: comunes, comun: true });
+    for (const o of resumen.opciones) {
+      const suyas = lineasDoc.filter((l) => (l.modalidad ?? "").trim() === o.nombre);
+      grupos.push({ nombre: o.nombre, lineas: suyas, opcion: true });
+    }
+  } else {
+    // Agrupación por bloques (en orden de aparición). Sin bloques → tabla plana.
+    for (const l of lineasDoc) {
+      const nombre = l.bloque ?? null;
+      const g = grupos.find((x) => x.nombre === nombre);
+      if (g) g.lineas.push(l);
+      else grupos.push({ nombre, lineas: [l] });
+    }
   }
-  const hayBloques = grupos.some((g) => g.nombre);
+  const hayBloques = !hayModalidades && grupos.some((g) => g.nombre);
+  const mostrarGrupos = hayBloques || hayModalidades;
 
   // Descuentos: hay columna de Dto si alguna línea lo lleva; el descuento total
   // (líneas + global) se menciona al final. importeBruto = precio sin ningún
@@ -202,11 +219,17 @@ export default async function Page({
             )}
             {grupos.map((g, gi) => (
               <Fragment key={gi}>
-                {hayBloques && (
+                {mostrarGrupos && (
                   <tr>
                     <td colSpan={nCols} className="border-b border-[#f0eae1] px-3 pb-1 pt-4">
                       <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-clay">
-                        {g.nombre ? `Bloque ${gi + 1} · ${g.nombre}` : "Otros conceptos"}
+                        {g.comun
+                          ? "Incluido en todas las opciones"
+                          : g.opcion
+                            ? `Opción · ${g.nombre}`
+                            : g.nombre
+                              ? `Bloque ${gi + 1} · ${g.nombre}`
+                              : "Otros conceptos"}
                       </span>
                     </td>
                   </tr>
@@ -252,10 +275,14 @@ export default async function Page({
                     </td>
                   </tr>
                 ))}
-                {hayBloques && (
+                {mostrarGrupos && (
                   <tr>
                     <td colSpan={nCols - 1} className="border-b border-border bg-beige-light px-3 py-1.5 text-right text-[11px] text-ink-muted">
-                      Subtotal {g.nombre ?? "otros conceptos"}
+                      {g.comun
+                        ? "Subtotal común (va en todas las opciones)"
+                        : g.opcion
+                          ? `Subtotal opción ${g.nombre}`
+                          : `Subtotal ${g.nombre ?? "otros conceptos"}`}
                     </td>
                     <td className="border-b border-border bg-beige-light px-3 py-1.5 text-right tabular text-[12px] font-semibold">
                       {eur(g.lineas.reduce((s, l) => s + importeLinea(l), 0))}
@@ -270,32 +297,55 @@ export default async function Page({
         {/* Totales */}
         <div className="avoid-break mt-4 flex justify-end">
           <div className="w-full max-w-[300px] space-y-1.5 text-[13px]">
-            {descuentoTotal > 0 && (
+            {hayModalidades ? (
               <>
-                <Row label="Subtotal (sin descuento)" value={eur(brutoSinDto)} />
-                <div className="flex justify-between font-semibold text-clay">
-                  <span>Descuento{dtoPct > 0 ? ` (incl. −${num(dtoPct, 0)}% global)` : ""}</span>
-                  <span className="tabular">−{eur(descuentoTotal)}</span>
+                <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+                  Elige una opción
                 </div>
+                {resumen.opciones.map((o) => (
+                  <div
+                    key={o.nombre}
+                    className="flex items-center justify-between border-t-2 border-sage pt-2 font-display text-[18px] text-sage"
+                  >
+                    <span>{o.nombre}</span>
+                    <span className="tabular">{eur(o.total)}</span>
+                  </div>
+                ))}
+                <p className="pt-1 text-[10.5px] leading-snug text-ink-muted">
+                  Cada opción incluye lo común. Precios con IVA ({ivaPct}%)
+                  {t.retencion > 0 ? " y retención aplicada" : ""}.
+                </p>
               </>
-            )}
-            <Row label="Base imponible" value={eur(esAmigos ? t.base : t.baseFactura)} />
-            <Row label={`IVA (${ivaPct}%)`} value={eur(t.iva)} />
-            {t.retencion > 0 && <Row label={`Retención IRPF (−${retPct}%)`} value={`−${eur(t.retencion)}`} />}
-            {!esAmigos && t.efectivo > 0 && (
+            ) : (
               <>
-                <Row label="Total con factura" value={eur(t.totalFactura)} />
-                <Row label="Conceptos sin IVA" value={eur(t.efectivo)} />
+                {descuentoTotal > 0 && (
+                  <>
+                    <Row label="Subtotal (sin descuento)" value={eur(brutoSinDto)} />
+                    <div className="flex justify-between font-semibold text-clay">
+                      <span>Descuento{dtoPct > 0 ? ` (incl. −${num(dtoPct, 0)}% global)` : ""}</span>
+                      <span className="tabular">−{eur(descuentoTotal)}</span>
+                    </div>
+                  </>
+                )}
+                <Row label="Base imponible" value={eur(esAmigos ? t.base : t.baseFactura)} />
+                <Row label={`IVA (${ivaPct}%)`} value={eur(t.iva)} />
+                {t.retencion > 0 && <Row label={`Retención IRPF (−${retPct}%)`} value={`−${eur(t.retencion)}`} />}
+                {!esAmigos && t.efectivo > 0 && (
+                  <>
+                    <Row label="Total con factura" value={eur(t.totalFactura)} />
+                    <Row label="Conceptos sin IVA" value={eur(t.efectivo)} />
+                  </>
+                )}
+                <div className="flex justify-between border-t-2 border-sage pt-2 font-display text-[19px] text-sage">
+                  <span>TOTAL</span>
+                  <span className="tabular">{eur(totalDoc)}</span>
+                </div>
+                {descuentoTotal > 0 && (
+                  <div className="mt-1 rounded-sm bg-clay-tint/50 px-2.5 py-1.5 text-center text-[11.5px] font-semibold text-clay-600">
+                    Incluye un descuento de {eur(descuentoTotal)}
+                  </div>
+                )}
               </>
-            )}
-            <div className="flex justify-between border-t-2 border-sage pt-2 font-display text-[19px] text-sage">
-              <span>TOTAL</span>
-              <span className="tabular">{eur(totalDoc)}</span>
-            </div>
-            {descuentoTotal > 0 && (
-              <div className="mt-1 rounded-sm bg-clay-tint/50 px-2.5 py-1.5 text-center text-[11.5px] font-semibold text-clay-600">
-                Incluye un descuento de {eur(descuentoTotal)}
-              </div>
             )}
             {(op.fianza ?? 0) > 0 && (
               <div className="flex justify-between pt-1 text-[12px] text-clay">

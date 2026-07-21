@@ -6,7 +6,7 @@ import { OportunidadesBoard } from "@/components/oportunidades/OportunidadesBoar
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidades, getClientes, getLugares, getEquipo } from "@/lib/data";
-import { calcularTotales } from "@/lib/calc";
+import { calcularTotales, resumenModalidades } from "@/lib/calc";
 import { probabilidadEfectiva } from "@/lib/estados";
 import { eur } from "@/lib/format";
 
@@ -38,6 +38,10 @@ export default async function OportunidadesPage() {
 
   const cards: KanbanCard[] = ops.map((o) => {
     const t = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0);
+    // Con modalidades (opciones excluyentes) la tarjeta NO suma las opciones:
+    // muestra "desde" la más barata para no inflar el pipeline.
+    const rm = resumenModalidades(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0);
+    const totalCard = rm.hay ? rm.min : t.total;
     return {
       id: o.id,
       numero: o.numero,
@@ -47,8 +51,9 @@ export default async function OportunidadesPage() {
       fecha_evento: o.fecha_evento,
       fecha_entrada: o.fecha_entrada,
       tipo_evento: o.tipo_evento,
-      total: t.total,
-      pendiente: Math.max(0, t.total - (o.cobrado ?? 0)),
+      total: totalCard,
+      nModalidades: rm.hay ? rm.opciones.length : 0,
+      pendiente: Math.max(0, totalCard - (o.cobrado ?? 0)),
       probabilidad: probabilidadEfectiva(o),
       serie: o.serie,
       tipo_operacion: o.tipo_operacion,

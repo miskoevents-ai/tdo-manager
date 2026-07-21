@@ -76,3 +76,61 @@ export function calcularTotales(
 export function retencionPorTipo(tipoCliente: string | null | undefined): number {
   return tipoCliente === "empresa" ? 15 : 0;
 }
+
+// --- Modalidades (opciones excluyentes dentro de un mismo presupuesto) ---
+// Una línea con `modalidad` vacía es COMÚN (va en todas las opciones); con
+// texto, solo cuenta en esa opción. El cliente elige UNA, así que las opciones
+// NO se suman: el total de cada opción = comunes + sus propias líneas.
+
+export type LineaModalidad = LineaCalc & { modalidad?: string | null; concepto?: string };
+
+export type OpcionResumen = { nombre: string; total: number; base: number };
+export type ResumenModalidades = {
+  hay: boolean; // ¿hay al menos una modalidad con nombre?
+  opciones: OpcionResumen[]; // una por modalidad, en orden de aparición
+  comunTotal: number; // total (con impuestos) solo de las líneas comunes
+  min: number; // opción más barata (o total plano si no hay modalidades)
+  max: number; // opción más cara
+};
+
+/** Nombre de modalidad normalizado (trim); "" y null cuentan como común. */
+function modNombre(l: LineaModalidad): string | null {
+  const m = (l.modalidad ?? "").trim();
+  return m === "" ? null : m;
+}
+
+/**
+ * Resume un presupuesto que puede tener modalidades. Si ninguna línea lleva
+ * modalidad, `hay` es false y `opciones` va vacío (se usa el total normal).
+ */
+export function resumenModalidades(
+  lineas: LineaModalidad[],
+  ivaPct = 21,
+  retPct = 0,
+  descuentoPct: number | null = 0,
+): ResumenModalidades {
+  const comunes = lineas.filter((l) => modNombre(l) === null);
+  const nombres: string[] = [];
+  for (const l of lineas) {
+    const m = modNombre(l);
+    if (m && !nombres.includes(m)) nombres.push(m);
+  }
+  const comunTotal = calcularTotales(comunes, ivaPct, retPct, descuentoPct).total;
+  if (nombres.length === 0) {
+    const t = calcularTotales(lineas, ivaPct, retPct, descuentoPct).total;
+    return { hay: false, opciones: [], comunTotal, min: t, max: t };
+  }
+  const opciones: OpcionResumen[] = nombres.map((nombre) => {
+    const suyas = lineas.filter((l) => modNombre(l) === nombre);
+    const t = calcularTotales([...comunes, ...suyas], ivaPct, retPct, descuentoPct);
+    return { nombre, total: t.total, base: t.base };
+  });
+  const totales = opciones.map((o) => o.total);
+  return {
+    hay: true,
+    opciones,
+    comunTotal,
+    min: Math.min(...totales),
+    max: Math.max(...totales),
+  };
+}

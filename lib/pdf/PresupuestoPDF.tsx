@@ -26,8 +26,12 @@ export type PresuPdfData = {
   detalle: { titulo: string; tipo: string; extra: string[] };
   hayDto: boolean;
   hayBloques: boolean;
+  hayModalidades: boolean;
+  opciones: { nombre: string; total: string }[];
   grupos: {
     nombre: string | null;
+    etiqueta: string | null;
+    subtotal: string | null;
     lineas: { foto: string | null; concepto: string; sinIva: boolean; cantidad: string; precio: string; dto: string; subtotal: string }[];
   }[];
   totales: { label: string; value: string; fuerte?: boolean; clay?: boolean }[];
@@ -73,6 +77,13 @@ const s = StyleSheet.create({
 
   th: { flexDirection: "row", backgroundColor: COL.beigeWarm, paddingVertical: 6, paddingHorizontal: 8, fontSize: 7.5, fontWeight: 700, color: COL.soft, textTransform: "uppercase", letterSpacing: 0.6, marginTop: 18 },
   bloque: { fontSize: 8, fontWeight: 700, color: COL.clay, textTransform: "uppercase", letterSpacing: 1, paddingTop: 10, paddingBottom: 3, paddingHorizontal: 8 },
+  subGrupo: { flexDirection: "row", justifyContent: "space-between", backgroundColor: COL.beigeWarm, paddingVertical: 4, paddingHorizontal: 8, marginTop: 2 },
+  subGrupoK: { fontSize: 8, color: COL.soft },
+  subGrupoV: { fontSize: 9, fontWeight: 700, color: COL.ink },
+  opcionBar: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1.5, borderTopColor: COL.sage, marginTop: 5, paddingTop: 6 },
+  opcionK: { color: COL.sage, fontFamily: "Marcellus", fontSize: 13 },
+  opcionV: { color: COL.sage, fontFamily: "Marcellus", fontSize: 13 },
+  opcionNota: { fontSize: 7.5, color: COL.muted, marginTop: 4, lineHeight: 1.4 },
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 7, paddingHorizontal: 8, borderBottomWidth: 0.6, borderBottomColor: COL.hair },
   cConcepto: { flex: 1, flexDirection: "row", alignItems: "center", paddingRight: 6 },
   // El texto necesita flex:1 para AJUSTARSE a su columna: sin él, un concepto
@@ -168,8 +179,14 @@ export function PresupuestoPDFDoc({ data }: { data: PresuPdfData }) {
         {/* Líneas */}
         {data.grupos.map((g, gi) => (
           <View key={gi}>
-            {data.hayBloques && (
-              <Text style={s.bloque}>{g.nombre ? `Bloque ${gi + 1} · ${g.nombre}` : "Otros conceptos"}</Text>
+            {(data.hayBloques || data.hayModalidades) && (
+              <Text style={s.bloque}>
+                {data.hayModalidades
+                  ? g.etiqueta ?? "Otros conceptos"
+                  : g.nombre
+                    ? `Bloque ${gi + 1} · ${g.nombre}`
+                    : "Otros conceptos"}
+              </Text>
             )}
             {g.lineas.map((l, li) => (
               <View style={s.row} key={li} wrap={false}>
@@ -186,24 +203,47 @@ export function PresupuestoPDFDoc({ data }: { data: PresuPdfData }) {
                 <Text style={s.cSub}>{l.subtotal}</Text>
               </View>
             ))}
+            {data.hayModalidades && g.subtotal && (
+              <View style={s.subGrupo} wrap={false}>
+                <Text style={s.subGrupoK}>Subtotal {g.etiqueta}</Text>
+                <Text style={s.subGrupoV}>{g.subtotal}</Text>
+              </View>
+            )}
           </View>
         ))}
 
         {/* Totales */}
         <View style={s.totalsWrap} wrap={false}>
           <View style={s.totals}>
-            {data.totales.map((t, i) => (
-              <View style={s.totRow} key={i}>
-                <Text style={[s.totK, ...(t.clay ? [s.clay] : [])]}>{t.label}</Text>
-                <Text style={[s.totV, ...(t.clay ? [s.clay] : [])]}>{t.value}</Text>
-              </View>
-            ))}
-            <View style={s.totalBar}>
-              <Text style={s.totalBarK}>TOTAL</Text>
-              <Text style={s.totalBarV}>{data.total}</Text>
-            </View>
-            {!!data.descuentoNota && (
-              <Text style={[s.clay, { textAlign: "center", marginTop: 4, fontSize: 8.5, fontWeight: 600 }]}>{data.descuentoNota}</Text>
+            {data.hayModalidades ? (
+              <>
+                <Text style={[s.totK, { fontWeight: 700, textTransform: "uppercase", fontSize: 7.5, letterSpacing: 0.6 }]}>
+                  Elige una opción
+                </Text>
+                {data.opciones.map((o, i) => (
+                  <View style={s.opcionBar} key={i}>
+                    <Text style={s.opcionK}>{o.nombre}</Text>
+                    <Text style={s.opcionV}>{o.total}</Text>
+                  </View>
+                ))}
+                <Text style={s.opcionNota}>Cada opción incluye lo común. Precios con impuestos aplicados.</Text>
+              </>
+            ) : (
+              <>
+                {data.totales.map((t, i) => (
+                  <View style={s.totRow} key={i}>
+                    <Text style={[s.totK, ...(t.clay ? [s.clay] : [])]}>{t.label}</Text>
+                    <Text style={[s.totV, ...(t.clay ? [s.clay] : [])]}>{t.value}</Text>
+                  </View>
+                ))}
+                <View style={s.totalBar}>
+                  <Text style={s.totalBarK}>TOTAL</Text>
+                  <Text style={s.totalBarV}>{data.total}</Text>
+                </View>
+                {!!data.descuentoNota && (
+                  <Text style={[s.clay, { textAlign: "center", marginTop: 4, fontSize: 8.5, fontWeight: 600 }]}>{data.descuentoNota}</Text>
+                )}
+              </>
             )}
             {!!data.fianza && (
               <View style={s.fianza}>
