@@ -165,11 +165,9 @@ export function CalculadoraPrecio({
   const router = useRouter();
   const [cfg, setCfg] = React.useState<CalculadoraConfig>(() => mezclarConfig(configGuardada));
 
-  const precarga = React.useMemo(() => {
-    const key = serie === "alquiler_encargo" ? "alquiler_encargo" : (tipoEvento ?? "otro");
-    return cfg.horasPorTipo[key] ?? cfg.horasPorTipo.otro;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Sin precarga de horas: se parte de 0 y Cristina mete las horas reales de
+  // cada evento (decisión jul 2026: "habrá bodas y bodas").
+  const precarga = React.useMemo(() => ({ comercial: 0, pre: 0, durante: 0, post: 0 }), []);
 
   const [inputs, setInputs] = React.useState<CalculoInputs>(() => {
     const g = (calculoInicial as { inputs?: CalculoInputs } | null)?.inputs;
@@ -240,24 +238,8 @@ export function CalculadoraPrecio({
     setInputs((i) => ({ ...i, gastos: (i.gastos ?? []).filter((_, j) => j !== idx) }));
   }
 
-  // Si cambia el tipo de evento o la serie (p. ej. se corrige en Editar), se
-  // recargan las horas por ese tipo. No corre en el primer render (misma clave),
-  // así respeta un cálculo ya guardado.
-  const seedRef = React.useRef(`${serie}|${tipoEvento}`);
-  React.useEffect(() => {
-    const key = `${serie}|${tipoEvento}`;
-    if (seedRef.current === key) return;
-    seedRef.current = key;
-    // Si Cristina ya está planificada como línea (flujo de Costes), no se
-    // recargan sus horas por tipo: se contaría dos veces (bloque + línea).
-    setInputs((i) => {
-      if ((i.personas ?? []).some((p) => /crist/i.test(p.nombre))) return i;
-      const pk = serie === "alquiler_encargo" ? "alquiler_encargo" : (tipoEvento ?? "otro");
-      const nuevas = cfg.horasPorTipo[pk] ?? cfg.horasPorTipo.otro;
-      return { ...i, horas: { ...nuevas } };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serie, tipoEvento]);
+  // Ya no hay precarga de horas por tipo: al cambiar el tipo de evento se
+  // conservan las horas que haya metido Cristina (o las que vengan de Costes).
 
   const [verParams, setVerParams] = React.useState(false);
   const [verDesglose, setVerDesglose] = React.useState(false);

@@ -106,15 +106,18 @@ export const CALCULADORA_DEFAULTS: CalculadoraConfig = {
   },
   minimoDesplazado: 450,
   cargoEntrega: 75,
+  // Horas de Cristina: SIN precarga (decisión jul 2026: "habrá bodas y bodas").
+  // Cristina mete las horas reales de cada evento; no se arrastra un número
+  // inventado por tipo. Editable en Ajustes si alguna vez se quiere precargar.
   horasPorTipo: {
-    boda: { comercial: 6, pre: 12, durante: 10, post: 4 },
-    corporativo: { comercial: 3, pre: 6, durante: 5, post: 2 },
-    comunion: { comercial: 3, pre: 8, durante: 6, post: 3 },
-    cumpleanos: { comercial: 2, pre: 5, durante: 4, post: 2 },
-    bautizo: { comercial: 2, pre: 5, durante: 4, post: 2 },
-    navidad: { comercial: 3, pre: 8, durante: 6, post: 3 },
-    alquiler_encargo: { comercial: 1, pre: 1, durante: 1, post: 1 },
-    otro: { comercial: 3, pre: 6, durante: 5, post: 2 },
+    boda: { comercial: 0, pre: 0, durante: 0, post: 0 },
+    corporativo: { comercial: 0, pre: 0, durante: 0, post: 0 },
+    comunion: { comercial: 0, pre: 0, durante: 0, post: 0 },
+    cumpleanos: { comercial: 0, pre: 0, durante: 0, post: 0 },
+    bautizo: { comercial: 0, pre: 0, durante: 0, post: 0 },
+    navidad: { comercial: 0, pre: 0, durante: 0, post: 0 },
+    alquiler_encargo: { comercial: 0, pre: 0, durante: 0, post: 0 },
+    otro: { comercial: 0, pre: 0, durante: 0, post: 0 },
   },
   redondeo: 10,
   manoObraPorTipo: {

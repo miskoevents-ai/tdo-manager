@@ -11,6 +11,7 @@
 - Tarifa anual alisada (el verano no se encarece). Si Cristina dedica más horas a eventos → subir "% horas a eventos" en Parámetros → recargo baja solo.
 - Encargos/alquileres: 20% de costes directos (antes 15). Su recaudación NO descuenta de la cuota (conservador); revisar con el Cuadro de mando en 2-3 meses. Alquileres puros: markup con mínimos 450/75.
 - Detalle completo en docs/modelo-costes.md §8.
+- **Horas de Cristina SIN precarga** (jul 2026, "habrá bodas y bodas"): la Calculadora arranca en 0 horas; Cristina mete las reales de cada evento. `horasPorTipo` en CALCULADORA_DEFAULTS está a 0 y el componente no recarga por tipo.
 - **Evento propio vs encargo** (¡lo confundo mucho, OJO!): por defecto todo evento de TDO = `serie='evento'` (PROPIO → cuota de fijos + recargo estructura, margen 30%). Solo va a `serie='alquiler_encargo'` (+20% estructura, sin cuota) cuando es un alquiler puro de mobiliario o una fabricación a medida.
 
 ## Modalidades en presupuesto (mig 066)
