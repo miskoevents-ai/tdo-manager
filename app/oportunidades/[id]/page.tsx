@@ -641,6 +641,7 @@ export default async function Page({
             margenObjetivoPct={Number(op.margen_objetivo_pct ?? 35)}
             cerrada={op.cerrada ?? false}
             cerradaFecha={op.cerrada_fecha ?? null}
+            subproyectos={op.subproyectos ?? []}
             pendienteCobro={pendiente}
             comision={comisionEvento}
             comisionDetalle={comisionDetalle}

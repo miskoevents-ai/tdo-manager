@@ -17,8 +17,12 @@
 - Una oportunidad puede ofrecer varias **modalidades excluyentes** (el cliente elige una): `presupuesto_lineas.modalidad`. Línea sin modalidad = **común** (va en todas). Total de cada opción = común + sus líneas; NO se suman entre sí.
 - Helper `resumenModalidades()` en lib/calc.ts. En el Kanban la tarjeta muestra "desde X €" (la más barata) para no inflar el pipeline. Vista y PDF pintan "Opción · …" con su total.
 
+## Costes por subproyecto (mig 067)
+- Un evento puede tener varios **subproyectos/elementos** (Carpa Beduina, Green Patio…). Se guardan en `oportunidades.subproyectos jsonb` = `[{nombre,color}]`; las líneas de coste pertenecen a uno por su `zona` (= nombre). No hay tabla nueva.
+- En el tab Costes hay toggle **"por subproyecto"** (recuadros con color elegible, sub-módulos dentro, add-line que fija la zona) **/ "por módulo"** (la vista clásica). Componente: `ModulosPrevisto` acepta `zonaFiltro/zonaNueva/ocultarResumenes/soloConLineas`.
+
 ## Convenciones del repo
-- Migraciones SQL en `supabase/migrations/` — el usuario las ejecuta a mano en Supabase (avisarle siempre). Última: 066.
+- Migraciones SQL en `supabase/migrations/` — el usuario las ejecuta a mano en Supabase (avisarle siempre). Última: 067.
 - Columnas nuevas en server actions: patrón de fallback tolerante (OPCIONALES + reintento sin columnas).
 - Antes de desplegar nada que toque middleware/infra: `npm run build` completo obligatorio (un matcher mal compilado tumbó toda la app una vez). Cambios en `public/` son seguros.
 - Flujo de deploy: typecheck → build → commit → PR → merge squash → rebase de la rama de trabajo sobre main.

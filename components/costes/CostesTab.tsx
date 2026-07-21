@@ -17,6 +17,7 @@ import {
   crearCosteEstimado, borrarCosteEstimado, guardarParamsCostes,
   adjuntarTicket, cerrarEvento, cuadrarEstimado,
   updateCosteEstimado, anadirLineaEstimada, duplicarCosteEstimado, copiarCostesDeOportunidad,
+  guardarSubproyectos,
 } from "@/app/actions";
 import type { ParteHoras, Desplazamiento, Tesoreria, Equipo, Proveedor, CosteEstimado } from "@/lib/types";
 
@@ -45,6 +46,7 @@ export function CostesTab({
   categoriasGasto = [],
   comision = 0,
   comisionDetalle = [],
+  subproyectos = [],
 }: {
   oportunidadId: string;
   base: number;
@@ -66,6 +68,7 @@ export function CostesTab({
   cerradaFecha?: string | null;
   pendienteCobro?: number;
   categoriasGasto?: string[];
+  subproyectos?: { nombre: string; color: string }[];
 }) {
   const router = useRouter();
   const r = () => router.refresh();
@@ -298,6 +301,7 @@ export function CostesTab({
               catalogo={catalogo}
               otrasOportunidades={otrasOportunidades}
               proveedores={proveedores}
+              subproyectos={subproyectos}
             />
             {/* Comisión prevista dentro del plan: para que quien la cobra (p. ej.
                 Cristina) la vea al planificar. No se teclea, sale del % por tipo
@@ -489,6 +493,7 @@ function EstimacionBlock({
   catalogo = [],
   otrasOportunidades = [],
   proveedores = [],
+  subproyectos = [],
 }: {
   oportunidadId: string;
   estimados: CosteEstimado[];
@@ -504,11 +509,33 @@ function EstimacionBlock({
   catalogo?: CatalogoItem[];
   otrasOportunidades?: OportunidadLite[];
   proveedores?: Pick<Proveedor, "id" | "nombre">[];
+  subproyectos?: { nombre: string; color: string }[];
 }) {
   const [cont, setCont] = React.useState(contingenciaPct);
   const [margenObj, setMargenObj] = React.useState(margenObjetivoPct);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Subproyectos/elementos del evento: nombres presentes en las líneas (zona)
+  // unidos a los guardados (con color/orden). Vista "por subproyecto" = cada uno
+  // en su recuadro con su color; "por módulo" = la de siempre.
+  const PALETA_SUB = ["#C08A2E", "#5C7A4C", "#4E6E86", "#A65D5D", "#6E5A86", "#3F4A36"];
+  const zonasEnLineas = React.useMemo(
+    () => Array.from(new Set(estimados.map((e) => (e.zona ?? "").trim()).filter(Boolean))),
+    [estimados],
+  );
+  const subproyectosOrden = React.useMemo(() => {
+    const guardados = subproyectos.filter((s) => s.nombre?.trim());
+    const nombres = guardados.map((s) => s.nombre);
+    const extra = zonasEnLineas.filter((z) => !nombres.includes(z));
+    const lista = [...guardados, ...extra.map((nombre, i) => ({ nombre, color: PALETA_SUB[(guardados.length + i) % PALETA_SUB.length] }))];
+    return lista;
+  }, [subproyectos, zonasEnLineas]);
+  const hayLineasSinSub = estimados.some((e) => !(e.zona ?? "").trim());
+  const puedeSubproyectos = subproyectosOrden.length > 0 || hayLineasSinSub;
+  const [vista, setVista] = React.useState<"subproyecto" | "modulo">(
+    subproyectosOrden.length >= 1 ? "subproyecto" : "modulo",
+  );
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -527,6 +554,30 @@ function EstimacionBlock({
   const margenPrevisto = base - conColchon;
   const margenPrevistoPct = base > 0 ? (margenPrevisto / base) * 100 : 0;
   const paramsCambiados = cont !== contingenciaPct || margenObj !== margenObjetivoPct;
+
+  // Persiste la lista de subproyectos (nombre + color). Se guarda entera para
+  // que los colores autoasignados a las zonas también queden fijados.
+  function guardarSubs(lista: { nombre: string; color: string }[]) {
+    void run(async () => {
+      await guardarSubproyectos(oportunidadId, lista.map((s) => ({ nombre: s.nombre, color: s.color })));
+    });
+  }
+  function setColorSub(nombre: string, color: string) {
+    guardarSubs(subproyectosOrden.map((s) => (s.nombre === nombre ? { ...s, color } : s)));
+  }
+  function addSubproyecto() {
+    const nombre = window.prompt("Nombre del subproyecto / elemento (p. ej. Carpa Beduina):")?.trim();
+    if (!nombre) return;
+    if (subproyectosOrden.some((s) => s.nombre.toLowerCase() === nombre.toLowerCase())) {
+      window.alert("Ya existe un subproyecto con ese nombre.");
+      return;
+    }
+    const color = PALETA_SUB[subproyectosOrden.length % PALETA_SUB.length];
+    guardarSubs([...subproyectosOrden, { nombre, color }]);
+  }
+  const totalSinSub = estimados
+    .filter((e) => !(e.zona ?? "").trim())
+    .reduce((s, e) => s + Number(e.importe), 0);
 
   return (
     <div className="space-y-3">
@@ -570,19 +621,151 @@ function EstimacionBlock({
         </div>
       )}
 
-      <ModulosPrevisto
-        oportunidadId={oportunidadId}
-        estimados={estimados}
-        equipo={equipo}
-        cerrada={cerrada}
-        busy={busy}
-        run={run}
-        onDone={onDone}
-        lugar={lugar}
-        kmPrecio={kmPrecio}
-        catalogo={catalogo}
-        proveedores={proveedores}
-      />
+      {/* Toggle de vista: por subproyecto (recuadros con color) o por módulo. */}
+      {puedeSubproyectos && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="inline-flex overflow-hidden rounded-md border-med border-border text-[11.5px] font-semibold">
+            <button
+              onClick={() => setVista("subproyecto")}
+              className={`px-3 py-1.5 ${vista === "subproyecto" ? "bg-sage text-white" : "bg-white text-ink-secondary hover:bg-beige-warm"}`}
+            >
+              Por subproyecto
+            </button>
+            <button
+              onClick={() => setVista("modulo")}
+              className={`px-3 py-1.5 ${vista === "modulo" ? "bg-sage text-white" : "bg-white text-ink-secondary hover:bg-beige-warm"}`}
+            >
+              Por módulo
+            </button>
+          </div>
+          {vista === "subproyecto" && !cerrada && (
+            <button
+              onClick={addSubproyecto}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-md border-med border-dashed border-border-strong px-3 py-1.5 text-[11.5px] font-semibold text-sage hover:bg-sage-tint/30 disabled:opacity-50"
+            >
+              <Plus size={13} /> Añadir subproyecto
+            </button>
+          )}
+        </div>
+      )}
+
+      {vista === "modulo" || !puedeSubproyectos ? (
+        <ModulosPrevisto
+          oportunidadId={oportunidadId}
+          estimados={estimados}
+          equipo={equipo}
+          cerrada={cerrada}
+          busy={busy}
+          run={run}
+          onDone={onDone}
+          lugar={lugar}
+          kmPrecio={kmPrecio}
+          catalogo={catalogo}
+          proveedores={proveedores}
+        />
+      ) : (
+        <div className="space-y-3">
+          {subproyectosOrden.map((sp) => {
+            const total = estimados
+              .filter((e) => (e.zona ?? "").trim() === sp.nombre)
+              .reduce((s, e) => s + Number(e.importe), 0);
+            return (
+              <div
+                key={sp.nombre}
+                className="overflow-hidden rounded-lg border-hair border-border bg-white"
+                style={{ borderLeft: `5px solid ${sp.color}` }}
+              >
+                <div className="flex items-center justify-between gap-3 px-3 py-2.5" style={{ background: `${sp.color}14` }}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: sp.color }} />
+                    <span className="text-[14.5px] font-bold">{sp.nombre}</span>
+                    {!cerrada && (
+                      <span className="ml-1 flex items-center gap-1">
+                        {PALETA_SUB.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setColorSub(sp.nombre, c)}
+                            title="Cambiar color del subproyecto"
+                            className="h-3.5 w-3.5 rounded-full border border-white/70 ring-1 ring-black/10"
+                            style={{ background: c, outline: sp.color === c ? `2px solid ${c}` : "none", outlineOffset: "1px" }}
+                          />
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                  <span className="tabular text-[14.5px] font-bold">{eur(total)}</span>
+                </div>
+                <div className="p-3">
+                  <ModulosPrevisto
+                    oportunidadId={oportunidadId}
+                    estimados={estimados}
+                    equipo={equipo}
+                    cerrada={cerrada}
+                    busy={busy}
+                    run={run}
+                    onDone={onDone}
+                    lugar={lugar}
+                    kmPrecio={kmPrecio}
+                    catalogo={catalogo}
+                    proveedores={proveedores}
+                    zonaFiltro={sp.nombre}
+                    zonaNueva={sp.nombre}
+                    ocultarResumenes
+                    soloConLineas
+                  />
+                  {!cerrada && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10.5px] text-ink-muted">Añadir a {sp.nombre}:</span>
+                      {MODULOS_PREVISTO.map((m) => (
+                        <button
+                          key={m.key}
+                          onClick={() => void run(async () => { await anadirLineaEstimada(oportunidadId, m.categoria, { zona: sp.nombre }); })}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 rounded-sm border-med border-border bg-white px-2 py-1 text-[10.5px] font-semibold text-ink-secondary hover:border-sage hover:text-sage disabled:opacity-50"
+                        >
+                          <m.Icon size={11} /> {m.titulo}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {hayLineasSinSub && (
+            <div className="overflow-hidden rounded-lg border-hair border-border bg-white" style={{ borderLeft: "5px solid #C9C2B0" }}>
+              <div className="flex items-center justify-between gap-3 bg-beige-light px-3 py-2.5">
+                <span className="text-[14.5px] font-bold text-ink-secondary">Sin subproyecto</span>
+                <span className="tabular text-[14.5px] font-bold">{eur(totalSinSub)}</span>
+              </div>
+              <div className="p-3">
+                <ModulosPrevisto
+                  oportunidadId={oportunidadId}
+                  estimados={estimados}
+                  equipo={equipo}
+                  cerrada={cerrada}
+                  busy={busy}
+                  run={run}
+                  onDone={onDone}
+                  lugar={lugar}
+                  kmPrecio={kmPrecio}
+                  catalogo={catalogo}
+                  proveedores={proveedores}
+                  zonaFiltro={null}
+                  zonaNueva={null}
+                  ocultarResumenes
+                  soloConLineas
+                />
+                <p className="mt-2 text-[10.5px] text-ink-muted">
+                  Estas líneas no tienen subproyecto. Ponles una “Zona” con el nombre del subproyecto para agruparlas.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {!cerrada && estimados.some((e) => !e.cuadrado) && (
         <p className="text-[11px] text-ink-muted">
           <b>Cuadrar:</b> cuando sepas lo que ha costado de verdad, valida cada línea con la flecha
@@ -700,6 +883,10 @@ function ModulosPrevisto({
   kmPrecio,
   catalogo,
   proveedores,
+  zonaFiltro,
+  zonaNueva = null,
+  ocultarResumenes = false,
+  soloConLineas = false,
 }: {
   oportunidadId: string;
   estimados: CosteEstimado[];
@@ -712,7 +899,20 @@ function ModulosPrevisto({
   kmPrecio: number;
   catalogo: CatalogoItem[];
   proveedores: Pick<Proveedor, "id" | "nombre">[];
+  // Vista "por subproyecto": filtra a una zona (string), a las líneas sin zona
+  // (null) o no filtra (undefined). zonaNueva = zona que se asigna al añadir.
+  zonaFiltro?: string | null;
+  zonaNueva?: string | null;
+  ocultarResumenes?: boolean;
+  soloConLineas?: boolean;
 }) {
+  // Líneas visibles según el filtro de subproyecto (zona).
+  const visibles =
+    zonaFiltro === undefined
+      ? estimados
+      : zonaFiltro === null
+        ? estimados.filter((e) => !(e.zona ?? "").trim())
+        : estimados.filter((e) => (e.zona ?? "").trim() === zonaFiltro);
   return (
     <div className="space-y-3">
       {/* Sugerencias de concepto por módulo (se elige una o se escribe otra). */}
@@ -736,6 +936,7 @@ function ModulosPrevisto({
       </datalist>
       {/* Resumen por zona: cuánto cuesta cada espacio (solo si se usan zonas). */}
       {(() => {
+        if (ocultarResumenes) return null;
         const porZona = new Map<string, number>();
         for (const e of estimados) {
           if (!e.zona) continue;
@@ -760,6 +961,7 @@ function ModulosPrevisto({
       })()}
       {/* Inversión en stock (Opción C): material que se queda vs coste operativo. */}
       {(() => {
+        if (ocultarResumenes) return null;
         const seQuedan = estimados.filter((e) => e.se_queda);
         if (seQuedan.length === 0) return null;
         const totalPrevisto = estimados.reduce((s, e) => s + Number(e.importe), 0);
@@ -793,7 +995,8 @@ function ModulosPrevisto({
         );
       })()}
       {MODULOS_PREVISTO.map((m) => {
-        const filas = estimados.filter((e) => moduloDeEstimado(e.categoria) === m.key);
+        const filas = visibles.filter((e) => moduloDeEstimado(e.categoria) === m.key);
+        if (soloConLineas && filas.length === 0) return null;
         const subtotal = filas.reduce((s, e) => s + Number(e.importe), 0);
         // Horas totales del evento (solo mano de obra) para ver de un vistazo si
         // un evento come demasiada mano de obra.
@@ -916,7 +1119,7 @@ function ModulosPrevisto({
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <button
                   onClick={async () => {
-                    await anadirLineaEstimada(oportunidadId, m.categoria);
+                    await anadirLineaEstimada(oportunidadId, m.categoria, { zona: zonaNueva });
                     onDone();
                   }}
                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-sage hover:underline"
@@ -932,6 +1135,7 @@ function ModulosPrevisto({
                         concepto: lugar.nombre ? `Gasolina · ${lugar.nombre} (ida y vuelta)` : "Gasolina (ida y vuelta)",
                         cantidad: Number(lugar.distancia_km) * 2,
                         precioUnitario: kmPrecio,
+                        zona: zonaNueva,
                       });
                       onDone();
                     }}
@@ -952,6 +1156,7 @@ function ModulosPrevisto({
                         concepto: art.articulo,
                         cantidad: 1,
                         precioUnitario: art.coste,
+                        zona: zonaNueva,
                       });
                       onDone();
                     }}

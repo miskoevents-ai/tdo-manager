@@ -2389,22 +2389,30 @@ export async function updateCosteEstimado(input: {
 export async function anadirLineaEstimada(
   oportunidadId: string,
   categoria: string,
-  prefill?: { concepto?: string; cantidad?: number; precioUnitario?: number },
+  prefill?: { concepto?: string; cantidad?: number; precioUnitario?: number; zona?: string | null },
 ) {
   const sb = createAdminClient();
   if (await eventoCerrado(sb, oportunidadId))
     throw new Error("El evento está cerrado; reábrelo para editar los costes previstos.");
   const cantidad = Number(prefill?.cantidad ?? 1) || 1;
   const precio = Number(prefill?.precioUnitario ?? 0) || 0;
-  const fila = {
+  const zonaNueva = prefill?.zona?.trim() || null;
+  const fila: Record<string, unknown> = {
     oportunidad_id: oportunidadId,
     concepto: prefill?.concepto ?? "",
     cantidad,
     precio_unitario: precio,
     categoria,
     importe: Math.round(cantidad * precio * 100) / 100,
+    ...(zonaNueva ? { zona: zonaNueva } : {}),
   };
   let { error } = await sb.from("costes_estimados").insert(fila);
+  // La columna `zona` (mig 051) es opcional: si el esquema no está migrado,
+  // reintenta la línea sin zona para no bloquear el alta.
+  if (error && /zona/.test(error.message) && /column/i.test(error.message)) {
+    const { zona: _z, ...sinZona } = fila;
+    ({ error } = await sb.from("costes_estimados").insert(sinZona));
+  }
   if (error && /categoria|cantidad|precio_unitario/.test(error.message) && /column/i.test(error.message)) {
     throw new Error("Falta ejecutar la migración 021 (detalle de estimados) en Supabase.");
   }
@@ -2414,6 +2422,41 @@ export async function anadirLineaEstimada(
     }
     throw new Error(error.message);
   }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Guarda la lista de subproyectos/elementos del evento (nombre + color + orden)
+// en la oportunidad. Las líneas de coste se enlazan por `zona` = nombre. La
+// columna `subproyectos` (mig 067) es opcional: si falta, avisa de la migración.
+export async function guardarSubproyectos(
+  oportunidadId: string,
+  lista: { nombre: string; color: string }[],
+) {
+  const sb = createAdminClient();
+  const limpia = lista
+    .map((s) => ({ nombre: (s.nombre ?? "").trim(), color: (s.color ?? "").trim() || "#5C7A4C" }))
+    .filter((s) => s.nombre !== "");
+  const { error } = await sb.from("oportunidades").update({ subproyectos: limpia }).eq("id", oportunidadId);
+  if (error) {
+    if (/subproyectos/.test(error.message) && /column/i.test(error.message)) {
+      throw new Error("Falta ejecutar la migración 067 (subproyectos) en Supabase.");
+    }
+    throw new Error(error.message);
+  }
+  revalidatePath(`/oportunidades/${oportunidadId}`);
+}
+
+// Renombra un subproyecto: actualiza su metadato y reasigna la `zona` de todas
+// sus líneas de coste al nombre nuevo (para que sigan enlazadas).
+export async function renombrarSubproyecto(oportunidadId: string, antiguo: string, nuevo: string) {
+  const sb = createAdminClient();
+  const nom = (nuevo ?? "").trim();
+  if (!nom || nom === antiguo) return;
+  await sb.from("costes_estimados").update({ zona: nom }).eq("oportunidad_id", oportunidadId).eq("zona", antiguo);
+  const { data } = await sb.from("oportunidades").select("subproyectos").eq("id", oportunidadId).maybeSingle();
+  const lista = (data?.subproyectos as { nombre: string; color: string }[] | null) ?? [];
+  const actualizada = lista.map((s) => (s.nombre === antiguo ? { ...s, nombre: nom } : s));
+  await sb.from("oportunidades").update({ subproyectos: actualizada }).eq("id", oportunidadId);
   revalidatePath(`/oportunidades/${oportunidadId}`);
 }
 

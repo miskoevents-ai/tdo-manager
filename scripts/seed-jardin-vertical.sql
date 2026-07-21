@@ -44,7 +44,8 @@ begin
     (v_op, 'Dietas', 1, 60, 60, 'Dietas y comida', 'Green Patio', null);
 
   -- ===== Precio de venta: 13.900 € base en 2 apartados =====
-  insert into presupuesto_lineas (oportunidad_id, concepto, cantidad, precio_unitario, importe, orden, bloque, via) values
-    (v_op, 'Decoracion Carpa Beduina: estructura de aros con hiedra y helechos, tela de yute, minivelas y montaje/desmontaje completo', 1, 9900, 9900, 0, 'Carpa Beduina', 'factura'),
-    (v_op, 'Green Patio (jardin vertical): 8 arboles con troncos naturales, ramaje y esqueletos con base de cemento, montaje/desmontaje completo', 1, 4000, 4000, 1, 'Green Patio', 'factura');
+  -- (presupuesto_lineas NO tiene columna importe: se calcula con cantidad*precio)
+  insert into presupuesto_lineas (oportunidad_id, concepto, cantidad, precio_unitario, orden, bloque, via) values
+    (v_op, 'Decoracion Carpa Beduina: estructura de aros con hiedra y helechos, tela de yute, minivelas y montaje/desmontaje completo', 1, 9900, 0, 'Carpa Beduina', 'factura'),
+    (v_op, 'Green Patio (jardin vertical): 8 arboles con troncos naturales, ramaje y esqueletos con base de cemento, montaje/desmontaje completo', 1, 4000, 1, 'Green Patio', 'factura');
 end $$;
