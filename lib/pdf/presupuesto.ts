@@ -3,7 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { PresupuestoPDFDoc, type PresuPdfData } from "./PresupuestoPDF";
 import { EMPRESA, condicionesPara, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
-import { calcularTotales } from "@/lib/calc";
+import { calcularTotales, resumenModalidades } from "@/lib/calc";
 import { eur, fecha, num } from "@/lib/format";
 import { TIPO_EVENTO_LABEL, CLIENTE_TIPO_LABEL } from "@/lib/estados";
 import type { Oportunidad, PresupuestoLinea } from "@/lib/types";
@@ -66,15 +66,28 @@ export async function renderPresupuestoPdf(
   const esAlquiler = op.serie === "alquiler_encargo";
   const esAmigos = op.tipo_operacion === "amigos_prestamo";
 
-  // Bloques (en orden), igual que la pantalla.
-  const grupos: { nombre: string | null; lineas: PresupuestoLinea[] }[] = [];
-  for (const l of lineas) {
-    const nombre = l.bloque ?? null;
-    const g = grupos.find((x) => x.nombre === nombre);
-    if (g) g.lineas.push(l);
-    else grupos.push({ nombre, lineas: [l] });
+  // Modalidades (opciones excluyentes) o, si no hay, bloques — igual que la
+  // pantalla. Cada grupo lleva su etiqueta y su subtotal (base de sus líneas).
+  const resumen = resumenModalidades(lineas, ivaPct, retPct, dtoPct);
+  const hayModalidades = resumen.hay;
+  type GrupoPdf = { nombre: string | null; etiqueta: string | null; comun?: boolean; lineas: PresupuestoLinea[] };
+  const grupos: GrupoPdf[] = [];
+  if (hayModalidades) {
+    const comunes = lineas.filter((l) => !(l.modalidad ?? "").trim());
+    if (comunes.length) grupos.push({ nombre: null, etiqueta: "Incluido en todas las opciones", comun: true, lineas: comunes });
+    for (const o of resumen.opciones) {
+      const suyas = lineas.filter((l) => (l.modalidad ?? "").trim() === o.nombre);
+      grupos.push({ nombre: o.nombre, etiqueta: `Opción · ${o.nombre}`, lineas: suyas });
+    }
+  } else {
+    for (const l of lineas) {
+      const nombre = l.bloque ?? null;
+      const g = grupos.find((x) => x.nombre === nombre);
+      if (g) g.lineas.push(l);
+      else grupos.push({ nombre, etiqueta: nombre, lineas: [l] });
+    }
   }
-  const hayBloques = grupos.some((g) => g.nombre);
+  const hayBloques = !hayModalidades && grupos.some((g) => g.nombre);
   const hayDto = lineas.some((l) => (l.descuento_pct ?? 0) > 0);
   const bruto = (l: PresupuestoLinea) => l.cantidad * l.precio_unitario;
   const neto = (l: PresupuestoLinea) => bruto(l) * (1 - (l.descuento_pct ?? 0) / 100);
@@ -136,8 +149,12 @@ export async function renderPresupuestoPdf(
     },
     hayDto,
     hayBloques,
+    hayModalidades,
+    opciones: resumen.opciones.map((o) => ({ nombre: o.nombre, total: eur(o.total) })),
     grupos: grupos.map((g) => ({
       nombre: g.nombre,
+      etiqueta: g.etiqueta,
+      subtotal: hayModalidades ? eur(g.lineas.reduce((s, l) => s + neto(l), 0)) : null,
       lineas: g.lineas.map((l) => ({
         foto: fotos[idx++] ?? null,
         concepto: l.concepto,

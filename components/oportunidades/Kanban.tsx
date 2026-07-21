@@ -19,6 +19,7 @@ export type KanbanCard = {
   fecha_entrada?: string | null;
   tipo_evento: string;
   total: number;
+  nModalidades?: number; // nº de opciones excluyentes; >1 → "desde" + badge
   pendiente: number;
   probabilidad?: number; // % de cierre efectivo
   // usados por los filtros del tablero
@@ -199,7 +200,18 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                     </div>
                     <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
                       <span className="tabular text-[12.5px] font-semibold text-sage">
+                        {(c.nModalidades ?? 0) > 1 && (
+                          <span className="mr-1 text-[10px] font-normal text-ink-muted">desde</span>
+                        )}
                         {eur(c.total)}
+                        {(c.nModalidades ?? 0) > 1 && (
+                          <span
+                            className="ml-1.5 rounded-pill bg-sage-tint px-1.5 text-[9.5px] font-semibold text-sage"
+                            title={`${c.nModalidades} opciones a elegir`}
+                          >
+                            {c.nModalidades} opciones
+                          </span>
+                        )}
                       </span>
                       <div className="flex items-center gap-1.5">
                         {/* % de cierre: solo cuando aún no es venta segura (100%). */}

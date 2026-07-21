@@ -462,7 +462,7 @@ export async function quitarRetencionFianza(id: string) {
   revalidatePath("/");
 }
 
-type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null; descuento_pct?: number | null };
+type LineaInput = { concepto: string; cantidad: number; precio_unitario: number; articulo_id?: string | null; bloque?: string | null; via?: string | null; foto?: string | null; descuento_pct?: number | null; modalidad?: string | null };
 
 // % de descuento saneado: número entre 0 y 100, o null si no hay.
 function dtoPct(v: unknown): number | null {
@@ -521,6 +521,7 @@ export async function guardarLineas(
       via: l.via === "efectivo" ? "efectivo" : "factura",
       foto: l.foto?.trim() || null,
       descuento_pct: dtoPct(l.descuento_pct),
+      modalidad: l.modalidad?.trim() || null,
     }));
     let { error } = await sb.from("presupuesto_lineas").insert(rows);
     if (error && /descuento/.test(error.message) && /column/i.test(error.message)) {
@@ -530,6 +531,16 @@ export async function guardarLineas(
       ({ error } = await sb
         .from("presupuesto_lineas")
         .insert(rows.map(({ descuento_pct: _d, ...r }) => r)));
+    }
+    // La columna `modalidad` (mig 066) es opcional: si el esquema no está
+    // migrado, reintenta sin ella para no bloquear el guardado.
+    if (error && /modalidad/.test(error.message) && /column/i.test(error.message)) {
+      if (rows.some((r) => r.modalidad != null)) {
+        throw new Error("Falta ejecutar la migración 066 (modalidades) en Supabase.");
+      }
+      ({ error } = await sb
+        .from("presupuesto_lineas")
+        .insert(rows.map(({ modalidad: _m, ...r }) => r)));
     }
     if (error) {
       if (/foto/.test(error.message) && /column/i.test(error.message)) {
