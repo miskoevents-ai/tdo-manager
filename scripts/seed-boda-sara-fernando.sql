@@ -1,16 +1,16 @@
 -- Boda Sara y Fernando · 14/11/2026 · Palacio de Miraflores de la Sierra.
--- Presupuesto Nº 063/2026 aceptado (1.400 € base → 1.694 € c/IVA).
--- Factura 26015: Pago 1 (30%) 508,20 € cobrado + Pago 2 (20%) 338,80 € antes
--- del 14/09/2026. El otro 50% (~847 €) queda por facturar.
---
--- Este script se puede ejecutar aunque no hubieras corrido el seed anterior:
--- crea lo que falte y actualiza el resto. Idempotente.
+-- Presupuesto Nº 063/2026 aceptado, total 1.400 € base. TRATO AL 50/50:
+--   · 50% CON FACTURA: 700 € + IVA = 847 € (Factura 26015: Pago 1 30% 508,20 €
+--     cobrado 21/07 + Pago 2 20% 338,80 € antes del 14/09).
+--   · 50% AMIGOS (sin factura, sin IVA): 700 €.
+--   → TOTAL al cliente 1.547 €. Cobrado 508,20 €. Pendiente 1.038,80 €.
+-- (Pendiente de verificar el reparto exacto con Cristina.)
+-- Idempotente: crea la opp si falta y (re)carga presupuesto, cobros y notas.
 do $$
 declare v_op uuid; v_cli uuid; v_lugar uuid;
 begin
   select id, cliente_id into v_op, v_cli from oportunidades where numero = 'BODA-SF/2026';
 
-  -- Si aún no existía la opp, la creamos entera (cliente + lugar + opp + Pago 1).
   if v_op is null then
     insert into lugares (nombre, localidad, notas)
     values ('Palacio de Miraflores de la Sierra', 'Miraflores de la Sierra', 'Madrid.')
@@ -32,7 +32,7 @@ begin
 
     insert into tesoreria
       (concepto, tipo, naturaleza, categoria, importe, fecha, estado, metodo, oportunidad_id, cliente_id, computa_contabilidad, notas)
-    values ('Pago 1 · Reserva de fecha (30%) boda Sara y Fernando (Factura 26015)', 'ingreso',
+    values ('Pago 1 · Reserva de fecha (30%, con factura) boda Sara y Fernando (Factura 26015)', 'ingreso',
             'ingreso_factura', 'Pre-reserva', 508.20, '2026-07-21', 'cobrado', 'transferencia',
             v_op, v_cli, true, 'Ref. bancaria ST26X21148250807. Ordenante: Fernando Marco Carballal.');
   end if;
@@ -43,21 +43,19 @@ begin
   -- Oportunidad: invitados + nota completa
   update oportunidades set
     n_invitados = 42,
-    notas = 'Presupuesto Nº 063/2026 aceptado (1.400 € base → 1.694 € c/IVA): Rincón de Bienvenida, Seating plan fotográfico y Decoración de la ceremonia; incluye logística, montaje y coordinación. 42 invitados. Factura 26015 emitida el 09/07/2026: Pago 1 (30%) 508,20 € cobrado el 21/07; Pago 2 (20%) 338,80 € antes del 14/09/2026; resto (50%, ~847 €) por facturar más adelante.'
+    notas = 'Presupuesto Nº 063/2026 aceptado, total 1.400 € base. Trato al 50/50: 50% CON FACTURA (700 € + IVA = 847 €, Factura 26015: Pago 1 30% 508,20 € cobrado el 21/07 + Pago 2 20% 338,80 € antes del 14/09) y 50% SIN FACTURA / amigos (700 €, sin IVA). Total al cliente 1.547 €. Boda 14/11/2026, Palacio de Miraflores, 42 invitados. (Reparto pendiente de verificar con Cristina.)'
   where id = v_op;
 
-  -- Presupuesto: total del encargo, 1.400 € base
+  -- Presupuesto MIXTO: 50% con factura (700 + IVA) + 50% amigos (700 sin IVA) = 1.547 €
   delete from presupuesto_lineas where oportunidad_id = v_op;
-  insert into presupuesto_lineas (oportunidad_id, concepto, cantidad, precio_unitario, orden, via)
-  values (v_op,
-    'Decoración boda Sara y Fernando (presupuesto 063/2026): Rincón de Bienvenida, Seating plan fotográfico y Decoración de la ceremonia — incluye logística, montaje y coordinación',
-    1, 1400, 0, 'factura');
+  insert into presupuesto_lineas (oportunidad_id, concepto, cantidad, precio_unitario, orden, via) values
+    (v_op, 'Decoración boda Sara y Fernando (presupuesto 063/2026): Rincón de Bienvenida, Seating plan fotográfico y Decoración de la ceremonia — incl. logística, montaje y coordinación · 50% CON FACTURA', 1, 700, 0, 'factura'),
+    (v_op, 'Decoración boda Sara y Fernando (presupuesto 063/2026) · 50% SIN FACTURA (amigos, sin IVA)', 1, 700, 1, 'efectivo');
 
-  -- Cobro a plazos: Pago 2 (previsto, vence 14/09/2026). Pago 1 ya está cobrado.
+  -- Cobros previstos (el Pago 1 cobrado se queda intacto)
   delete from tesoreria where oportunidad_id = v_op and tipo = 'ingreso' and estado = 'previsto';
   insert into tesoreria
-    (concepto, tipo, naturaleza, categoria, importe, fecha, estado, metodo, oportunidad_id, cliente_id, computa_contabilidad, notas)
-  values ('Pago 2 · Segundo pago (20%) boda Sara y Fernando (Factura 26015)', 'ingreso',
-          'ingreso_factura', 'Cobro a plazos', 338.80, '2026-09-14', 'previsto', 'transferencia',
-          v_op, v_cli, false, 'Vence antes del 14/09/2026 (dos meses antes del evento).');
+    (concepto, tipo, naturaleza, categoria, importe, fecha, estado, metodo, oportunidad_id, cliente_id, computa_contabilidad, notas) values
+    ('Pago 2 · Segundo pago (20%, con factura) boda Sara y Fernando (Factura 26015)', 'ingreso', 'ingreso_factura', 'Cobro a plazos', 338.80, '2026-09-14', 'previsto', 'transferencia', v_op, v_cli, false, 'Vence antes del 14/09/2026.'),
+    ('Pago amigos (50%, sin factura) boda Sara y Fernando', 'ingreso', 'amigos', 'Cobro amigos', 700, '2026-11-14', 'previsto', 'efectivo', v_op, v_cli, false, 'Parte sin factura (sin IVA). Fecha estimada (al evento): ajustar cuando se acuerde.');
 end $$;
