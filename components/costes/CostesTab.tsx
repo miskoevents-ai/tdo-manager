@@ -100,6 +100,20 @@ export function CostesTab({
     estPorCat[cubo] += Number(e.importe);
   }
 
+  // Cabecera adaptativa: un evento sin ejecutar NO tiene "100% de margen".
+  // Mientras no haya costes reales (y no esté cerrado), la cabecera enseña el
+  // PREVISTO (con su contingencia), que cuadra con la tabla Pre vs Post.
+  const hayCostesReales = costes > 0.005;
+  const usarPrevisto = !cerrada && !hayCostesReales && totalEstimado > 0;
+  const cabPersonal = usarPrevisto ? estPorCat.personal : cPersonal;
+  const cabDespl = usarPrevisto ? estPorCat.desplazamiento : cDespl;
+  const cabMaterial = usarPrevisto ? estPorCat.material + estPorCat.otro : cMaterial;
+  const cabComision = usarPrevisto ? 0 : cComision;
+  const cabColchon = usarPrevisto ? estimadoConColchon - totalEstimado : 0;
+  const cabCostes = usarPrevisto ? estimadoConColchon : costes;
+  const cabMargen = base - cabCostes;
+  const cabMargenPct = base > 0 ? (cabMargen / base) * 100 : 0;
+
   // Reembolsos a personas aún pendientes (para la validación del cierre).
   // El gasto ya está pagado (lo adelantó la persona); lo pendiente es
   // devolvérselo: eso lo dice liquidado, no el estado.
@@ -165,29 +179,36 @@ export function CostesTab({
       <div className="rounded-lg border-hair border-border bg-white p-5 shadow-sm">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Kpi label="Ingreso (base)" v={eur(base)} tone="text-ink" />
-          <Kpi label="Costes" v={eur(costes)} tone="text-error" />
-          <Kpi label="Margen" v={eur(margen)} tone={margen >= 0 ? "text-ok" : "text-error"} />
-          <Kpi label="Margen %" v={`${num(margenPct, 0)}%`} tone={margen >= 0 ? "text-sage" : "text-error"} />
+          <Kpi label={usarPrevisto ? "Costes (previsto)" : "Costes"} v={eur(cabCostes)} tone="text-error" />
+          <Kpi label={usarPrevisto ? "Margen (previsto)" : "Margen"} v={eur(cabMargen)} tone={cabMargen >= 0 ? "text-ok" : "text-error"} />
+          <Kpi label={usarPrevisto ? "Margen % (previsto)" : "Margen %"} v={`${num(cabMargenPct, 0)}%`} tone={cabMargen >= 0 ? "text-sage" : "text-error"} />
         </div>
+        {usarPrevisto && (
+          <p className="mt-2 text-[11px] text-ink-muted">
+            Aún no hay costes reales apuntados: se muestra el <b>previsto</b> (con {num(contingenciaPct, 0)}% de contingencia). En cuanto cuadres costes reales, la cabecera pasa a lo real.
+          </p>
+        )}
         {/* Barra escandallo */}
         <div className="mt-4">
           <div className="flex h-3 w-full overflow-hidden rounded-pill bg-beige-warm">
             {base > 0 && (
               <>
-                <span className="bg-clay-300" style={{ width: `${Math.min(100, (cPersonal / base) * 100)}%` }} title="Personal" />
-                <span className="bg-warn" style={{ width: `${Math.min(100, (cDespl / base) * 100)}%` }} title="Desplazamientos" />
-                <span className="bg-error" style={{ width: `${Math.min(100, (cMaterial / base) * 100)}%` }} title="Material" />
-                {cComision > 0 && <span className="bg-sage" style={{ width: `${Math.min(100, (cComision / base) * 100)}%` }} title="Comisión" />}
-                <span className="bg-ok" style={{ width: `${Math.max(0, (margen / base) * 100)}%` }} title="Margen" />
+                <span className="bg-clay-300" style={{ width: `${Math.min(100, (cabPersonal / base) * 100)}%` }} title="Personal" />
+                <span className="bg-warn" style={{ width: `${Math.min(100, (cabDespl / base) * 100)}%` }} title="Desplazamientos" />
+                <span className="bg-error" style={{ width: `${Math.min(100, (cabMaterial / base) * 100)}%` }} title="Material" />
+                {cabComision > 0 && <span className="bg-sage" style={{ width: `${Math.min(100, (cabComision / base) * 100)}%` }} title="Comisión" />}
+                {cabColchon > 0 && <span className="bg-warn-tint" style={{ width: `${Math.min(100, (cabColchon / base) * 100)}%` }} title="Contingencia" />}
+                <span className="bg-ok" style={{ width: `${Math.max(0, (cabMargen / base) * 100)}%` }} title="Margen" />
               </>
             )}
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-muted">
-            <Leg color="bg-clay-300" t={`Personal ${eur(cPersonal)}`} />
-            <Leg color="bg-warn" t={`Desplazamientos ${eur(cDespl)}`} />
-            <Leg color="bg-error" t={`Material ${eur(cMaterial)}`} />
-            {cComision > 0 && <Leg color="bg-sage" t={`Comisión ${eur(cComision)}`} />}
-            <Leg color="bg-ok" t={`Margen ${eur(margen)}`} />
+            <Leg color="bg-clay-300" t={`Personal ${eur(cabPersonal)}`} />
+            <Leg color="bg-warn" t={`Desplazamientos ${eur(cabDespl)}`} />
+            <Leg color="bg-error" t={`Material ${eur(cabMaterial)}`} />
+            {cabComision > 0 && <Leg color="bg-sage" t={`Comisión ${eur(cabComision)}`} />}
+            {cabColchon > 0 && <Leg color="bg-warn-tint" t={`Contingencia ${eur(cabColchon)}`} />}
+            <Leg color="bg-ok" t={`Margen ${eur(cabMargen)}`} />
           </div>
           {cComision > 0 && comisionDetalle.length > 0 && (
             <p className="mt-2 text-[11px] text-ink-muted">
