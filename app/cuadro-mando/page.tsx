@@ -347,7 +347,12 @@ export default async function CuadroMandoPage() {
     rows = ops.map((o) => {
       const total = calcularTotales(o.presupuesto_lineas ?? [], o.iva_pct, o.retencion_pct, o.descuento_pct ?? 0).total;
       const cobrado = o.cobrado ?? 0;
-      const gastos = gastoPorOp.get(o.id) ?? 0;
+      // Coste conservador (igual que la cobertura): un evento contratado pero
+      // sin ejecutar no tiene "0 € de gasto" → margen del 100% inflado. Si aún
+      // no hay gasto real registrado, se usa el previsto (con contingencia).
+      const gastoReal = gastoPorOp.get(o.id) ?? 0;
+      const gastoPrevisto = (estPorOp.get(o.id) ?? 0) * (1 + Number(o.contingencia_pct ?? 6) / 100);
+      const gastos = o.cerrada ? (gastoReal > 0 ? gastoReal : gastoPrevisto) : Math.max(gastoReal, gastoPrevisto);
       return {
         id: o.id,
         titulo: o.titulo,
@@ -382,8 +387,8 @@ export default async function CuadroMandoPage() {
       <div>
         <Overline className="!mt-0">Cuadro de mando</Overline>
         <p className="mt-1 text-[12px] text-ink-muted">
-          Analítica del negocio con filtros. El margen es de caja (ingresos − gastos de evento registrados);
-          no incluye horas de personal salvo que se registren como gasto.
+          Analítica del negocio con filtros. El margen es ingresos − costes del evento: reales cuando se han
+          registrado y, si el evento aún no se ha ejecutado, los previstos (para no inflar el margen).
         </p>
       </div>
       {forecast && (forecast.total > 0 || forecast.abiertoTotal > 0) && (
@@ -420,8 +425,8 @@ export default async function CuadroMandoPage() {
           <>
             <Overline>Rentabilidad</Overline>
             <p className="-mt-2 text-[12px] text-ink-muted">
-              Solo eventos contratados. Margen de caja (ingresos − gastos de evento registrados);
-              no incluye horas de personal salvo que se registren como gasto.
+              Solo eventos contratados. Margen = ingresos − costes del evento: reales si están registrados
+              o, para los que aún no se han ejecutado, los previstos (para no inflar el margen).
             </p>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <RentabilidadTabla titulo="Por tipo de evento" col="Tipo" filas={porTipo} />
