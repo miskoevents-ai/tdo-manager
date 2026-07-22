@@ -2,7 +2,11 @@ node_modules/
 .next/
 .env
 .env.local
+.env.backup
 .vercel/
+
+# Copias de seguridad de la base de datos (¡nunca subir a git!)
+backups/
 *.log
 .DS_Store
 
