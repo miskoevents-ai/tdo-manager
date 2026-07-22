@@ -223,11 +223,14 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                             {c.probabilidad}%
                           </span>
                         )}
-                        {c.pendiente > 0.01 ? (
-                          <Badge tone="warn">Pdte</Badge>
-                        ) : (
-                          <Badge tone="ok">Cobrado</Badge>
-                        )}
+                        {/* Solo cuando hay importe que cobrar: sin presupuesto (0 €)
+                            no tiene sentido "Cobrado" ni "Pdte". */}
+                        {c.total > 0.01 &&
+                          (c.pendiente > 0.01 ? (
+                            <Badge tone="warn">Pdte</Badge>
+                          ) : (
+                            <Badge tone="ok">Cobrado</Badge>
+                          ))}
                       </div>
                     </div>
                     <select
