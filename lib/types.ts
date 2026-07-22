@@ -293,6 +293,7 @@ export type Tesoreria = {
   cobrado_por?: string | null; // ingreso recibido por una persona → debe a TDO
   liquidado?: boolean | null; // el cobro ya se entregó a la caja de TDO
   creado_por?: string | null; // usuario que dio de alta el movimiento. Mig. 062
+  updated_at?: string | null; // última vez creado/editado en el manager. Mig. 069
   desglose?: { concepto: string; importe: number }[] | null; // líneas del gasto. Mig. 063
   evento_ref?: string | null; // evento de referencia en texto libre. Mig. 063
   notas?: string | null;
