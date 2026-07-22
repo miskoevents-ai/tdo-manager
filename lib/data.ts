@@ -480,10 +480,21 @@ export async function getGastosFijos(): Promise<GastoFijo[]> {
 export async function getTesoreria(): Promise<Tesoreria[]> {
   if (mock.enabled) return mock.tesoreria();
   const sb = createAdminClient();
-  const { data, error } = await sb
+  const sel = "*, oportunidad:oportunidades(numero, titulo), cliente:clientes(nombre)";
+  // Orden principal: lo último gestionado en el manager (updated_at, mig. 069),
+  // con la fecha contable como desempate. Si la columna aún no existe, cae a
+  // ordenar solo por fecha (fallback tolerante mientras no se aplique la mig.).
+  let { data, error } = await sb
     .from("tesoreria")
-    .select("*, oportunidad:oportunidades(numero, titulo), cliente:clientes(nombre)")
+    .select(sel)
+    .order("updated_at", { ascending: false, nullsFirst: false })
     .order("fecha", { ascending: false });
+  if (error && /updated_at/.test(error.message)) {
+    ({ data, error } = await sb
+      .from("tesoreria")
+      .select(sel)
+      .order("fecha", { ascending: false }));
+  }
   if (error) throw new Error(error.message);
   return (data ?? []) as Tesoreria[];
 }
