@@ -33,9 +33,18 @@ export async function renderFacturaPdf(f: Factura): Promise<Buffer> {
   }
   let lineas = todas.filter((l) => (l.via ?? "factura") !== "efectivo");
   if (lineas.length === 0) {
+    // Concepto por defecto según el tipo de operación: no todo es "decoración"
+    // (una venta de mobiliario a medida o un alquiler no lo son).
+    const op = f.oportunidad;
+    const nocion =
+      op?.serie === "alquiler_encargo"
+        ? op?.es_encargo
+          ? "Fabricación a medida"
+          : "Alquiler de material"
+        : "Servicios de decoración";
     lineas = [
       {
-        concepto: f.oportunidad ? `Servicios de decoración · ${f.oportunidad.titulo}` : "Servicios de decoración",
+        concepto: op ? `${nocion} · ${op.titulo}` : "Servicios de decoración",
         cantidad: 1,
         precio_unitario: base,
         bloque: null,

@@ -131,6 +131,19 @@ export default async function Page({
         </div>
       )}
 
+      {/* Aviso de modo (solo pantalla): para cazar de un vistazo si el
+          presupuesto sale como alquiler o como venta antes de enviarlo. */}
+      {esAlquiler && (
+        <div className="no-print rounded-md border-hair border-clay/40 bg-clay-tint px-[15px] py-[10px] text-[12.5px] text-clay-600">
+          Este presupuesto se emitirá como{" "}
+          <b>{esEncargo ? "VENTA / ENCARGO" : "ALQUILER"}</b>
+          {esEncargo
+            ? " — fabricación a medida que se queda el cliente (sin fianza ni devolución)."
+            : " — préstamo de material con entrega, recogida y fianza."}{" "}
+          Si no es correcto, cámbialo en <b>Editar → ¿Alquiler o venta?</b>
+        </div>
+      )}
+
       {/* Documento */}
       <div className="print-doc rounded-lg border-hair border-border bg-white p-8 shadow-sm md:p-12">
         {/* Cabecera */}

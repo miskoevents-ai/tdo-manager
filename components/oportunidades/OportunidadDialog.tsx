@@ -52,6 +52,12 @@ export function OportunidadDialog({
   // decoración; alquiler/encargo → salida/devolución del material.
   const [serie, setSerie] = React.useState(oportunidad?.serie ?? "evento");
   const esAlquiler = serie === "alquiler_encargo";
+  // Alquiler (se devuelve) vs Venta/encargo (se lo queda el cliente). Sin default
+  // silencioso: en una opp nueva arranca vacío y OBLIGA a elegir, para no volver
+  // a mandar una venta con etiqueta de "alquiler". "encargo" = venta (es_encargo).
+  const [modoAlqEnc, setModoAlqEnc] = React.useState<string>(
+    oportunidad ? (oportunidad.es_encargo ? "encargo" : "alquiler") : "",
+  );
   // Otras oportunidades vivas en la fecha elegida (aviso de solape).
   const solapes = evento ? ocupadas.filter((o) => o.fecha === evento) : [];
   const [fianzaFecha, setFianzaFecha] = React.useState(oportunidad?.fecha_devolucion_fianza ?? "");
@@ -135,6 +141,12 @@ export function OportunidadDialog({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Obliga a decidir alquiler vs venta antes de guardar (evita mandar una
+    // venta con condiciones de alquiler, y viceversa).
+    if (serie === "alquiler_encargo" && modoAlqEnc === "") {
+      setError("Elige si es un ALQUILER (se devuelve) o una VENTA / encargo (se lo queda el cliente).");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -259,13 +271,20 @@ export function OportunidadDialog({
               Cambia las condiciones del presupuesto. Migración 068. */}
           {esAlquiler && (
             <div className="grid grid-cols-2 gap-3">
-              <Field label="¿Alquiler o encargo?">
-                <Select name="es_encargo" defaultValue={oportunidad?.es_encargo ? "encargo" : "alquiler"}>
-                  <option value="alquiler">Alquiler (se devuelve)</option>
-                  <option value="encargo">Encargo / producción (se lo queda el cliente)</option>
+              <Field label="¿Alquiler o venta?">
+                <Select
+                  name="es_encargo"
+                  value={modoAlqEnc}
+                  onChange={(e) => setModoAlqEnc(e.target.value)}
+                  aria-invalid={modoAlqEnc === "" ? true : undefined}
+                >
+                  <option value="" disabled>— elige —</option>
+                  <option value="alquiler">Alquiler (se devuelve, con fianza)</option>
+                  <option value="encargo">Venta / encargo (se lo queda el cliente)</option>
                 </Select>
                 <p className="mt-1 text-[11px] text-ink-muted">
-                  Cambia las condiciones del presupuesto: fianza y devolución (alquiler) o fabricación a medida (encargo).
+                  Cambia las condiciones del presupuesto: fianza y devolución (alquiler) o
+                  fabricación a medida que se queda el cliente (venta / encargo).
                 </p>
               </Field>
             </div>

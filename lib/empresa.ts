@@ -60,7 +60,7 @@ export const CONDICIONES_ENCARGO = [
   "Los plazos de entrega se acuerdan al aceptar el presupuesto y pueden variar según la disponibilidad de materiales.",
   "Cualquier cambio sobre lo presupuestado (medidas, materiales o cantidades) puede modificar el precio final.",
   "Por tratarse de una fabricación a medida, el encargo no admite devolución y pasa a ser propiedad del cliente tras el pago completo.",
-  "Precios con IVA incluido según se detalla.",
+  "Precios con IVA incluido según se detalla. Las empresas aplican retención de IRPF del 15 %.",
 ];
 
 // Devuelve las condiciones que corresponden a la oportunidad:

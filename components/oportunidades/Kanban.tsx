@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { cambiarEstado } from "@/app/actions";
-import { KANBAN_COLS, ESTADO_META, ESTADO_COLOR, TIPO_EVENTO_LABEL } from "@/lib/estados";
+import { KANBAN_COLS, ESTADO_META, ESTADO_COLOR, tipoOperacionLabel } from "@/lib/estados";
 import { MotivoPerdidaModal } from "@/components/oportunidades/MotivoPerdidaModal";
 import { eur, fecha } from "@/lib/format";
 import type { OportunidadEstado } from "@/lib/types";
@@ -24,6 +24,7 @@ export type KanbanCard = {
   probabilidad?: number; // % de cierre efectivo
   // usados por los filtros del tablero
   serie?: string;
+  es_encargo?: boolean; // dentro de alquiler/encargo: true = venta/encargo
   tipo_operacion?: string;
   canal?: string | null;
   fianzaPendiente?: boolean;
@@ -196,7 +197,7 @@ export function Kanban({ cards }: { cards: KanbanCard[] }) {
                       )}
                     </div>
                     <div className="mt-1.5 text-[10px] text-ink-muted">
-                      {TIPO_EVENTO_LABEL[c.tipo_evento] ?? c.tipo_evento} · {fecha(c.fecha_evento)}
+                      {tipoOperacionLabel(c.serie, c.es_encargo, c.tipo_evento)} · {fecha(c.fecha_evento)}
                     </div>
                     <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
                       <span className="tabular text-[12.5px] font-semibold text-sage">

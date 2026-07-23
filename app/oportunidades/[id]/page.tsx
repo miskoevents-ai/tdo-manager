@@ -299,7 +299,7 @@ export default async function Page({
                 (afecta a comisión, horas y a la calculadora de precio). */}
             {op.serie === "alquiler_encargo" ? (
               <span className="inline-flex items-center gap-1 rounded-pill bg-clay-tint px-2.5 py-1 text-[11px] font-semibold text-clay-600">
-                📦 Alquiler / encargo
+                📦 {op.es_encargo ? "Venta / encargo" : "Alquiler"}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-pill bg-sage-tint px-2.5 py-1 text-[11px] font-semibold text-sage">
@@ -476,7 +476,10 @@ export default async function Page({
               <Dato label="Invitados" value={op.n_invitados} />
               <Dato label="Responsable" value={op.responsable} />
               <Dato label="Creada por" value={op.creado_por} />
-              <Dato label="Serie" value={op.serie === "alquiler_encargo" ? "Alquiler / encargo" : "Evento propio"} />
+              <Dato
+                label="Serie"
+                value={op.serie === "alquiler_encargo" ? (op.es_encargo ? "Venta / encargo" : "Alquiler") : "Evento propio"}
+              />
               <Dato label="IVA" value={`${op.iva_pct}%`} />
               <Dato
                 label="Retención"

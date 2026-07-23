@@ -226,6 +226,8 @@ export type Factura = {
     numero: string | null;
     titulo: string;
     tipo_evento: string;
+    serie?: string | null; // evento vs alquiler_encargo (concepto de la factura)
+    es_encargo?: boolean | null; // dentro de alquiler_encargo: true = venta/encargo
     fecha_evento: string | null;
     presupuesto_lineas?: PresupuestoLinea[];
   } | null;
