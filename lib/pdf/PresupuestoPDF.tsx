@@ -109,11 +109,11 @@ const s = StyleSheet.create({
   clay: { color: COL.clay },
   fianza: { flexDirection: "row", justifyContent: "space-between", marginTop: 3, color: COL.clay, fontSize: 9 },
 
-  cond: { marginTop: 22, borderTopWidth: 0.6, borderTopColor: COL.line, paddingTop: 12, fontSize: 8.5, color: COL.soft, lineHeight: 1.5 },
+  cond: { marginTop: 16, borderTopWidth: 0.6, borderTopColor: COL.line, paddingTop: 10, fontSize: 8.5, color: COL.soft, lineHeight: 1.45 },
   condItem: { flexDirection: "row", gap: 5, marginBottom: 1.5 },
-  pago: { marginTop: 8, fontSize: 8.5 },
-  acepta: { marginTop: 10, fontSize: 8.5, color: COL.clay, fontWeight: 600 },
-  gracias: { marginTop: 14, textAlign: "center", fontFamily: "Marcellus", fontSize: 12, color: COL.sage },
+  pago: { marginTop: 7, fontSize: 8.5 },
+  acepta: { marginTop: 7, fontSize: 8.5, color: COL.clay, fontWeight: 600 },
+  gracias: { marginTop: 9, textAlign: "center", fontFamily: "Marcellus", fontSize: 12, color: COL.sage },
 
   // Página de condiciones generales
   cgTitulo: { fontFamily: "Marcellus", fontSize: 15, color: COL.sage, marginBottom: 3 },
@@ -266,8 +266,9 @@ export function PresupuestoPDFDoc({ data }: { data: PresuPdfData }) {
           </View>
         </View>
 
-        {/* Condiciones */}
-        <View style={s.cond} wrap={false}>
+        {/* Condiciones (resumen). Sin wrap={false}: fluye tras los totales en la
+            misma página en vez de saltar en bloque a una página casi vacía. */}
+        <View style={s.cond}>
           <Text style={s.label}>Condiciones</Text>
           {data.condiciones.map((c, i) => (
             <View style={s.condItem} key={i}>
