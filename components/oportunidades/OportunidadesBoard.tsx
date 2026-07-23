@@ -4,7 +4,7 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { Kanban, type KanbanCard } from "@/components/oportunidades/Kanban";
 import { TIPO_EVENTO_LABEL, CANAL_LABEL } from "@/lib/estados";
-import { hoyMadrid } from "@/lib/format";
+import { hoyMadrid, eur } from "@/lib/format";
 
 const MESES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesLabel = (ym: string) => `${MESES_CORTO[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
@@ -65,8 +65,21 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
     return fa.localeCompare(fb);
   };
 
+  // Corte para archivar facturadas: 15 días desde la emisión de su factura.
+  // Así el Kanban no se llena de facturadas viejas y se mantiene el foco.
+  const corteFacturadas = React.useMemo(() => {
+    const d = new Date(`${HOY}T00:00:00`);
+    d.setDate(d.getDate() - 15);
+    return d.toISOString().slice(0, 10);
+  }, [HOY]);
+  const esFacturadaArchivada = (c: KanbanCard) =>
+    c.estado === "facturada" && !!c.facturadaFecha && c.facturadaFecha < corteFacturadas;
+
   const filtradas = cards.filter(filtra).sort(ordena);
-  const activas = filtradas.filter((c) => !["perdida", "descartada"].includes(c.estado));
+  const activas = filtradas.filter(
+    (c) => !["perdida", "descartada"].includes(c.estado) && !esFacturadaArchivada(c),
+  );
+  const facturadasArchivadas = filtradas.filter(esFacturadaArchivada);
   const perdidas = filtradas.filter((c) => c.estado === "perdida");
   const descartadas = filtradas.filter((c) => c.estado === "descartada");
 
@@ -167,6 +180,9 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
 
       <Kanban cards={activas} />
 
+      {facturadasArchivadas.length > 0 && (
+        <GrupoFacturadas items={facturadasArchivadas} />
+      )}
       {perdidas.length > 0 && (
         <GrupoCerrado titulo="Perdidas" items={perdidas} tone="error" />
       )}
@@ -176,6 +192,41 @@ export function OportunidadesBoard({ cards }: { cards: KanbanCard[] }) {
     </div>
   );
 }
+
+// Sección plegable para facturadas ya archivadas (facturadas hace más de 15
+// días). Se sacan del Kanban para no perder foco, pero siguen accesibles.
+function GrupoFacturadas({ items }: { items: KanbanCard[] }) {
+  const total = items.reduce((s, it) => s + (it.total || 0), 0);
+  return (
+    <details className="rounded-lg border-hair border-ok/30 bg-ok-tint/25 p-4">
+      <summary className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ok">
+        <span className="h-2 w-2 rounded-full bg-ok" />
+        Facturadas · archivadas ({items.length})
+        <span className="ml-1 font-normal normal-case tracking-normal text-ink-muted">
+          hace más de 15 días · {eur(total)}
+        </span>
+      </summary>
+      <div className="mt-3 space-y-1 text-[13px]">
+        {items.map((it) => (
+          <a
+            key={it.id}
+            href={`/oportunidades/${it.id}`}
+            className="flex items-center justify-between gap-3 border-t border-ok/15 py-2 hover:text-ok"
+          >
+            <span className="truncate">{it.titulo}</span>
+            <span className="flex shrink-0 items-center gap-3 text-ink-muted">
+              <span>{it.cliente ?? "—"}</span>
+              {it.facturadaFecha && <span className="tabular text-[11px]">{fechaCorta(it.facturadaFecha)}</span>}
+              <span className="tabular font-medium text-ink-secondary">{eur(it.total || 0)}</span>
+            </span>
+          </a>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+const fechaCorta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(2, 4)}`;
 
 // Sección plegable para oportunidades cerradas (perdidas o descartadas).
 function GrupoCerrado({
