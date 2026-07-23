@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BarChart3 } from "lucide-react";
 import { Card, Overline } from "@/components/ui/card";
 import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
@@ -384,12 +385,20 @@ export default async function CuadroMandoPage() {
   return (
     <div className="space-y-5">
       <InfoNote id="cuadro-mando">Análisis y gráficas del negocio: de dónde vienen los eventos, facturación y conversión de leads. Pincha en las gráficas para ver el detalle.</InfoNote>
-      <div>
-        <Overline className="!mt-0">Cuadro de mando</Overline>
-        <p className="mt-1 text-[12px] text-ink-muted">
-          Analítica del negocio con filtros. El margen es ingresos − costes del evento: reales cuando se han
-          registrado y, si el evento aún no se ha ejecutado, los previstos (para no inflar el margen).
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Overline className="!mt-0">Cuadro de mando</Overline>
+          <p className="mt-1 text-[12px] text-ink-muted">
+            Analítica del negocio con filtros. El margen es ingresos − costes del evento: reales cuando se han
+            registrado y, si el evento aún no se ha ejecutado, los previstos (para no inflar el margen).
+          </p>
+        </div>
+        <Link
+          href="/reportes"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-sm border-med border-border-strong px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-sage transition-colors hover:bg-sage-tint"
+        >
+          <BarChart3 size={14} /> Reports · Pipeline
+        </Link>
       </div>
       {forecast && (forecast.total > 0 || forecast.abiertoTotal > 0) && (
         <Card>
