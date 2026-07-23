@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PresupuestoPDFDoc, type PresuPdfData } from "./PresupuestoPDF";
-import { EMPRESA, condicionesPara, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
+import { EMPRESA, condicionesPara, condicionesGeneralesPara, NOTA_ACEPTACION, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
 import { calcularTotales, resumenModalidades } from "@/lib/calc";
 import { eur, fecha, num } from "@/lib/format";
@@ -171,6 +171,8 @@ export async function renderPresupuestoPdf(
     descuentoNota: descuentoTotal > 0 ? `Incluye un descuento de ${eur(descuentoTotal)}` : null,
     fianza: (op.fianza ?? 0) > 0 ? eur(op.fianza ?? 0) : null,
     condiciones: condicionesPara(op.serie, esEncargo),
+    condicionesGenerales: condicionesGeneralesPara(op.serie, esEncargo),
+    notaAceptacion: NOTA_ACEPTACION,
     pago: EMPRESA.iban || EMPRESA.titular_cuenta ? [EMPRESA.titular_cuenta, EMPRESA.iban].filter(Boolean).join(" · ") : null,
     gracias: `¡Gracias por confiar en ${EMPRESA.nombre}!`,
   };

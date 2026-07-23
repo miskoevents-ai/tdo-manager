@@ -39,6 +39,8 @@ export type PresuPdfData = {
   descuentoNota: string | null;
   fianza: string | null;
   condiciones: string[];
+  condicionesGenerales: { titulo: string; texto: string }[];
+  notaAceptacion: string;
   pago: string | null;
   gracias: string;
 };
@@ -110,7 +112,17 @@ const s = StyleSheet.create({
   cond: { marginTop: 22, borderTopWidth: 0.6, borderTopColor: COL.line, paddingTop: 12, fontSize: 8.5, color: COL.soft, lineHeight: 1.5 },
   condItem: { flexDirection: "row", gap: 5, marginBottom: 1.5 },
   pago: { marginTop: 8, fontSize: 8.5 },
+  acepta: { marginTop: 10, fontSize: 8.5, color: COL.clay, fontWeight: 600 },
   gracias: { marginTop: 14, textAlign: "center", fontFamily: "Marcellus", fontSize: 12, color: COL.sage },
+
+  // Página de condiciones generales
+  cgTitulo: { fontFamily: "Marcellus", fontSize: 15, color: COL.sage, marginBottom: 3 },
+  cgSub: { fontSize: 8.5, color: COL.muted, marginBottom: 14 },
+  cgItem: { flexDirection: "row", gap: 6, marginBottom: 7 },
+  cgNum: { width: 14, fontSize: 8.5, fontWeight: 700, color: COL.clay },
+  cgCuerpo: { flex: 1, fontSize: 8.5, color: COL.ink, lineHeight: 1.45 },
+  cgClausulaK: { fontWeight: 700, color: COL.sage },
+  cgPie: { marginTop: 16, fontSize: 8, color: COL.muted, textAlign: "center" },
 });
 
 export function PresupuestoPDFDoc({ data }: { data: PresuPdfData }) {
@@ -269,9 +281,32 @@ export function PresupuestoPDFDoc({ data }: { data: PresuPdfData }) {
               {data.pago}
             </Text>
           )}
+          {!!data.notaAceptacion && <Text style={s.acepta}>{data.notaAceptacion}</Text>}
           <Text style={s.gracias}>{data.gracias}</Text>
         </View>
       </Page>
+
+      {/* Página de Condiciones Generales de Contratación (protección legal).
+          Van dentro del propio documento que el cliente acepta. */}
+      {data.condicionesGenerales.length > 0 && (
+        <Page size="A4" style={s.page}>
+          <View style={s.ribbon} fixed />
+          <Text style={s.cgTitulo}>Condiciones Generales de Contratación</Text>
+          <Text style={s.cgSub}>
+            Presupuesto Nº {data.numero} · {data.detalle.tipo}
+          </Text>
+          {data.condicionesGenerales.map((c, i) => (
+            <View style={s.cgItem} key={i} wrap={false}>
+              <Text style={s.cgNum}>{i + 1}.</Text>
+              <Text style={s.cgCuerpo}>
+                <Text style={s.cgClausulaK}>{c.titulo}. </Text>
+                {c.texto}
+              </Text>
+            </View>
+          ))}
+          <Text style={s.cgPie}>{data.emisor.razon || data.emisor.nombre} · NIF {data.emisor.nif}</Text>
+        </Page>
+      )}
     </Document>
   );
 }
