@@ -44,6 +44,8 @@ export default async function ReportesPage() {
         cliente: o.cliente?.nombre ?? null,
         fechaEvento: o.fecha_evento,
         fechaEntrada: o.fecha_entrada,
+        fechaConfirmacion: o.fecha_confirmacion ?? null,
+        motivoPerdida: o.motivo_perdida ?? null,
         total,
         cobrado: cobradoPorOp.get(o.id) ?? 0,
         prob: probabilidadEfectiva(o), // 0..100

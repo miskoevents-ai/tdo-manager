@@ -8,6 +8,7 @@ import {
   ESTADO_META,
   TIPO_EVENTO_LABEL,
   CANAL_LABEL,
+  MOTIVO_PERDIDA_LABEL,
   tipoOperacionLabel,
 } from "@/lib/estados";
 
@@ -22,6 +23,8 @@ export type PipeRow = {
   cliente: string | null;
   fechaEvento: string | null;
   fechaEntrada: string | null;
+  fechaConfirmacion: string | null;
+  motivoPerdida: string | null;
   total: number;
   cobrado: number;
   prob: number; // 0..100
@@ -43,10 +46,10 @@ const COLOR_ETAPA: Record<string, string> = {
   facturada: "#59654B",
 };
 
-function diasEntre(desde: string | null, hoy: string): number | null {
-  if (!desde) return null;
+function diasEntre(desde: string | null, hasta: string | null): number | null {
+  if (!desde || !hasta) return null;
   const a = new Date(`${desde}T00:00:00`);
-  const b = new Date(`${hoy}T00:00:00`);
+  const b = new Date(`${hasta}T00:00:00`);
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
@@ -112,6 +115,45 @@ export function ReportesPipeline({ rows, hoy }: { rows: PipeRow[]; hoy: string }
     .sort((a, b) => (b.dias ?? 0) - (a.dias ?? 0))
     .slice(0, 12);
 
+  // (1) Top oportunidades del pipe: las abiertas de mayor importe.
+  const topOpps = [...abiertas].sort((a, b) => b.total - a.total).slice(0, 8);
+
+  // (2) Por qué no cerramos: motivos de las perdidas/descartadas.
+  const motivos = agrupa(
+    perdidas,
+    (r) => r.motivoPerdida || "sin_motivo",
+    (k) => (k === "sin_motivo" ? "Sin especificar" : MOTIVO_PERDIDA_LABEL[k] ?? k),
+  ).sort((a, b) => b.n - a.n);
+  const maxMotivo = Math.max(1, ...motivos.map((m) => m.n));
+
+  // (7) Tiempo medio de cierre: de la entrada a la confirmación, por canal.
+  const cierres = contratadas
+    .map((r) => ({ r, dias: diasEntre(r.fechaEntrada, r.fechaConfirmacion) }))
+    .filter((x): x is { r: PipeRow; dias: number } => x.dias != null && x.dias >= 0);
+  const mediaCierre = cierres.length ? Math.round(cierres.reduce((s, x) => s + x.dias, 0) / cierres.length) : null;
+  const cierrePorCanal = (() => {
+    const m = new Map<string, { label: string; suma: number; n: number; items: PipeRow[] }>();
+    for (const { r, dias } of cierres) {
+      const k = r.canal || "sin_canal";
+      const a = m.get(k) ?? { label: CANAL_LABEL[k] ?? "Sin canal", suma: 0, n: 0, items: [] };
+      a.suma += dias; a.n += 1; a.items.push(r);
+      m.set(k, a);
+    }
+    return Array.from(m.values()).map((v) => ({ ...v, media: Math.round(v.suma / v.n) })).sort((a, b) => a.media - b.media);
+  })();
+  const maxCierre = Math.max(1, ...cierrePorCanal.map((c) => c.media));
+
+  // (8) Estacionalidad: en qué mes del año entran más leads (por fecha de entrada).
+  const estacional = (() => {
+    const arr = Array.from({ length: 12 }, (_, i) => ({ mes: i, items: [] as PipeRow[] }));
+    for (const r of rs) {
+      if (!r.fechaEntrada) continue;
+      arr[Number(r.fechaEntrada.slice(5, 7)) - 1].items.push(r);
+    }
+    return arr;
+  })();
+  const maxEstacional = Math.max(1, ...estacional.map((e) => e.items.length));
+
   const tiposPresentes = Array.from(new Set(rows.map((r) => r.tipoEvento)));
   const sel =
     "rounded-sm border-med border-border bg-white px-3 py-2 text-[12.5px] text-ink-secondary focus:border-sage-300 focus:outline-none";
@@ -173,6 +215,30 @@ export function ReportesPipeline({ rows, hoy }: { rows: PipeRow[]; hoy: string }
         ))}
       </Card>
 
+      <Card title="Top oportunidades del pipe" note="Las abiertas de mayor importe — donde está el dinero gordo por cerrar.">
+        {topOpps.length === 0 ? (
+          <p className="text-[13px] text-ink-muted">No hay oportunidades abiertas ahora mismo.</p>
+        ) : (
+          <div>
+            {topOpps.map((r, i) => (
+              <a key={r.id} href={`/oportunidades/${r.id}`} className="flex items-center justify-between gap-3 border-t border-hair py-2.5 first:border-t-0 hover:text-sage">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span className="w-4 shrink-0 text-right text-[11px] font-bold tabular text-ink-muted">{i + 1}</span>
+                  <span className="min-w-0">
+                    <span className="text-[12.5px]">{r.titulo}</span>
+                    <span className="ml-2 rounded-pill bg-sage-tint px-2 py-0.5 text-[10px] font-semibold text-sage">
+                      {ESTADO_META[r.estado as keyof typeof ESTADO_META]?.label ?? r.estado}
+                    </span>
+                    <div className="text-[11px] text-ink-muted">{r.cliente ?? "—"} · {r.prob}% prob.</div>
+                  </span>
+                </span>
+                <span className="shrink-0 font-display text-[15px] tabular text-sage">{eur(r.total)}</span>
+              </a>
+            ))}
+          </div>
+        )}
+      </Card>
+
       <Card title="Previsión de ingresos por mes" note="Facturación esperada según la fecha de cada evento (contratadas y en curso).">
         {prevision.length === 0 ? (
           <Vacio />
@@ -210,6 +276,59 @@ export function ReportesPipeline({ rows, hoy }: { rows: PipeRow[]; hoy: string }
           ))}
         </Card>
       </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Por qué no cerramos" note="Motivos de las oportunidades perdidas o rechazadas.">
+          {motivos.length === 0 ? (
+            <p className="text-[13px] text-ink-muted">No hay oportunidades perdidas registradas. 👌</p>
+          ) : motivos.map((m) => (
+            <BarRow
+              key={m.key}
+              name={m.label}
+              value={`${Math.round((m.n / Math.max(1, perdidas.length)) * 100)}%`}
+              count={m.n}
+              pct={(m.n / maxMotivo) * 100}
+              color="#B4554A"
+              onClick={() => abrir(`Perdidas · ${m.label}`, m.items)}
+            />
+          ))}
+        </Card>
+        <Card
+          title="Tiempo medio de cierre"
+          note={mediaCierre != null ? `Media: ${mediaCierre} días de la entrada a la confirmación · barra más corta = más rápido.` : "Aún no hay confirmadas con fechas suficientes."}
+        >
+          {cierrePorCanal.length === 0 ? <Vacio /> : cierrePorCanal.map((c) => (
+            <BarRow
+              key={c.label}
+              name={c.label}
+              value={`${c.media} días`}
+              count={c.n}
+              pct={(c.media / maxCierre) * 100}
+              color="#69775C"
+              onClick={() => abrir(`Cierre · ${c.label}`, c.items)}
+            />
+          ))}
+        </Card>
+      </div>
+
+      <Card title="Estacionalidad · entrada de leads" note="En qué meses del año entran más oportunidades (por fecha de entrada, sumando todos los años).">
+        <div className="flex h-[170px] items-end gap-2 border-b border-border pt-2">
+          {estacional.map((e) => (
+            <button
+              key={e.mes}
+              onClick={() => e.items.length && abrir(`Leads de ${MESES[e.mes]}`, e.items)}
+              className="group flex h-full flex-1 cursor-pointer flex-col items-center justify-end"
+            >
+              <div className="mb-1 text-[10.5px] font-semibold tabular text-sage">{e.items.length || ""}</div>
+              <div
+                className="w-full max-w-[40px] rounded-t-md bg-sage transition-opacity group-hover:opacity-80"
+                style={{ height: `${Math.max(2, (e.items.length / maxEstacional) * 100)}%` }}
+              />
+              <div className="mt-1.5 text-[10.5px] capitalize text-ink-secondary">{MESES[e.mes]}</div>
+            </button>
+          ))}
+        </div>
+      </Card>
 
       <Card title="Oportunidades que se están enfriando" note="Abiertas sin movimiento hace tiempo — para retomarlas antes de perderlas.">
         {dormidas.length === 0 ? (
