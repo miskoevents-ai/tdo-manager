@@ -50,7 +50,7 @@ import {
 import { costeHoraVigente } from "@/lib/coste-hora";
 import { boteFijosMes } from "@/lib/calculadora-precio";
 import { CalculadoraPrecio } from "@/components/calculadora/CalculadoraPrecio";
-import { calcularTotales } from "@/lib/calc";
+import { calcularTotales, resumenModalidades } from "@/lib/calc";
 import { comisionDeOportunidad, comisionDetalleDeOportunidad } from "@/lib/comisiones";
 import { eur, fecha } from "@/lib/format";
 import { TIPO_EVENTO_LABEL, CANAL_LABEL, ESTADO_META, MOTIVO_PERDIDA_LABEL } from "@/lib/estados";
@@ -151,6 +151,10 @@ export default async function Page({
   const devolucionDef = op.fecha_recogida ?? op.fecha_evento ?? "";
 
   const t = calcularTotales(op.presupuesto_lineas ?? [], op.iva_pct, op.retencion_pct, op.descuento_pct ?? 0);
+  // Si el presupuesto ofrece modalidades (opciones excluyentes), la cabecera
+  // muestra el rango "desde/hasta" en vez del total plano — que sumaría las dos
+  // opciones y confundiría (el cliente elige UNA).
+  const rm = resumenModalidades(op.presupuesto_lineas ?? [], op.iva_pct, op.retencion_pct, op.descuento_pct ?? 0);
   const cobrado = op.cobrado ?? 0;
   const pendiente = Math.max(0, t.total - cobrado);
   const esEmpresa = op.cliente?.tipo === "empresa";
@@ -433,13 +437,21 @@ export default async function Page({
       {/* Resumen económico */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
-          { l: "Total", v: eur(t.total), c: "text-sage" },
-          { l: "Cobrado", v: eur(cobrado), c: "text-ok" },
-          { l: "Pendiente", v: eur(pendiente), c: pendiente > 0.01 ? "text-error" : "text-ink" },
+          rm.hay
+            ? {
+                l: "Total",
+                v: `desde ${eur(rm.min)}`,
+                c: "text-sage",
+                sub: `hasta ${eur(rm.max)} · ${rm.opciones.length} opciones` as string | undefined,
+              }
+            : { l: "Total", v: eur(t.total), c: "text-sage", sub: undefined as string | undefined },
+          { l: "Cobrado", v: eur(cobrado), c: "text-ok", sub: undefined as string | undefined },
+          { l: "Pendiente", v: eur(pendiente), c: pendiente > 0.01 ? "text-error" : "text-ink", sub: undefined as string | undefined },
           {
             l: "Fianza",
             v: op.fianza ? eur(op.fianza) : "—",
             c: op.fianza && !op.fianza_devuelta ? "text-warn" : "text-ink",
+            sub: undefined as string | undefined,
           },
         ].map((k) => (
           <Card key={k.l} className="relative overflow-hidden p-4 pl-[18px]">
@@ -448,6 +460,9 @@ export default async function Page({
               {k.l}
             </div>
             <div className={`mt-1 font-display text-[22px] tabular ${k.c}`}>{k.v}</div>
+            {k.sub ? (
+              <div className="mt-0.5 text-[11px] tabular text-ink-muted">{k.sub}</div>
+            ) : null}
           </Card>
         ))}
       </div>
