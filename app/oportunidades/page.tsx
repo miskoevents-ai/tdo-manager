@@ -5,7 +5,7 @@ import { type KanbanCard } from "@/components/oportunidades/Kanban";
 import { OportunidadesBoard } from "@/components/oportunidades/OportunidadesBoard";
 import { OportunidadDialog } from "@/components/oportunidades/OportunidadDialog";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getClientes, getLugares, getEquipo } from "@/lib/data";
+import { getOportunidades, getClientes, getLugares, getEquipo, getFacturas } from "@/lib/data";
 import { calcularTotales, resumenModalidades } from "@/lib/calc";
 import { probabilidadEfectiva } from "@/lib/estados";
 import { eur } from "@/lib/format";
@@ -15,16 +15,26 @@ export const dynamic = "force-dynamic";
 export default async function OportunidadesPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
-  let ops, clientes, lugares, equipo;
+  let ops, clientes, lugares, equipo, facturas;
   try {
-    [ops, clientes, lugares, equipo] = await Promise.all([
+    [ops, clientes, lugares, equipo, facturas] = await Promise.all([
       getOportunidades(),
       getClientes(),
       getLugares(),
       getEquipo(),
+      getFacturas(),
     ]);
   } catch (e) {
     return <ErrorNotice message={(e as Error).message} />;
+  }
+
+  // Fecha de facturación por oportunidad (la última factura no anulada). Se usa
+  // para archivar del Kanban las facturadas que ya pasaron de 15 días.
+  const facturaFechaPorOp = new Map<string, string>();
+  for (const f of facturas) {
+    if (!f.oportunidad_id || f.estado === "anulada" || !f.fecha_emision) continue;
+    const prev = facturaFechaPorOp.get(f.oportunidad_id);
+    if (!prev || f.fecha_emision > prev) facturaFechaPorOp.set(f.oportunidad_id, f.fecha_emision);
   }
   const activos = equipo.filter((e) => e.activo);
   const responsables = activos.map((e) => e.nombre);
@@ -57,6 +67,7 @@ export default async function OportunidadesPage() {
       probabilidad: probabilidadEfectiva(o),
       serie: o.serie,
       es_encargo: o.es_encargo ?? false,
+      facturadaFecha: facturaFechaPorOp.get(o.id) ?? null,
       tipo_operacion: o.tipo_operacion,
       canal: o.canal,
       fianzaPendiente: Boolean((o.fianza ?? 0) > 0 && !o.fianza_devuelta),
