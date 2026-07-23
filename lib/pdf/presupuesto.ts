@@ -5,7 +5,7 @@ import { EMPRESA, condicionesPara, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "
 import { portadaUrl } from "@/lib/catalogo";
 import { calcularTotales, resumenModalidades } from "@/lib/calc";
 import { eur, fecha, num } from "@/lib/format";
-import { TIPO_EVENTO_LABEL, CLIENTE_TIPO_LABEL } from "@/lib/estados";
+import { CLIENTE_TIPO_LABEL, tipoOperacionLabel } from "@/lib/estados";
 import type { Oportunidad, PresupuestoLinea } from "@/lib/types";
 
 // Descarga una imagen y la devuelve como data URI (para incrustarla en el PDF).
@@ -143,7 +143,7 @@ export async function renderPresupuestoPdf(
     },
     detalle: {
       titulo: op.titulo,
-      tipo: TIPO_EVENTO_LABEL[op.tipo_evento] ?? op.tipo_evento,
+      tipo: tipoOperacionLabel(op.serie, esEncargo, op.tipo_evento),
       extra: [op.lugar?.nombre ? `Lugar: ${op.lugar.nombre}` : null, op.n_invitados != null ? `Invitados: ${op.n_invitados}` : null].filter(
         (x): x is string => Boolean(x),
       ),

@@ -518,7 +518,7 @@ export async function getFactura(id: string): Promise<Factura | null> {
   const { data, error } = await sb
     .from("facturas")
     .select(
-      "*, cliente:clientes(*), oportunidad:oportunidades(id, numero, titulo, tipo_evento, fecha_evento, presupuesto_lineas(*))",
+      "*, cliente:clientes(*), oportunidad:oportunidades(id, numero, titulo, tipo_evento, serie, es_encargo, fecha_evento, presupuesto_lineas(*))",
     )
     .eq("id", id)
     .maybeSingle();

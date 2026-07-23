@@ -51,9 +51,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const lineasEfectivo = todas.filter((l) => (l.via ?? "factura") === "efectivo");
   const totalEfectivo = lineasEfectivo.reduce((s, l) => s + l.cantidad * l.precio_unitario, 0);
   if (lineas.length === 0) {
+    const nocion =
+      op?.serie === "alquiler_encargo"
+        ? op?.es_encargo
+          ? "Fabricación a medida"
+          : "Alquiler de material"
+        : "Servicios de decoración";
     lineas = [
       {
-        concepto: op ? `Servicios de decoración · ${op.titulo}` : "Servicios de decoración",
+        concepto: op ? `${nocion} · ${op.titulo}` : "Servicios de decoración",
         cantidad: 1,
         precio_unitario: base,
         bloque: null,

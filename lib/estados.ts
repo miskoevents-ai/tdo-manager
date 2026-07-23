@@ -135,6 +135,19 @@ export const TIPO_EVENTO_LABEL: Record<string, string> = {
   otro: "Otro",
 };
 
+// Etiqueta única de la operación, distinguiendo dentro de alquiler/encargo:
+//   alquiler (se devuelve, con fianza) vs venta/encargo (se lo queda el cliente).
+// Fuente de verdad para NO volver a etiquetar una venta como "Alquiler".
+// Para serie 'evento' cae al tipo de evento (Boda, Corporativo…).
+export function tipoOperacionLabel(
+  serie?: string | null,
+  esEncargo?: boolean | null,
+  tipoEvento?: string | null,
+): string {
+  if (serie === "alquiler_encargo") return esEncargo ? "Venta / encargo" : "Alquiler";
+  return tipoEvento ? TIPO_EVENTO_LABEL[tipoEvento] ?? tipoEvento : "Evento";
+}
+
 // --- Tesorería ---
 export const NATURALEZA_LABEL: Record<string, string> = {
   ingreso_factura: "Ingreso de factura",
