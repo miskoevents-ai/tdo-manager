@@ -10,10 +10,10 @@ import { supabaseConfigurado } from "@/lib/supabase/admin";
 import { getOportunidad, getVersionPresupuesto } from "@/lib/data";
 import { calcularTotales, importeLinea, resumenModalidades } from "@/lib/calc";
 import { eur, fecha, num } from "@/lib/format";
-import { EMPRESA, condicionesPara, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
+import { EMPRESA, condicionesPara, condicionesGeneralesPara, NOTA_ACEPTACION, PORTADA_CANDIDATAS, PORTADA_RESPALDO } from "@/lib/empresa";
 import { portadaUrl } from "@/lib/catalogo";
 import { PortadaDoc } from "@/components/PortadaDoc";
-import { TIPO_EVENTO_LABEL, CLIENTE_TIPO_LABEL } from "@/lib/estados";
+import { TIPO_EVENTO_LABEL, CLIENTE_TIPO_LABEL, tipoOperacionLabel } from "@/lib/estados";
 import type { PresupuestoLinea } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -385,9 +385,29 @@ export default async function Page({
               {EMPRESA.iban || ""}
             </div>
           )}
+          <div className="mt-3 font-semibold text-clay-600">{NOTA_ACEPTACION}</div>
           <div className="mt-4 text-center font-display text-[13px] text-sage">
             ¡Gracias por confiar en {EMPRESA.nombre}!
           </div>
+        </div>
+
+        {/* Condiciones Generales (misma página que sale al final del PDF) */}
+        <div className="mt-8 border-t border-border pt-5 text-[11px] leading-relaxed text-ink-secondary">
+          <div className="mb-1 font-display text-[15px] text-sage">Condiciones Generales de Contratación</div>
+          <div className="mb-3 text-[10.5px] text-ink-muted">
+            Presupuesto Nº {op.numero} · {tipoOperacionLabel(op.serie, esEncargo, op.tipo_evento)}
+          </div>
+          <ol className="space-y-1.5">
+            {condicionesGeneralesPara(op.serie, esEncargo).map((c, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="font-semibold text-clay-600">{i + 1}.</span>
+                <span>
+                  <span className="font-semibold text-sage">{c.titulo}. </span>
+                  {c.texto}
+                </span>
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
 
