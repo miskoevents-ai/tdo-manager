@@ -5,9 +5,18 @@ import { InfoNote } from "@/components/ui/InfoNote";
 import { SetupNotice, ErrorNotice } from "@/components/SetupNotice";
 import { ReportesPipeline, type PipeRow } from "@/components/reportes/ReportesPipeline";
 import { supabaseConfigurado } from "@/lib/supabase/admin";
-import { getOportunidades, getTesoreria } from "@/lib/data";
+import {
+  getOportunidades,
+  getTesoreria,
+  getGastosFijos,
+  getCostesEstimadosTodos,
+  getPartesHorasTodas,
+  getCalculadoraConfigRaw,
+  getComisionesConfig,
+} from "@/lib/data";
 import { calcularTotales, resumenModalidades } from "@/lib/calc";
 import { probabilidadEfectiva } from "@/lib/estados";
+import { coberturaMes, type CoberturaMes } from "@/lib/cobertura";
 import { hoyMadrid } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +25,29 @@ export default async function ReportesPage() {
   if (!supabaseConfigurado()) return <SetupNotice />;
 
   let rows: PipeRow[];
+  let termometro: CoberturaMes[] = [];
   try {
-    const [ops, tesoreria] = await Promise.all([getOportunidades(), getTesoreria()]);
+    const [ops, tesoreria, gastosFijos, estimados, partes, calcRaw, comConfig] = await Promise.all([
+      getOportunidades(),
+      getTesoreria(),
+      getGastosFijos(),
+      getCostesEstimadosTodos(),
+      getPartesHorasTodas(),
+      getCalculadoraConfigRaw(),
+      getComisionesConfig(),
+    ]);
+
+    // Termómetro del objetivo: cubrir los gastos fijos de este mes y los 2
+    // siguientes con la contribución de los eventos ya contratados.
+    const hoy = hoyMadrid();
+    const baseYm = hoy.slice(0, 7);
+    const meses = [0, 1, 2].map((add) => {
+      const dd = new Date(`${baseYm}-01T00:00:00`);
+      dd.setMonth(dd.getMonth() + add);
+      return dd.toISOString().slice(0, 7);
+    });
+    const deps = { ops, gastosFijos, calcRaw, estimados, partes, tesoreria, comConfig };
+    termometro = meses.map((ym) => coberturaMes(ym, deps));
 
     // Cobrado real por oportunidad (ingresos ya cobrados).
     const cobradoPorOp = new Map<string, number>();
@@ -65,7 +95,7 @@ export default async function ReportesPage() {
         de dónde vienen las ventas y qué oportunidades se están enfriando. Puedes filtrar e imprimir en PDF.
       </InfoNote>
       <Overline className="!mt-0">Reports · Pipeline</Overline>
-      <ReportesPipeline rows={rows} hoy={hoyMadrid()} />
+      <ReportesPipeline rows={rows} hoy={hoyMadrid()} termometro={termometro} />
     </div>
   );
 }

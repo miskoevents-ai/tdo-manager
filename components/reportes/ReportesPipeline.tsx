@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Printer, X, MousePointerClick } from "lucide-react";
+import type { CoberturaMes } from "@/lib/cobertura";
 import { eur } from "@/lib/format";
 import {
   KANBAN_COLS,
@@ -55,7 +56,9 @@ function diasEntre(desde: string | null, hasta: string | null): number | null {
 
 type Detalle = { titulo: string; items: PipeRow[] };
 
-export function ReportesPipeline({ rows, hoy }: { rows: PipeRow[]; hoy: string }) {
+const MESES_LARGO = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+export function ReportesPipeline({ rows, hoy, termometro = [] }: { rows: PipeRow[]; hoy: string; termometro?: CoberturaMes[] }) {
   const [serie, setSerie] = React.useState("");
   const [tipo, setTipo] = React.useState("");
   const [periodo, setPeriodo] = React.useState("");
@@ -190,6 +193,20 @@ export function ReportesPipeline({ rows, hoy }: { rows: PipeRow[]; hoy: string }
 
       {/* Desglose (drill-down) — aparece al pinchar cualquier dato */}
       {detalle && <DetallePanel detalle={detalle} onClose={() => setDetalle(null)} hoy={hoy} />}
+
+      {/* Termómetro: objetivo del mes = cubrir los gastos fijos */}
+      {termometro.length > 0 && (
+        <Card
+          title="Objetivo del mes · cubrir los gastos fijos"
+          note="Cuánto de los gastos fijos del mes (local, software, sueldo…) ya cubres con la contribución de los eventos contratados. Al 100 % llegas a break-even; por encima, es beneficio."
+        >
+          <div className="space-y-4">
+            {termometro.map((m, i) => (
+              <TermometroRow key={m.ym} m={m} destacado={i === 0} />
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
@@ -401,6 +418,42 @@ function DetallePanel({ detalle, onClose, hoy }: { detalle: Detalle; onClose: ()
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function TermometroRow({ m, destacado }: { m: CoberturaMes; destacado: boolean }) {
+  const pct = Math.max(0, m.pct);
+  const cubierto = pct >= 100;
+  const color = cubierto ? "#5B7A52" : pct >= 70 ? "#B8842B" : "#B4554A";
+  const [ano, mes] = m.ym.split("-");
+  const label = `${MESES_LARGO[Number(mes) - 1]} ${ano}`;
+  const falta = Math.max(0, m.maquina - m.contribucion);
+  const sobra = Math.max(0, m.contribucion - m.maquina);
+  return (
+    <div className={destacado ? "rounded-md bg-sage-tint/25 p-3" : ""}>
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+        <span className={`font-medium ${destacado ? "text-[14px] text-ink" : "text-[12.5px] text-ink-secondary"}`}>
+          {label}
+          {destacado && <span className="ml-2 text-[11px] font-normal text-ink-muted">(este mes)</span>}
+        </span>
+        <span className="text-[12px] tabular text-ink-secondary">
+          <b style={{ color }}>{eur(m.contribucion)}</b> de {eur(m.maquina)}
+        </span>
+      </div>
+      <div className="relative h-[26px] overflow-hidden rounded-md bg-beige-warm">
+        <div className="h-full rounded-md transition-all" style={{ width: `${Math.min(100, pct)}%`, background: color }} />
+        <span className="absolute inset-y-0 right-2 flex items-center text-[11px] font-bold tabular" style={{ color: cubierto ? "#fff" : color }}>
+          {Math.round(pct)}%
+        </span>
+      </div>
+      <div className="mt-1 text-[11px] text-ink-muted">
+        {m.nEventos === 0
+          ? "Sin eventos contratados todavía este mes."
+          : cubierto
+            ? `✓ Gastos fijos cubiertos · +${eur(sobra)} de beneficio (${m.nEventos} evento${m.nEventos > 1 ? "s" : ""}).`
+            : `Faltan ${eur(falta)} para cubrir los fijos (${m.nEventos} evento${m.nEventos > 1 ? "s" : ""} contratado${m.nEventos > 1 ? "s" : ""}).`}
+      </div>
     </div>
   );
 }
