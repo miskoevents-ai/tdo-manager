@@ -48,16 +48,25 @@ export function OportunidadDialog({
   const [evento, setEvento] = React.useState(oportunidad?.fecha_evento ?? "");
   const [montaje, setMontaje] = React.useState(oportunidad?.fecha_montaje ?? "");
   const [recogida, setRecogida] = React.useState(oportunidad?.fecha_recogida ?? "");
-  // La serie cambia las etiquetas de fechas: evento → montaje/recogida de la
-  // decoración; alquiler/encargo → salida/devolución del material.
-  const [serie, setSerie] = React.useState(oportunidad?.serie ?? "evento");
-  const esAlquiler = serie === "alquiler_encargo";
-  // Alquiler (se devuelve) vs Venta/encargo (se lo queda el cliente). Sin default
-  // silencioso: en una opp nueva arranca vacío y OBLIGA a elegir, para no volver
-  // a mandar una venta con etiqueta de "alquiler". "encargo" = venta (es_encargo).
-  const [modoAlqEnc, setModoAlqEnc] = React.useState<string>(
-    oportunidad ? (oportunidad.es_encargo ? "encargo" : "alquiler") : "",
+  // Tipo de operación en UN único selector de 3 opciones (claro y sin default
+  // silencioso alquiler/venta). Deja explícito que "evento" = producción de un
+  // evento (bodas, corporativos, producciones):
+  //   evento   → serie 'evento'
+  //   alquiler → serie 'alquiler_encargo', se devuelve (con fianza)
+  //   venta    → serie 'alquiler_encargo', es_encargo (se lo queda el cliente)
+  const [modoOp, setModoOp] = React.useState<"evento" | "alquiler" | "venta">(
+    oportunidad
+      ? oportunidad.serie === "alquiler_encargo"
+        ? oportunidad.es_encargo
+          ? "venta"
+          : "alquiler"
+        : "evento"
+      : "evento",
   );
+  // La serie cambia las etiquetas de fechas: evento → montaje/recogida de la
+  // decoración; alquiler/venta → salida/devolución del material.
+  const serie = modoOp === "evento" ? "evento" : "alquiler_encargo";
+  const esAlquiler = modoOp !== "evento";
   // Otras oportunidades vivas en la fecha elegida (aviso de solape).
   const solapes = evento ? ocupadas.filter((o) => o.fecha === evento) : [];
   const [fianzaFecha, setFianzaFecha] = React.useState(oportunidad?.fecha_devolucion_fianza ?? "");
@@ -141,12 +150,6 @@ export function OportunidadDialog({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // Obliga a decidir alquiler vs venta antes de guardar (evita mandar una
-    // venta con condiciones de alquiler, y viceversa).
-    if (serie === "alquiler_encargo" && modoAlqEnc === "") {
-      setError("Elige si es un ALQUILER (se devuelve) o una VENTA / encargo (se lo queda el cliente).");
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -251,44 +254,41 @@ export function OportunidadDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Tipo de evento">
-              <Select name="tipo_evento" defaultValue={oportunidad?.tipo_evento ?? "boda"}>
-                {Object.entries(TIPO_EVENTO_LABEL).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
+            {/* Tipo de operación: un único selector de 3 opciones. Las etiquetas,
+                las condiciones del presupuesto y el modelo de coste dependen de él. */}
+            <Field label="Tipo de operación">
+              <Select value={modoOp} onChange={(e) => setModoOp(e.target.value as "evento" | "alquiler" | "venta")}>
+                <option value="evento">Producción / evento (bodas, corporativos…)</option>
+                <option value="alquiler">Alquiler (se devuelve, con fianza)</option>
+                <option value="venta">Venta / encargo (se lo queda el cliente)</option>
               </Select>
+              {/* Estos valores son los que lee el servidor (serie + es_encargo). */}
+              <input type="hidden" name="serie" value={serie} />
+              <input type="hidden" name="es_encargo" value={modoOp === "venta" ? "encargo" : "alquiler"} />
+              <p className="mt-1 text-[11px] text-ink-muted">
+                {modoOp === "evento"
+                  ? "Decoración/producción de un evento propio (montaje y desmontaje)."
+                  : modoOp === "alquiler"
+                    ? "Préstamo de material: entrega, recogida y fianza."
+                    : "Fabricación a medida que se queda el cliente (sin fianza ni devolución)."}
+              </p>
             </Field>
-            <Field label="Serie">
-              <Select name="serie" value={serie} onChange={(e) => setSerie(e.target.value as "evento" | "alquiler_encargo")}>
-                <option value="evento">Evento</option>
-                <option value="alquiler_encargo">Alquiler / encargo</option>
-              </Select>
-            </Field>
-          </div>
-
-          {/* Dentro de alquiler/encargo: alquiler (se devuelve, con fianza) vs
-              encargo/producción (fabricación a medida, se lo queda el cliente).
-              Cambia las condiciones del presupuesto. Migración 068. */}
-          {esAlquiler && (
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="¿Alquiler o venta?">
-                <Select
-                  name="es_encargo"
-                  value={modoAlqEnc}
-                  onChange={(e) => setModoAlqEnc(e.target.value)}
-                  aria-invalid={modoAlqEnc === "" ? true : undefined}
-                >
-                  <option value="" disabled>— elige —</option>
-                  <option value="alquiler">Alquiler (se devuelve, con fianza)</option>
-                  <option value="encargo">Venta / encargo (se lo queda el cliente)</option>
+            {/* El tipo de evento solo aplica a producciones/eventos. Para
+                alquiler/venta se fija a 'alquiler_encargo' de forma oculta. */}
+            {modoOp === "evento" ? (
+              <Field label="Tipo de evento">
+                <Select name="tipo_evento" defaultValue={oportunidad?.tipo_evento && oportunidad.tipo_evento !== "alquiler_encargo" ? oportunidad.tipo_evento : "boda"}>
+                  {Object.entries(TIPO_EVENTO_LABEL)
+                    .filter(([v]) => v !== "alquiler_encargo")
+                    .map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
                 </Select>
-                <p className="mt-1 text-[11px] text-ink-muted">
-                  Cambia las condiciones del presupuesto: fianza y devolución (alquiler) o
-                  fabricación a medida que se queda el cliente (venta / encargo).
-                </p>
               </Field>
-            </div>
-          )}
+            ) : (
+              <input type="hidden" name="tipo_evento" value="alquiler_encargo" />
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Estado">
